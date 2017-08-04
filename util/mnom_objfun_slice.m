@@ -1,0 +1,77 @@
+function [ll,g,H] = mnom_objfun_slice(r,lnmu,y1,z,lnw,ord,lnwmu)
+if nargin<7, lnwmu  = []; end
+
+dm    = size(r);
+emu   = cell(dm(4),1);
+lnmu1 = cell(dm(4),1);
+semu  = 0;
+dmu   = cell(dm(4),3);
+
+% Compute exp(log(mu) + log(w))/sum(exp(log(mu) + log(w)))
+for k=1:dm(4)
+    if nargout>=2
+        [lnmu1{k},dmu{k,1},dmu{k,2},dmu{k,3}] = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 ord(4:6)]);
+    elseif ~isempty(lnwmu)
+        lnmu1{k} = lnwmu(:,:,z,k);
+    else
+        lnmu1{k} = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 ord(4:6)]);
+    end
+    
+    emu{k} = exp(lnmu1{k} + lnw(k));
+    semu   = semu + emu{k};
+end
+for k=1:dm(4)
+    emu{k} = emu{k}./semu;    
+%     if z ==round((dm(3)+1)/2);
+%         subplot(2,dm(4),k      ); imagesc(emu{k}');     axis image xy off
+%         subplot(2,dm(4),k+dm(4)); imagesc(r(:,:,z,k)'); axis image xy off
+%     end
+end
+
+if nargout==0, return; end
+
+% Compute gradients and Hessian
+msk = isfinite(sum(r(:,:,z,:),4)) & isfinite(semu);
+ll  = 0;
+if nargout>=2
+    g = zeros([dm(1:2),3],'single');
+    if nargout>=3
+        H = zeros([dm(1:2),6],'single');
+    end
+end
+
+for k=1:dm(4)
+    ftmp  = r(:,:,z,k);
+    ll    = ll + sum(sum(ftmp(msk).*log(emu{k}(msk))));
+
+    if nargout>=2
+        alpha = emu{k}-r(:,:,z,k);
+        for d=1:3
+            g(:,:,d) = g(:,:,d) + alpha.*dmu{k,d};
+        end
+
+        if nargout>=3
+            for k1=1:dm(4)
+                if k1~=k,
+                    tmp = -emu{k}.*emu{k1};
+                else
+                    tmp = emu{k}.*(1-emu{k1});
+                end
+
+                H(:,:,1)   = H(:,:,1) + tmp.*dmu{k,1}.*dmu{k1,1};
+                H(:,:,2)   = H(:,:,2) + tmp.*dmu{k,2}.*dmu{k1,2};
+                H(:,:,3)   = H(:,:,3) + tmp.*dmu{k,3}.*dmu{k1,3};
+                H(:,:,4)   = H(:,:,4) + tmp.*dmu{k,1}.*dmu{k1,2};
+                H(:,:,5)   = H(:,:,5) + tmp.*dmu{k,1}.*dmu{k1,3};
+                H(:,:,6)   = H(:,:,6) + tmp.*dmu{k,2}.*dmu{k1,3};
+            end
+        end
+    end
+end
+if nargout>=2
+    g(~isfinite(g)) = 0;
+    if nargout>=3
+        H(~isfinite(H)) = 0;
+    end
+end
+%==========================================================================
