@@ -1,72 +1,47 @@
-function run
-
-% TODO---------------------------------------------------------------------
-% -Correct parameterisation of registration parameters?
-% -Do not warp images to same size
-% -Push instead of interpolate
-% -Extend to missing data (when using more than one modality)
-% -Make compatible with multi-channel data
-% -Does affine registration really work well?
-% -Correct precision for bias field estimation?
-
-% Qs-----------------------------------------------------------------------
-% -If multiple classes per tissue, how to chose number of classes?
-% -For tissue updates, OK to skip update if nL<oL
+function run(pars)
 
 %==========================================================================
 % Initialise algorithm 
 %==========================================================================
 
-addpath(genpath('.'))
+N = pars.N;
+K = pars.K;
 
-%--------------------------------------------------------------------------
-% Initial parameters
-%--------------------------------------------------------------------------
-
-N = 16; % Number of subjects
-K = 6;  % Number of classes
-
-imdir   = '/home/mbrud/Data/IXI-clean/IXI-T1/'; % A folder containing nifti MRIs
-tempdir = './tempmri/';                         % A temporary folder which will contain the preprocessed and warped images 
-
-% Preprocessing options----------------------------------------------------
-imload      = 1; % After the images have been preprocessed the first time, this option can be set to 1, to skip preprocessing the input images each time
-denoiseimg  = 0;
-cropimg     = 1;
-makenonneg  = 0;
-mnialign    = 0;
-resetorigin = 0;
-
-% pthmu = path2spmtpm; % Use default SPM TPMs   
-pthmu = '';            % Generate TPMs from multiple subject brains
-
-samp = 3; % Sampling size
+samp = pars.samp;
 vx   = samp*ones(1,3);
 
-% Set to 1 to display TPMs and some random bias fields and velocity fields
-debugmode  = 1;
-plotL      = 1;
-showwarp   = 1;
-[fig,rndn] = init_fig(N,debugmode,plotL);
+ord = [pars.ord pars.ord pars.ord 0 0 0];
 
-% Which parts of the algorithm to run
-docp    = 1;
-dobias  = 1;
-doaff   = 1;
-doprior = 1;
-dotpm   = 1;
+imdir   = pars.imdir;
+tempdir = pars.tempdir;
 
-% Iteration numbers and stopping tolerance
-nitmain    = 50;
-nitcb      = 8;
-nitaff0    = 4;
-startvelit = 2;
-tol        = 1e-4;
+imload      = pars.imload;
+denoiseimg  = pars.denoiseimg;
+cropimg     = pars.cropimg;
+makenonneg  = pars.makenonneg;
+mnialign    = pars.mnialign;
+resetorigin = pars.resetorigin;
 
-ord = [3 3 3 0 0 0]; % Degree of b-spline interpolation
+pthmu = pars.pthmu;
 
-int_args = 8;                  % Set to 1 for small deformation approximation
-rparam   = [0 0.005 1 0.25 1]; % Diffeomorphic regularisation
+debugmode = pars.debugmode;
+plotL     = pars.plotL;
+showwarp  = pars.showwarp;
+
+docp    = pars.docp;
+dobias  = pars.dobias;
+doaff   = pars.doaff;
+doprior = pars.doprior;
+dotpm   = pars.dotpm;
+
+nitmain    = pars.nitmain;
+nitcb      = pars.nitcb;
+nitaff     = pars.nitaff;
+startvelit = pars.startvelit;
+tol        = pars.tol;
+
+int_args = pars.int_args;
+rparam   = pars.rparam;
 
 % Reg params for affine part (variance)
 Raff(1:3,1:3)     = 1e-1*eye(3); % translation
@@ -80,6 +55,8 @@ for n=1:N
     L{n} = [-Inf 1];
 end
 Lglobal = -Inf;
+
+[fig,rndn] = init_fig(N,debugmode,plotL);
 
 %--------------------------------------------------------------------------
 % Create some directories
@@ -107,7 +84,7 @@ mkdir(f);
 
 pthx = cell(N,1);
 if ~imload 
-    addpath('./preproc')
+    addpath(genpath('./preproc'))
     
     % Read and preprocess images from folder imdir-------------------------
     
@@ -229,7 +206,6 @@ for itmain=1:nitmain
         dovel = 0;
     elseif itmain==startvelit
         dovel  = 1;
-        nitaff0 = 4;
     end
     
     % Decrease regularisation over iterations------------------------------     
@@ -257,7 +233,7 @@ for itmain=1:nitmain
         clear v
     end
     
-    parfor n=1:N % For each subject
+    for n=1:N % For each subject
         fprintf('it=%d, n=%d\n',itmain,n); 
         
         r = 0; % Just to surpress a stupid warning
@@ -374,7 +350,7 @@ for itmain=1:nitmain
             %--------------------------------------------------------------                                
             
             if doaff                                                         
-                for itaff=1:nitaff0
+                for itaff=1:nitaff
                     
                     r = reshape(r,[d K]);
                 
@@ -600,12 +576,12 @@ for itmain=1:nitmain
     %----------------------------------------------------------------------            
     
     if dotpm && N>1
-        % "better way" (John hopes)----------------------------------------
-        mu = munum./muden; 
-        mu = bsxfun(@rdivide,mu,sum(mu,2)); 
+%         % "better way" (John hopes)----------------------------------------
+%         mu = munum./muden; 
+%         mu = bsxfun(@rdivide,mu,sum(mu,2)); 
         
-%         % "naive way"------------------------------------------------------
-%         mu = bsxfun(@rdivide,munum,sum(munum,2)); 
+        % "naive way"------------------------------------------------------
+        mu = bsxfun(@rdivide,munum,sum(munum,2)); 
         
         % Make sure that mu is a valid probability distribution------------
         msk     = ~isfinite(sum(mu,2)) | sum(mu,2) == 0;
