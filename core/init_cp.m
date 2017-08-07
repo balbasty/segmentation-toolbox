@@ -1,68 +1,86 @@
-function cp = init_cp(Px,Pmsk,Pmu,mu,K,C,tempdir,mat,d)
-N = numel(Px);
+function cp = init_cp(pthx,pthmsk,pthmu,mu,K,C)
+N = numel(pthx);
 
-mu  = zeros(C,K,N);
-Sig = zeros(C,C,K,N);
-if isempty(Pmu)
-    for n=1:N
-        Nii = nifti(Px{n});
-        f   = Nii.dat(:,:,:);
+init     = [];
+init{1}  = 'rand';
+init{2}  = [];
 
-        Nii = nifti(Pmsk{n});
-        msk = logical(Nii.dat(:,:,:));
-
-        f = f(msk);
-
-        init     = [];
-        init{1}  = 'rand';
-        init{2}  = [];
-        [mu(:,:,n),Sig(:,:,:,n)] = Kmeans(f,K,init);
-    end
-    
-    mu  = mean(mu,3);
-    Sig = mean(Sig,4);
-end    
-        
+mupo  = zeros(C,K,N);
+Sigpo = zeros(C,C,K,N);
 for n=1:N
-    Nii = nifti(Pmsk{n});
+    Nii = nifti(pthx{n});
+    f   = Nii.dat(:,:,:);
+
+    Nii = nifti(pthmsk{n});
     msk = logical(Nii.dat(:,:,:));
 
-    Nii = nifti(Px{n});
-    x   = single(Nii.dat(:,:,:));
-    x   = x(msk);
+    f = f(msk);
 
-    %------------------------------------------------------------------
-    % Set priors
-    m0    = mu;
-    beta0 = ones(1,K);   
-    nu0   = 20*ones(1,K);
+    [mupo(:,:,n),Sigpo(:,:,:,n)] = Kmeans(f,K,init);
+
+    [mupo(:,:,n),ix] = sort(mupo(:,:,n),2);
+    Sigpo(:,:,:,n)   = Sigpo(:,:,ix,n);
+end
+
+mupr  = mean(mupo,3);
+Sigpr = mean(Sigpo,4);
+        
+for n=1:N  
+    %----------------------------------------------------------------------
+    % mixing weights
+    cp(n).w = ones(1,K)/K;
+        
+    %----------------------------------------------------------------------
+    % priors
+    m0    = mupr;
+    beta0 = 0.01*ones(1,K);   
+    nu0   = C*ones(1,K) - 0.99;
     for k=1:K
-        W0(:,:,k) = inv(Sig(:,:,k))/nu0(k);
+        W0(:,:,k) = inv(Sigpr(:,:,k))/nu0(k);
     end
     
+    cp(n).pr.m    = m0;
+    cp(n).pr.beta = beta0;
+    cp(n).pr.W    = W0;                                                       
+    cp(n).pr.nu   = nu0;
+    
     %----------------------------------------------------------------------
-    % Set posteriors
+    % posteriors
         
-    if isempty(Pmu)
-        m    = m0;
-        beta = beta0;        
+    if isempty(pthmu)
+        m    = mupo(:,:,n);
+        beta = beta0;   
         nu   = nu0;
-        W    = W0;
+        for k=1:K
+            W(:,:,k) = inv(Sigpo(:,:,k,n))/nu(k);
+        end  
     else
         %------------------------------------------------------------------
         % Compute sufficient statistics from atlas
 
+        Nii = nifti(pthmsk{n});
+        msk = logical(Nii.dat(:,:,:));
+        msk = msk(:);
+        
+        Nii = nifti(pthx{n});
+        x   = Nii.dat(:,:,:);
+        x   = x(msk);
+        
+        mu  = reshape(mu,[numel(msk) K]);
+        msk = repmat(msk,1,K);
+        mu  = mu(msk);
+        
         s0 = zeros(1,K);
         s1 = zeros(C,K);
         S2 = zeros(C,C,K);
         for k=1:K
-            b = mu(:,:,:,k);
+            b = mupo(:,:,:,k); % Wrong
             b = b(msk);
 
-            s0(1,k)   = sum(sum(sum(b)));            
-            s1(:,k)   = sum(bsxfun(@times,x,b))/s0(1,k);
-            diff      = bsxfun(@minus,x,s1(:,k)');
-            S2(:,:,k) = 1/s0(k).*sum(b.*diff.^2);
+            s0(k)     = sum(sum(sum(b)));            
+            s1(:,k)   = sum(bsxfun(@times,x,b))/s0(k);
+            diff1     = bsxfun(@minus,x,s1(:,k)');
+            S2(:,:,k) = sum(b.*diff1.^2)/s0(k);
         end   
 
         %------------------------------------------------------------------
@@ -77,18 +95,13 @@ for n=1:N
             diff3    = s1(:,k) - m0(:,k);
             W(:,:,k) = inv(inv(W0(:,:,k)) + s0(k)*S2(:,:,k) + mult1*(diff3*diff3'));
         end 
+        
+        cp(n).pr.m    = m;
+        cp(n).pr.beta = beta;
+        cp(n).pr.W    = W;                                                       
+        cp(n).pr.nu   = nu;
     end
     
-    %------------------------------------------------------------------
-    % Construct cluster struct
-
-    cp(n).w = ones(1,K)/K;
-
-    cp(n).pr.m    = m0;
-    cp(n).pr.beta = beta0;
-    cp(n).pr.W    = W0;                                                       
-    cp(n).pr.nu   = nu0;
-
     cp(n).po.m    = m;
     cp(n).po.beta = beta;
     cp(n).po.W    = W;
@@ -160,83 +173,4 @@ for k=1:K,
 end
 sig = sqrt(sig);
 end
-%==========================================================================
-
-%==========================================================================
-function [varargout] = Kmeans(xv,nC,init,varargin)   
-xv(xv==0) = NaN;
-
-label = NaN(size(xv,1),nC);
-
-N  = size(xv,1);
-D  = size(xv,2);
-M  = 2^D;   
-
-in = bi2de(double(isfinite(xv)))+1;
-%initialize means------------------------------------------------------
-
-if strcmp(init{1},'eqspace')
-    if isempty(init{2})
-    st = [1/nC:1/nC:1]'; 
-    else
-        o  = init{2};
-        st = [o:(1-o)/(nC-1):1]'; 
-    end
-    mu = permute(0.8*st*max(xv),[3,2,1]);
-
-elseif strcmp(init{1},'rand')
-     if ~isempty(init{2})
-         xv(sum(xv,2)<=init{2}) = NaN;
-         in = bi2de(double(isfinite(xv))) + 1;
-     end
-    mu  = permute(xv(randsample(find(in==M),nC),:),[3,2,1]);
-
-elseif strcmp(init{1},'custom')
-    if isempty(init{2})
-        error('Have to specify means initialization')
-    else
-        st = init{2};
-        mu = permute(st'*max(xv),[3,2,1]);
-    end
-end
-
-for m=2:M
-
-    conf_log = logical(de2bi(m-1,D));
-
-    xvsub  = xv(repmat(m,[N,1])==in,conf_log);
-    musub  = mu(1,conf_log,:);        
-    N1     = size(xvsub,1); 
-    D1     = size(xvsub,2);        
-    dis    = zeros(N1,nC);
-
-    %start iterations--------------------------------------------------               
-    for it=1:20
-
-        %labeling------------------------------------------------------
-        for k=1:nC
-        dis(:,k) = squeeze(sqrt(sum(bsxfun(@minus,xvsub,musub(:,:,k)).^2,2))); 
-        end
-        labelsub = bsxfun(@minus,dis,min(dis,[],2))==0;
-
-        %updating means------------------------------------------------
-        labelw = permute(repmat(labelsub,[1,1,D1]),[1,3,2]);
-        m0     = sum(labelw,1);
-        m1     = sum(labelw.*repmat(xvsub,[1,1,nC]),1);
-        clear labelw
-        musub  = m1./m0;
-    end
-    clear dis
-
-    label(repmat(m,[N,1])==in,:) = labelsub;
-    clear labelsub
-end
-clear xvsub
-
-mom = spm_SuffStats(xv,label);
-if isempty(varargin)
-    [~,varargout{1},varargout{2},~] = spm_VBGaussiansFromSuffStats_v2(mom);
-else
-    varargout{1} = spm_VBGaussiansFromSuffStats_v2(mom,varargin{1});
-end
-%==========================================================================                 
+%==========================================================================   

@@ -125,7 +125,7 @@ C = 1; % Number of channels (TODO: change from hardcoded)
 V = get_V(imdir,tempdir,N);
 
 % Warp images to same size ------------------------------------------------
-[pthx,pthmsk,matim,d] = warp_im_same_size(pthx,samp,tempdir,ord);
+[pthx,pthmsk,matim,d] = warp_im_same_size(pthx,samp,tempdir);
 
 %--------------------------------------------------------------------------
 % Initialise atlas
@@ -138,7 +138,7 @@ lnmu       = log(mu);
 % Initialise cluster parameters
 %--------------------------------------------------------------------------
 
-cp = init_cp(pthx,pthmsk,pthmu,mu,K,C,tempdir,matim,d); 
+cp = init_cp(pthx,pthmsk,pthmu,mu,K,C); 
 
 %--------------------------------------------------------------------------
 % Initialise bias field parameters
@@ -195,6 +195,8 @@ end
 % Start algorithm 
 %==========================================================================
 
+muv = 0;
+ 
 fprintf('===================================\n')
 fprintf('Running algorithm\n')
 for itmain=1:nitmain        
@@ -221,22 +223,24 @@ for itmain=1:nitmain
     if N>1
         % Affine transform parameters--------------------------------------
         muaffpar = mean(cat(3,affpar{:}),3);
-    
-        % Velocity fields--------------------------------------------------
-        muv = 0;
-        for n=1:N
-           [~,v,~] = load_from_nii(n,pthx,pthv,pthmsk);                         
-           muv     = muv + v;
-        end
-        muv = muv/N;
         
-        clear v
+        if dovel
+            % Velocity fields--------------------------------------------------
+            muv = 0;
+            for n=1:N
+               [~,v,~] = load_from_nii(n,pthx,pthv,pthmsk);                         
+               muv     = muv + v;
+            end
+            muv = muv/N;
+
+            clear v
+        end
     end
     
-    for n=1:N % For each subject
+    parfor n=1:N % For each subject
         fprintf('it=%d, n=%d\n',itmain,n); 
         
-        r = 0; % Just to surpress a stupid warning
+%         r = 0; % Just to surpress a stupid warning
         
         % Load data--------------------------------------------------------
         [x,v,msk] = load_from_nii(n,pthx,pthv,pthmsk);                        
@@ -682,7 +686,7 @@ for itmain=1:nitmain
     
     % Display results------------------------------------------------------    
     if debugmode
-        debug_view(fig,d,K,rndn,mu,pthv,C,chan,affpar,prm,int_args,Greens,dovel,matmu,matim,ord,B,pthx,pthmsk,cp);
+        visualize_progress(fig,d,K,rndn,mu,pthv,C,chan,affpar,prm,int_args,Greens,dovel,matmu,matim,ord,B,pthx,pthmsk,cp);
     end
         
     % Save most recent TPM-------------------------------------------------
@@ -711,29 +715,6 @@ function write_mu(tag,mu,matmu)
 f     = fullfile('results',tag);
 fname = fullfile(f,[tag '__tpm.nii']);
 create_nii(fname,mu,matmu,'float32','TPM');   
-%==========================================================================
-
-%==========================================================================
-function f = warp(f,theta,ord,verbose)
-if nargin<3, ord     = [1 1 1 0 0 0]; end
-if nargin<4, verbose = false; end
-
-dm = size(f);
-
-for k=1:dm(4)
-    f(:,:,:,k) = spm_diffeo('bsplins',f(:,:,:,k),theta(:,:,:,:),ord);        
-end
-f(~isfinite(f)) = 0;
-
-if verbose      
-    figure(777); 
-    K1 = floor(sqrt(dm(4)));
-    K2 = ceil(dm(4)/K1); 
-
-    for k=1:dm(4)            
-        subplot(K1,K2,k); imagesc(f(:,:,floor(dm(3)/2),k)'); axis image xy off
-    end
-end
 %==========================================================================
 
 %=======================================================================        
@@ -774,7 +755,7 @@ Nii.dat(:,:,:,:) = v;
 %==========================================================================
 
 %==========================================================================
-function debug_view(fig,d,K,rndn,mu,pthv,C,chan,affpar,prm,int_args,Greens,dovel,matmu,matim,ord,B,pthx,pthmsk,cp)
+function visualize_progress(fig,d,K,rndn,mu,pthv,C,chan,affpar,prm,int_args,Greens,dovel,matmu,matim,ord,B,pthx,pthmsk,cp)
 z = floor((d(3)+1)/2);   
 n = rndn(end);
 

@@ -23,13 +23,13 @@ pars = [];
 pars.N = 8; % Number of subjects
 pars.K = 6;  % Number of classes
 
-pars.imdir   = '/home/mbrud/Data/IXI-clean/IXI-T1/'; % A folder containing nifti MRIs
+pars.imdir   = '/home/smajjk/Data/IXI-T1/'; % A folder containing nifti MRIs
 pars.tempdir = './tempmri/';                         % A temporary folder which will contain the preprocessed and warped images 
 
 % Preprocessing options----------------------------------------------------
-pars.imload      = 1; % After the images have been preprocessed the first time, this option can be set to 1, to skip preprocessing the input images each time
+pars.imload      = 0; % After the images have been preprocessed the first time, this option can be set to 1, to skip preprocessing the input images each time
 pars.denoiseimg  = 0;
-pars.cropimg     = 1;
+pars.cropimg     = 0;
 pars.makenonneg  = 0;
 pars.mnialign    = 0;
 pars.resetorigin = 0;
@@ -38,7 +38,7 @@ pars.resetorigin = 0;
 pars.pthmu = '';            % Generate TPMs from multiple subject brains
 
 pars.samp = 3; % Sampling size
-pars.ord  = 3; % Degree of b-spline interpolation
+pars.ord  = 1; % Degree of b-spline interpolation
 
 % Set to 1 to display TPMs and some random bias fields and velocity fields
 pars.debugmode  = 1;
