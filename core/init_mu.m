@@ -1,7 +1,7 @@
 function [mu,matmu] = init_mu(Px,Pmu,mat,d,K,samp)
 
 if isempty(Pmu)
-    % Create flat atlas
+    % Create uniform atlas
     mu    = ones([d K],'single')/K;
     matmu = mat;
 else

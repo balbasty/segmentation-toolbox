@@ -64,17 +64,13 @@ for n=1:N
         
         Nii = nifti(pthx{n});
         x   = Nii.dat(:,:,:);
-        x   = x(msk);
-        
-        mu  = reshape(mu,[numel(msk) K]);
-        msk = repmat(msk,1,K);
-        mu  = mu(msk);
+        x   = x(msk);       
         
         s0 = zeros(1,K);
         s1 = zeros(C,K);
         S2 = zeros(C,C,K);
         for k=1:K
-            b = mupo(:,:,:,k); % Wrong
+            b = mu(:,:,:,k); % Wrong
             b = b(msk);
 
             s0(k)     = sum(sum(sum(b)));            
@@ -92,8 +88,8 @@ for n=1:N
         W    = zeros(C,C,K);
         for k = 1:K
             mult1    = beta0(k).*s0(k)/(beta0(k) + s0(k));
-            diff3    = s1(:,k) - m0(:,k);
-            W(:,:,k) = inv(inv(W0(:,:,k)) + s0(k)*S2(:,:,k) + mult1*(diff3*diff3'));
+            diff1    = s1(:,k) - m0(:,k);
+            W(:,:,k) = inv(inv(W0(:,:,k)) + s0(k)*S2(:,:,k) + mult1*(diff1*diff1'));
         end 
         
         cp(n).pr.m    = m;

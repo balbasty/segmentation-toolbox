@@ -1,4 +1,4 @@
-function run(pars)
+function run_2d(pars)
 
 %==========================================================================
 % Initialise algorithm 
@@ -14,13 +14,6 @@ ord = [pars.ord pars.ord pars.ord 0 0 0];
 
 imdir   = pars.imdir;
 tempdir = pars.tempdir;
-
-imload      = pars.imload;
-denoiseimg  = pars.denoiseimg;
-cropimg     = pars.cropimg;
-makenonneg  = pars.makenonneg;
-mnialign    = pars.mnialign;
-resetorigin = pars.resetorigin;
 
 pthmu = pars.pthmu;
 
@@ -85,50 +78,43 @@ mkdir(f);
 % Read and process image data
 %--------------------------------------------------------------------------
 
-pthx = cell(N,1);
-if ~imload 
-    addpath(genpath('./preproc'))
-    
-    % Read and preprocess images from folder imdir-------------------------
-    
-    if numel(dir(tempdir)) > 2
-        rmdir(fullfile(tempdir,'*'),'s') % Clear tempdir
-    end
-    
-    pth = dir(fullfile(imdir,'*.nii'));  
-    
-    if N>numel(pth)
-       error('N>numel(pth)');
-    end
-    
-    for n=1:N
-        pthx{n,1} = fullfile(imdir,pth(n).name);
-    end
+pth = dir(fullfile(tempdir,'preproc','*.nii'));    
 
-    % Preprocess images (reset origin, align to MNI, etc) -----------------
-    pthx = preprocess_im(pthx,tempdir,makenonneg,denoiseimg,cropimg,mnialign,resetorigin);
-else
-    % Load already preprocessed images from folder tmpdir------------------
-    
-    pth = dir(fullfile(tempdir,'preproc','*.nii'));    
-    
-    if N>numel(pth)
-       error('N>numel(pth)');
-    end
-    
-    for n=1:N
-        pthx{n,1} = fullfile(tempdir,'preproc',pth(n).name);
-    end
+if N>numel(pth)
+   error('N>numel(pth)');
+end
+
+for n=1:N
+    pthx{n} = fullfile(tempdir,'preproc',pth(n).name);
 end
 
 %--------------------------------------------------------------------------
-C = 1; % Number of channels (TODO: change from hardcoded)
+C = 1;
 
-% Get info about original input images-------------------------------------
 V = get_V(imdir,tempdir,N);
 
-% Warp images to same size ------------------------------------------------
-[pthx,pthmsk,matim,d] = warp_im_same_size(pthx,samp,tempdir);
+d     = V{1}.dim;
+matim = V{1}.mat;
+
+fmsk = fullfile(tempdir,'msk');
+if (exist(fmsk,'dir') == 0)
+    mkdir(fmsk);
+end
+
+pthmsk = cell(N,1);
+for n=1:N 
+    Nii  = nifti(pthx{n});
+        
+    x = Nii.dat(:,:,:);   
+    
+    % Create mask----------------------------------------------------------
+    msk = x~=0 & x~=max(x(:)) & x~=min(x(:)) & isfinite(x);
+    
+    [~,nam,ext] = fileparts(Nii.dat.fname);
+        
+    pthmsk{n} = fullfile(fmsk,['msk' nam ext]);
+    create_nii(pthmsk{n},msk,matim,'uint8-le','Mask');
+end
 
 %--------------------------------------------------------------------------
 % Initialise atlas
@@ -365,7 +351,7 @@ for itmain=1:nitmain
                     r = reshape(r,[d K]);
                 
                     if showwarp
-                        z = floor(d(3)/2);
+                        z = floor((d(3) + 1)/2);
                         figure(777)
                         for k=1:K
                             subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);                
@@ -416,7 +402,7 @@ for itmain=1:nitmain
                             if showwarp
                                 fprintf('Affine converged (n=%d,it=%d)\n',n,line_search); 
 
-                                z = floor(d(3)/2);
+                                z = floor((d(3) + 1)/2);
                                 figure(777)
                                 for k=1:K
                                     subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);
@@ -460,7 +446,7 @@ for itmain=1:nitmain
                 r = reshape(r,[d K]);
                 
                 if showwarp
-                    z = floor(d(3)/2);
+                    z = floor((d(3) + 1)/2);
                     figure(777)
                     for k=1:K
                         subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);                
@@ -511,7 +497,7 @@ for itmain=1:nitmain
                         if showwarp
                             fprintf('Nonlinear converged (n=%d,it=%d)\n',n,line_search); 
                             
-                            z = floor(d(3)/2);
+                            z = floor((d(3) + 1)/2);
                             figure(777)
                             for k=1:K
                                 subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);
@@ -558,8 +544,11 @@ for itmain=1:nitmain
             % Warp likelihood to template space
             E      = spm_dexpm(affpar{n},B);
             Affine = matmu\E*matim; 
-            y1     = spm_diffeo('comp',theta,affine_transf(inv(Affine),identity(d)));            
-            lik    = warp(reshape(single(lik),[d K]),y1,ord);   
+            y1     = spm_diffeo('comp',theta,affine_transf(inv(Affine),identity(d)));
+            
+            y1(:,:,:,3) = 1;
+            
+            lik    = warp(reshape(lik,[d K]),y1,ord);   
             
             % Multiply warped likelihood w. determinants of inv(Affine) and Jtheta
             lik = bsxfun(@times,lik,spm_diffeo('det',Jtheta)*det(inv(Affine)));                                            
@@ -794,9 +783,9 @@ for f1=1:numel(rndn)
     bf = get_bf(chan{rndn(f1)},C,d);
     bf = reshape(bf,[d C]);
 
-    bf1 = bf(:,:,floor(size(bf,3)/2));
-    bf2 = squeeze(bf(floor(size(bf,1)/2),:,:));
-    bf3 = squeeze(bf(:,floor(size(bf,2)/2),:));  
+    bf1 = bf(:,:,floor((size(bf,3) + 1)/2));
+    bf2 = squeeze(bf(floor((size(bf,1) + 1)/2),:,:));
+    bf3 = squeeze(bf(:,floor((size(bf,2) + 1)/2),:));  
 
     subplot(numel(rndn),3,cnt)
     imagesc(bf1'); axis image xy off; title(['bf' num2str(1) ', n=' num2str(rndn(f1))]); colormap(parula); colorbar;
@@ -838,8 +827,8 @@ drawnow
 set(0,'CurrentFigure',fig{5});    
 
 % wlnmu = warp(log(mu),y1,ord);
-wlnmu = sample_mu(log(mu),y1);
-[~,r] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);
+% wlnmu = sample_mu(log(mu),y1);
+[~,r] = update_cp(K,x,bf,log(mu + 1e-4),cp(n),msk,d);
 r     = reshape(r,[d K]);
 
 F  = K;

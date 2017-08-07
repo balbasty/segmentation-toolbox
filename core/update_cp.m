@@ -125,7 +125,7 @@ if nargout>2
     
     w = (s0 + 1)./(mgm + K); % Unified segmentation (27)
     w = w/sum(w);            % Unified segmentation (27)
-    
+    w = ones(size(w))/K;
     cp.w = w;
     
     Pmu = weighted_softmax(lnmu,log(cp.w),msk);

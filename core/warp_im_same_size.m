@@ -37,18 +37,18 @@ for n=1:N
     Nii  = nifti(Px{n});
     matn = Nii.mat;
         
-    x = Nii.dat(:,:,:);          
-
-    % Make images have simillar means--------------------------------------                       
-    a = 1024/mean(x(:));
-    x = x*a;
+    x = Nii.dat(:,:,:);             
     
     % Warp image-----------------------------------------------------------
     phi = affine_transf(matn\mat,identity(d));
     x   = warp(x,phi);
     
     % Create mask----------------------------------------------------------
-    msk = x~=0 & x~=max(x(:)) & x~=min(x(:)) & isfinite(x) & x~=-3024*a & x~=-1500*a;    
+    msk = x~=0 & x~=max(x(:)) & x~=min(x(:)) & isfinite(x) & x~=-3024 & x~=-1500;    
+    
+    % Make images have simillar means--------------------------------------                       
+    a = 1024/mean(x(msk));
+    x = x*a;
     
     % Write warped image and mask------------------------------------------
     [~,nam,ext] = fileparts(Nii.dat.fname);

@@ -24,8 +24,7 @@ pars = [];
 pars.N = 8; % Number of subjects
 pars.K = 6;  % Number of classes
 
-pars.imdir   = '/home/mbrud/Data/IXI-clean/IXI-T1/'; % A folder containing nifti MRIs
-% pars.imdir   = '/home/smajjk/Data/IXI-T1/'; % A folder containing nifti MRIs
+pars.imdir   = '/home/mbrud/Dropbox/PhD/Data/tpm-slices/'; % A folder containing nifti MRIs
 pars.tempdir = './tempmri/';                         % A temporary folder which will contain the preprocessed and warped images 
 
 % Preprocessing options----------------------------------------------------
@@ -65,4 +64,4 @@ pars.tol        = 1e-4;
 pars.int_args = 8;                  % Set to 1 for small deformation approximation
 pars.rparam   = [0 0.005 1 0.25 1]; % Diffeomorphic regularisation
 
-run(pars);
+run_2d(pars);
