@@ -1,172 +1,172 @@
-function cp = init_cp(pthx,pthmsk,pthmu,mu,K,C)
-N = numel(pthx);
+function cp = init_cp(pthf,pthmu,mu,K,d,do)
+[N,D] = size(pthf);
 
-init     = [];
-init{1}  = 'rand';
-init{2}  = [];
+wpo   = zeros(1,K,N);
+mupo  = zeros(D,K,N);
+Sigpo = zeros(D,D,K,N);
+Nf    = zeros(N,1);
 
-mupo  = zeros(C,K,N);
-Sigpo = zeros(C,C,K,N);
-for n=1:N
-    Nii = nifti(pthx{n});
-    f   = Nii.dat(:,:,:);
-
-    Nii = nifti(pthmsk{n});
-    msk = logical(Nii.dat(:,:,:));
-
-    f = f(msk);
-
-    [mupo(:,:,n),Sigpo(:,:,:,n)] = Kmeans(f,K,init);
-
-    [mupo(:,:,n),ix] = sort(mupo(:,:,n),2);
-    Sigpo(:,:,:,n)   = Sigpo(:,:,ix,n);
-end
-
-mupr  = mean(mupo,3);
-Sigpr = mean(Sigpo,4);
+for n1=1:N
+    f   = zeros([prod(d) D]);
+    msk = zeros([prod(d),D],'logical');
+    for c=1:D
+        Nii    = nifti(pthf{n1,c});
+        f(:,c) = reshape(Nii.dat(:,:,:),[],1);
         
-for n=1:N  
-    %----------------------------------------------------------------------
-    % mixing weights
-    cp(n).w = ones(1,K)/K;
-        
-    %----------------------------------------------------------------------
-    % priors
-    m0    = mupr;
-    beta0 = 0.01*ones(1,K);   
-    nu0   = C*ones(1,K) - 0.99;
+        msk(:,c) = get_msk(f(:,c));
+    end
+    Nf(n1) = nnz(f(:))/D;    
+
+    msk     = sum(msk,2)==D;
+    f(~msk) = 0;
+    
+    [mu,Sig,w] = Kmeans(f,K);
+
+    % To ensure positive semi-definite covariance matrix
     for k=1:K
-        W0(:,:,k) = inv(Sigpr(:,:,k))/nu0(k);
+        B          = (Sig(:,:,k) + Sig(:,:,k)')/2; 
+        [U,Sigma]  = eig(B); 
+        Sig(:,:,k) = U*max(Sigma,0)*U';
     end
     
-    cp(n).pr.m    = m0;
-    cp(n).pr.beta = beta0;
-    cp(n).pr.W    = W0;                                                       
-    cp(n).pr.nu   = nu0;
+    mupo(:,:,n1)    = mu;
+    Sigpo(:,:,:,n1) = Sig;
+    wpo(:,:,n1)     = w;
     
-    %----------------------------------------------------------------------
-    % posteriors
-        
-    if isempty(pthmu)
-        m    = mupo(:,:,n);
-        beta = beta0;   
-        nu   = nu0;
-        for k=1:K
-            W(:,:,k) = inv(Sigpo(:,:,k,n))/nu(k);
-        end  
-    else
-        %------------------------------------------------------------------
-        % Compute sufficient statistics from atlas
+    [~,ix] = sort(mu(1,:),2);
 
-        Nii = nifti(pthmsk{n});
-        msk = logical(Nii.dat(:,:,:));
-        msk = msk(:);
-        
-        Nii = nifti(pthx{n});
-        x   = Nii.dat(:,:,:);
-        x   = x(msk);       
-        
-        s0 = zeros(1,K);
-        s1 = zeros(C,K);
-        S2 = zeros(C,C,K);
-        for k=1:K
-            b = mu(:,:,:,k); % Wrong
-            b = b(msk);
-
-            s0(k)     = sum(sum(sum(b)));            
-            s1(:,k)   = sum(bsxfun(@times,x,b))/s0(k);
-            diff1     = bsxfun(@minus,x,s1(:,k)');
-            S2(:,:,k) = sum(b.*diff1.^2)/s0(k);
-        end   
-
-        %------------------------------------------------------------------
-        % Compute posteriors from above sufficient statistics
-
-        beta = beta0 + s0;
-        nu   = nu0 + s0;
-        m    = (repmat(beta0,C,1).*m0 + (ones(C,1)*s0).*s1)./(ones(C,1)*beta);
-        W    = zeros(C,C,K);
-        for k = 1:K
-            mult1    = beta0(k).*s0(k)/(beta0(k) + s0(k));
-            diff1    = s1(:,k) - m0(:,k);
-            W(:,:,k) = inv(inv(W0(:,:,k)) + s0(k)*S2(:,:,k) + mult1*(diff1*diff1'));
-        end 
-        
-        cp(n).pr.m    = m;
-        cp(n).pr.beta = beta;
-        cp(n).pr.W    = W;                                                       
-        cp(n).pr.nu   = nu;
-    end
-    
-    cp(n).po.m    = m;
-    cp(n).po.beta = beta;
-    cp(n).po.W    = W;
-    cp(n).po.nu   = nu;
+    mupo(:,:,n1)    = mu(:,ix);
+    Sigpo(:,:,:,n1) = Sig(:,:,ix);
+    wpo(1,:,n1)     = w(ix);    
 end
+
+normmupo = sqrt(sum(mupo.^2,1));
+[~,mn]   = min(normmupo,[],3);
+[~,mx]   = max(normmupo,[],3);
+
+mn = mupo(:,:,mn(1));
+mx = mupo(:,:,mx(end));
+
+m0 = [];
+for i=1:size(mn,1)
+  m0 = [m0; linspace(mn(i,1),mx(i,end),K)];  
+end
+
+% n2 = 1; % Random subject for setting posteriors of all subjects
+
+for n1=1:N
+    cp(n1).pr.m = m0;
+    cp(n1).pr.b = ones(1,K);
+    for k=1:K
+        cp(n1).pr.W(:,:,k) = eye(D,D);
+    end
+    cp(n1).pr.n = (D + 1)*ones(1,K);
+
+    % Use 'responsibilities' from initialization to set sufficient statistics
+    Nk   = Nf(n1)*wpo(:,:,n1);
+    xbar = mupo(:,:,n1);
+    S    = Sigpo(:,:,:,n1);
+    
+    b = cp(n1).pr.b + Nk;
+    n = cp(n1).pr.n + Nk;
+    W = zeros(D,D,K);
+    for k = 1:K
+        m(:,k) = (cp(n1).pr.b(k)*cp(n1).pr.m(:,k) + Nk(k).*xbar(:,k))./b(k);
+
+        W0inv    = inv(cp(n1).pr.W(:,:,k));
+        mlt1     = cp(n1).pr.b(k).*Nk(k)/(cp(n1).pr.b(k) + Nk(k));
+        diff1    = xbar(:,k) - cp(n1).pr.m(:,k);
+        W(:,:,k) = inv(W0inv + Nk(k)*S(:,:,k) + mlt1*(diff1*diff1'));
+    end  
+
+    cp(n1).po.m = m;
+    cp(n1).po.b = b;
+    cp(n1).po.W = W;
+    cp(n1).po.n = n;
+
+    cp(n1).dow = do.w;
+    cp(n1).lnw = log(ones(1,K)/K);    
+end
+
+% for n=1:N  
+%     %----------------------------------------------------------------------
+%     % mixing weights
+%     cp(n).dow = do.w;
+%     cp(n).w   = ones(1,K);
+%         
+%     %----------------------------------------------------------------------
+%     % Flat priors
+%     
+%     m0    = zeros(C,K);
+%     beta0 = ones(1,K);   
+%     nu0   = C*ones(1,K);
+%     for k=1:K
+%         W0(:,:,k) = eye(C,C);
+%     end
+% 
+%     cp(n).pr.m    = m0;
+%     cp(n).pr.beta = beta0;
+%     cp(n).pr.W    = W0;                                                       
+%     cp(n).pr.nu   = nu0;
+%     
+%     %----------------------------------------------------------------------
+%     % Posteriors
+%         
+%     if isempty(pthmu)
+%         m    = mupr;
+%         beta = beta0;   
+%         nu   = nu0;
+%         for k=1:K
+%             W(:,:,k) = nu0(k)*inv(Sigpr(:,:,k));
+%         end  
+%     else
+%         %------------------------------------------------------------------
+%         % Compute sufficient statistics from atlas
+%         
+%         f = zeros([prod(d) C]);
+%         for c=1:C
+%             Nii = nifti(pthf{n,c});
+%             fc  = Nii.dat(:,:,:);
+% 
+%             fc(~cp(n).msk{c}) = 0;
+% 
+%             f(:,c) = fc(:);
+%         end
+%         
+%         s0 = zeros(1,K);
+%         s1 = zeros(C,K);
+%         S2 = zeros(C,C,K);
+%         for k=1:K
+%             b = mu(:,:,:,k);
+% 
+%             s0(k)     = sum(sum(sum(b)));            
+%             s1(:,k)   = sum(bsxfun(@times,f,b))/s0(k);
+%             diff1     = bsxfun(@minus,f,s1(:,k)');
+%             S2(:,:,k) = sum(b.*diff1.^2)/s0(k);
+%         end   
+% 
+%         %------------------------------------------------------------------
+%         % Compute posteriors from above sufficient statistics
+% 
+%         beta = beta0 + s0;
+%         nu   = nu0 + s0;
+%         m    = (repmat(beta0,C,1).*m0 + (ones(C,1)*s0).*s1)./(ones(C,1)*beta);
+%         W    = zeros(C,C,K);
+%         for k = 1:K
+%             mult1    = beta0(k).*s0(k)/(beta0(k) + s0(k));
+%             diff1    = s1(:,k) - m0(:,k);
+%             W(:,:,k) = inv(inv(W0(:,:,k)) + s0(k)*S2(:,:,k) + mult1*(diff1*diff1'));
+%         end 
+%         
+%         cp(n).pr.m    = m;
+%         cp(n).pr.beta = beta;
+%         cp(n).pr.W    = W;                                                       
+%         cp(n).pr.nu   = nu;
+%     end
+%     
+%     cp(n).po.m    = m;
+%     cp(n).po.beta = beta;
+%     cp(n).po.W    = W;
+%     cp(n).po.nu   = nu;
+% end
 %==========================================================================
-
-%==========================================================================
-function [mg,mu,sig] = fit_gmm2h(h,x,K,shwinfo)
-if nargin < 4, shwinfo = 0; end
-
-mg  = ones(K,1)/K;
-mu  = linspace(min(x),max(x),K)'./K;
-sig = ones(K,1)*(max(x) - min(x))./K;  
-
-m0    = zeros(K,1);
-m1    = zeros(K,1);
-m2    = zeros(K,1);
-ll(1) = -Inf;
-for iter=1:10000,
-p  = zeros(numel(x),K);
-for k=1:K,
-    % Product Rule
-    % p(class=k, intensity | mg, nu, sig) = p(class=k|mg) p(intensity | nu, sig, class=k)
-    p(:,k) = mg(k)*normpdf(x(:),mu(k),sig(k));
-end
-
-% Sum Rule
-% p(intensity | mg, nu, sig) = \sum_k p(class=k, intensity | mg, nu, sig)
-sp         = sum(p,2)+eps;
-ll(iter+1) = sum(log(sp).*h(:));
-if ll(iter+1) - ll(iter) < 1e-8*sum(h)
-    if shwinfo == 2,
-        figure(4001);
-        md = mean(diff(x));
-        plot(x(:),(h/sum(h))/md,'b-',x(:),sp,'r-'); hold on
-        plot(x(:),p,'--');        
-        set(gca,'TickLabelInterpreter','latex');  
-        xlabel('Image intensity','Interpreter','latex')
-        ylabel('Probability','Interpreter','latex')
-        legend({'Empirical','Fit','Air','Tissue'},'Interpreter','latex');
-        drawnow;
-    end
-    break; 
-end
-
-if shwinfo == 3,
-    figure(4001);
-    subplot(121); plot(0:numel(ll)-2,ll(2:end))  
-    md = mean(diff(x));
-    subplot(122); plot(x(:),p,'--',x(:),h/sum(h)/md,'b.',x(:),sp,'r'); 
-    drawnow
-end
-
-% Bayes Rule
-% p(class=k | intensity, mg, nu, sig) = p(class=k, intensity | mg, nu, sig) / p(intensity | mg, nu, sig)
-p = bsxfun(@rdivide,p,sp);
-
-% Compute moments from the histograms, weighted by the responsibilities (p).
-for k=1:K,
-    m0(k) = sum(p(:,k).*h(:));             % Number of voxels in class k
-    m1(k) = sum(p(:,k).*h(:).*x(:));       % Sum of the intensities in class k
-    m2(k) = sum(p(:,k).*h(:).*x(:).*x(:)); % Sum of squares of intensities in class k
-end
-mg = m0/sum(m0);
-for k=1:K,
-    mu(k) = m1(k)./m0(k);                                 % Mean
-    sig(k) = (m2(k)-m1(k)*m1(k)/m0(k)+1e-6)/(m0(k)+1e-6); % Variance
-end
-sig = sqrt(sig);
-end
-%==========================================================================   

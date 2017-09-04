@@ -1,20 +1,20 @@
-function [pthv,sched,B,affpar] = init_reg(N,d,nitout,tempdir,mat)
+function [pthv,sched,B,a] = init_reg(N,d,nitout,tempdir,Mf)
 sched = get_sched(nitout);  
-B     = se3_basis;
+B     = affine_basis;
 
 f = fullfile(tempdir,'v');
 if (exist(f,'dir') == 0)
     mkdir(f);
 end
 
-pthv     = cell(N,1);
-affpar = cell(N,1);
+pthv = cell(N,1);
+a    = cell(N,1);
 for n=1:N
-    affpar{n} = zeros([size(B,3),1],'single');
+    a{n} = zeros([size(B,3),1]);
     
-    v     = zeros([d 3],'single');    
+    v       = zeros([d 3],'single');    
     pthv{n} = fullfile(f,['v' num2str(n) '.nii']);
-    create_nii(pthv{n},v,mat,'float32','Velocity field');
+    create_nii(pthv{n},v,Mf,'float32','Velocity field');
 end
 %==========================================================================
 

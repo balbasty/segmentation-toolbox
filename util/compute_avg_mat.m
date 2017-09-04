@@ -9,7 +9,13 @@ function [M_avg,d] = compute_avg_mat(Mat0,dims)
 
 % Rigid-body matrices computed from exp(p(1)*B(:,:,1)+p(2)+B(:,:,2)...)
 %-----------------------------------------------------------------------
-B = se3_basis;
+B                 = zeros(4,4,6);
+B(1,4,1)          = 1;
+B(2,4,2)          = 1;
+B(3,4,3)          = 1;
+B([1,2],[1,2],4)  = [0 1;-1 0];
+B([3,1],[3,1],5)  = [0 1;-1 0];
+B([2,3],[2,3],6)  = [0 1;-1 0];
 
 % Find combination of 90 degree rotations and flips that brings all
 % the matrices closest to axial
@@ -82,6 +88,8 @@ end
 
 % Ensure that the FoV covers all images, with a few voxels to spare
 %-----------------------------------------------------------------------
+offset = 10;
+
 mn    =  Inf*ones(3,1);
 mx    = -Inf*ones(3,1);
 for i=1:size(Mat0,3),
@@ -96,9 +104,12 @@ for i=1:size(Mat0,3),
     mx = max(mx,max(vx,[],2));
     mn = min(mn,min(vx,[],2));
 end
-mx    = ceil(mx-(mx-mn)*0.05);
-mn    = floor(mn+([mx(1:2)-mn(1:2);0])*0.05);
+mx    = ceil(mx-(mx-mn)*0.05)                + offset;
+mn    = floor(mn+([mx(1:2)-mn(1:2);0])*0.05) - offset;
 d     = (mx-mn+1)';
+if ~any(dims(:,3)>1)
+   d(3) = 1;
+end
 M_avg = M_avg * [eye(3) mn-1; 0 0 0 1];
 M_avg(4,:)=[0 0 0 1];
 return;

@@ -1,13 +1,15 @@
-function bf = get_bf(chan,C,d)
-bf  = zeros(d,'single');
+function bf = get_bf(chan,d)
+C  = numel(chan);
+bf = zeros([prod(d) C],'single');
 for c=1:C
+    bfc = zeros(d,'single');
     for z=1:d(3)
-        bfz       = transf(chan(c).B1,chan(c).B2,chan(c).B3(z,:),chan(c).T);        
-        bf(:,:,z) = single(exp(bfz));
+        tmp        = transf(chan(c).B1,chan(c).B2,chan(c).B3(z,:),chan(c).T);        
+        bfc(:,:,z) = exp(tmp);
     end
+    bf(:,c) = bfc(:);
 end
-bf                        = bf(:);
-bf(~isfinite(bf) | bf==0) = 1;
+if sum(~isfinite(bf(:))), warning('sum(~isfinite(bf(:)))'); end
 %=======================================================================
 
 %=======================================================================

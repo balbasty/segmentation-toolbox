@@ -1,4 +1,9 @@
-function [varargout] = Kmeans(xv,nC,init,varargin)   
+function [varargout] = Kmeans(xv,nC,init)   
+if nargin<3,     
+    init{1} = 'rand';
+    init{2} = [];
+end
+
 xv(xv==0) = NaN;
 
 label = NaN(size(xv,1),nC);
@@ -68,10 +73,12 @@ for m=2:M
 end
 clear xvsub
 
-mom = spm_SuffStats(xv,label);
-if isempty(varargin)
-    [~,varargout{1},varargout{2},~] = spm_VBGaussiansFromSuffStats_v2(mom);
-else
-    varargout{1} = spm_VBGaussiansFromSuffStats_v2(mom,varargin{1});
+mom                             = spm_SuffStats(xv,label);
+[~,varargout{1},varargout{2},~] = spm_VBGaussiansFromSuffStats_v2(mom);
+
+w = 0;
+for m=1:numel(mom)
+    w = w + mom(m).s0;
 end
+varargout{3} = w/sum(w);
 %==========================================================================              

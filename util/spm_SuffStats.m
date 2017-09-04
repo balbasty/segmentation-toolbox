@@ -74,4 +74,3 @@ for i=2:numel(mom),
         end
     end
 end
-

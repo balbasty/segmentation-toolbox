@@ -1,5 +1,4 @@
-function [ll,g,H] = mnom_objfun_slice(r,lnmu,y1,z,lnw,ord,lnwmu)
-if nargin<7, lnwmu  = []; end
+function [ll,g,H] = mnom_objfun_slice(r,lnmu,y1,z,lnw)
 
 dm    = size(r);
 emu   = cell(dm(4),1);
@@ -10,22 +9,16 @@ dmu   = cell(dm(4),3);
 % Compute exp(log(mu) + log(w))/sum(exp(log(mu) + log(w)))
 for k=1:dm(4)
     if nargout>=2
-        [lnmu1{k},dmu{k,1},dmu{k,2},dmu{k,3}] = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 ord(4:6)]);
-    elseif ~isempty(lnwmu)
-        lnmu1{k} = lnwmu(:,:,z,k);
+        [lnmu1{k},dmu{k,1},dmu{k,2},dmu{k,3}] = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 1 1 1]);
     else
-        lnmu1{k} = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 ord(4:6)]);
+        lnmu1{k} = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 1 1 1]);
     end
     
     emu{k} = exp(lnmu1{k} + lnw(k));
     semu   = semu + emu{k};
 end
 for k=1:dm(4)
-    emu{k} = emu{k}./semu;    
-%     if z ==round((dm(3)+1)/2);
-%         subplot(2,dm(4),k      ); imagesc(emu{k}');     axis image xy off
-%         subplot(2,dm(4),k+dm(4)); imagesc(r(:,:,z,k)'); axis image xy off
-%     end
+    emu{k} = emu{k}./semu;
 end
 
 if nargout==0, return; end

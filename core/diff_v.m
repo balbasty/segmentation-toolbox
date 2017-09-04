@@ -1,8 +1,6 @@
-function [g,H,ll] = diff_vel(f,lnmu,lnw,Affine,y,int_args,ord,msk)
-d   = size(f);
+function [g,H,ll] = diff_v(r,lnmu,lnw,Affine,y,int_args)
+d   = size(r);
 lkp = [1 4 5; 4 2 6; 5 6 3];
-
-msk = reshape(msk,d(1:3));
 
 g   = zeros([d(1:3),3],'single');
 H   = zeros([d(1:3),6],'single');
@@ -16,10 +14,8 @@ end
 
 ll  = 0;
 for z=1:d(3)
-    [llz,gz,Hz] = mnom_objfun_slice(f,lnmu,y1,z,lnw,ord);
+    [llz,gz,Hz] = mnom_objfun_slice(r,lnmu,y1,z,lnw);
     ll          = ll + llz;
-
-    mskz = msk(:,:,z);
     
     if int_args > 1
         Jz = reshape(J(:,:,z,:,:),[d(1:2) 3 3]);
@@ -31,7 +27,6 @@ for z=1:d(3)
         for d2=1:3
             tmp = tmp + Jz(:,:,d2,d1).*gz(:,:,d2);
         end
-        tmp(~mskz)  = 0;
         g(:,:,z,d1) = tmp;
     end
 
@@ -44,7 +39,6 @@ for z=1:d(3)
             for d2=1:3
                 tmp = tmp + Jz(:,:,d2,d1).*Hz(:,:,lkp(d2,d3));
             end
-            tmp(~mskz)    = 0;
             RH(:,:,d1,d3) = tmp;
         end
     end
@@ -56,7 +50,6 @@ for z=1:d(3)
             for d2=1:3
                 tmp = tmp + RH(:,:,d1,d2).*Jz(:,:,d2,d3);
             end
-            tmp(~mskz)          = 0;
             H(:,:,z,lkp(d1,d3)) = tmp;
         end
     end

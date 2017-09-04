@@ -6,193 +6,125 @@ function run(pars)
 
 N = pars.N;
 K = pars.K;
+C = pars.C;
 
 samp = pars.samp;
 vx   = samp*ones(1,3);
 
-ord = [pars.ord pars.ord pars.ord 0 0 0];
+bs = pars.bs;
+
+debuglevel = pars.debuglevel;
+if pars.runpar && debuglevel==3
+    debuglevel = 2;    
+end
 
 imdir   = pars.imdir;
 tempdir = pars.tempdir;
 
-imload      = pars.imload;
-denoiseimg  = pars.denoiseimg;
-cropimg     = pars.cropimg;
-makenonneg  = pars.makenonneg;
-mnialign    = pars.mnialign;
-resetorigin = pars.resetorigin;
+preproc = pars.preproc;
 
 pthmu = pars.pthmu;
 
-debugmode = pars.debugmode;
-plotL     = pars.plotL;
-showwarp  = pars.showwarp;
-
-docp    = pars.docp;
-dobias  = pars.dobias;
-doaff   = pars.doaff;
-doprior = pars.doprior;
-dotpm   = pars.dotpm;
+do = pars.do;
 
 nitmain    = pars.nitmain;
 nitcb      = pars.nitcb;
-stpaff     = pars.stpaff;
-nitaff     = pars.nitaff;
-startvelit = pars.startvelit;
+it2strtreg = pars.it2strtreg;
 tol        = pars.tol;
 
-int_args = pars.int_args;
-rparam   = pars.rparam;
+rparam = pars.rparam;
 
-% Reg params for affine part (variance)
-Raff(1:3,1:3)     = 1e-1*eye(3); % translation
-Raff(4:6,4:6)     = 1e-1*eye(3); % rotation
-Raff(7:9,7:9)     = 1e3*eye(3);  % scaling
-Raff(10:12,10:12) = 1e3*eye(3);  % skew          
+R(1:3,1:3)     = pars.alam*eye(3); % translation
+R(4:6,4:6)     = pars.alam*eye(3); % rotation
+R(7:9,7:9)     = pars.alam*eye(3); % scaling
+R(10:12,10:12) = pars.alam*eye(3); % skew          
  
-% Lower bound
-L = cell(N,1);
-for n=1:N
-    L{n} = [-Inf 1];
-end
-Lglobal = -Inf;
-
-[fig,rndn] = init_fig(N,debugmode,plotL);
-
-tiny = 1e-4;
+bflam  = pars.bflam;
+bffwhm = pars.bffwhm;
 
 %--------------------------------------------------------------------------
-% Create some directories
+% Read and preprocess image data
 %--------------------------------------------------------------------------
 
-if (exist(tempdir,'dir') == 0)
-    mkdir(tempdir);
-end
+if ~preproc.imload 
+    % Read and preprocess images from folder imdir------------------------- 
 
-tag = ['K-' num2str(K) '_N-' num2str(N) '_vx-' num2str(vx(1)) '_ord-' num2str(ord(1))];
-
-if (exist('results','dir') == 0)
-    mkdir('results');
-end
-
-f = fullfile('results',tag);
-if ~(exist(f,'dir') == 0);
-    rmdir(f,'s');
-end
-mkdir(f);
-
-%--------------------------------------------------------------------------
-% Read and process image data
-%--------------------------------------------------------------------------
-
-pthx = cell(N,1);
-if ~imload 
     addpath(genpath('./preproc'))
     
-    % Read and preprocess images from folder imdir-------------------------
-    
-    if numel(dir(tempdir)) > 2
-        rmdir(fullfile(tempdir,'*'),'s') % Clear tempdir
-    end
-    
-    pth = dir(fullfile(imdir,'*.nii'));  
-    
-    if N>numel(pth)
-       error('N>numel(pth)');
-    end
-    
-    for n=1:N
-        pthx{n,1} = fullfile(imdir,pth(n).name);
+    [pthf,C,N,V] = get_pth2f(imdir,N,C);        
+        
+    if (exist(tempdir,'dir') == 0)
+        mkdir(tempdir);
     end
 
+    if numel(dir(tempdir)) > 2
+        rmdir(fullfile(tempdir,'*'),'s'); % Clear tempdir
+    end
+    
     % Preprocess images (reset origin, align to MNI, etc) -----------------
-    pthx = preprocess_im(pthx,tempdir,makenonneg,denoiseimg,cropimg,mnialign,resetorigin);
+    pthf = preproc_im(pthf,preproc,tempdir);
 else
-    % Load already preprocessed images from folder tmpdir------------------
+    % Load already preprocessed images-------------------------------------
     
-    pth = dir(fullfile(tempdir,'preproc','*.nii'));    
-    
-    if N>numel(pth)
-       error('N>numel(pth)');
-    end
-    
-    for n=1:N
-        pthx{n,1} = fullfile(tempdir,'preproc',pth(n).name);
-    end
+    [pthf,C,N,V] = get_pth2f(fullfile(tempdir,'preproc'),N,C);  
 end
 
 %--------------------------------------------------------------------------
-C = 1; % Number of channels (TODO: change from hardcoded)
+% Warp images to same size
+%--------------------------------------------------------------------------
 
-% Get info about original input images-------------------------------------
-V = get_V(imdir,tempdir,N);
-
-% Warp images to same size ------------------------------------------------
-[pthx,pthmsk,matim,d] = warp_im_same_size(pthx,samp,tempdir);
+[pthf,Mf,d] = warp_eq_size(pthf,samp,tempdir);
 
 %--------------------------------------------------------------------------
 % Initialise atlas
 %--------------------------------------------------------------------------
 
-[mu,matmu] = init_mu(pthx,pthmu,matim,d,K,samp);
-lnmu       = log(mu);       
+[lnmu,Mmu] = init_mu(pthf,pthmu,Mf,d,K,samp);
 
 %--------------------------------------------------------------------------
 % Initialise cluster parameters
 %--------------------------------------------------------------------------
 
-cp = init_cp(pthx,pthmsk,pthmu,mu,K,C); 
+cp = init_cp(pthf,pthmu,lnmu,K,d,do); 
 
 %--------------------------------------------------------------------------
 % Initialise bias field parameters
 %--------------------------------------------------------------------------
 
-chan = init_bf(N,d,vx,C,V,samp);    
+chan = init_bf(N,C,V,d,bflam,bffwhm);    
 
 %--------------------------------------------------------------------------
 % Initialise registration parameters
 %--------------------------------------------------------------------------
 
-[pthv,sched,B,affpar] = init_reg(N,d,nitmain,tempdir,matim);
-
+[pthv,~,B,a] = init_reg(N,d,nitmain,tempdir,Mf);
+prm          = [vx rparam];
+int_args     = 1;
+do.v         = 0;
+do.a         = 0;
+        
 %--------------------------------------------------------------------------
-% Set below to true in order to debug registration part
+% Miscellaneous (results directory, lower bound, visualisation)
 %--------------------------------------------------------------------------
 
-if false   
-    docp    = 0;
-    dobias  = 0;
+if do.writemu
+    tag = ['K-' num2str(K) '_N-' num2str(N) '_vx-' num2str(vx(1)) '_deg-' num2str(bs(1))];
 
-    rfolder = '/home/mbrud/Dropbox/PhD/dev/MATLAB/JAs_gems/diffeo_registration/';
-    Nmu = nifti(fullfile(rfolder,'Template_4.nii'));
-    Nf  = nifti(char(fullfile(rfolder,'rc1mprage0040063.nii'),fullfile(rfolder,'rc2mprage0040063.nii')));
+    if (exist('results','dir') == 0)
+        mkdir('results');
+    end
 
-    mu = single(Nmu.dat(:,:,:,:));
-    
-    lnmu = log(mu);
-    
-    r  = single(cat(4,Nf(1).dat(:,:,:),Nf(2).dat(:,:,:)));
-    r  = cat(4,r,max(1-sum(r,4),0));        
-    
-    matmu = Nmu.mat;
-    matim = Nf.mat;
-    
-    d = size(Nmu.dat(:,:,:));
-    K = size(Nmu.dat(:,:,:,:),4);
-    
-    M  = matmu(1:3,1:3);
-    vx = sqrt(sum(M.^2));
-    
-    pthmu = 'dummy';
-
-    msk    = ~isfinite(sum(r,4));
-    msk    = repmat(msk,1,1,1,K);
-    r(msk) = 1/K;
-    
-    cp(1).w = ones(1,K)/K;
-    
-    figure(777); clf
+    folder = fullfile('results',tag);
+    if ~(exist(folder,'dir') == 0)
+        rmdir(folder,'s');
+    end
+    mkdir(folder);
 end
+
+[L,gL] = init_L(N);
+
+[fig,rndn,zix] = init_fig(N,debuglevel,d,pars.figix);
+fig5           = fig{5};
 
 %==========================================================================
 % Start algorithm 
@@ -200,328 +132,325 @@ end
  
 fprintf('===================================\n')
 fprintf('Running algorithm\n')
-for itmain=1:nitmain        
-            
-    muden = 0;
-    munum = 0;      
-    muv   = 0;
-    
-    if itmain<startvelit
-        dovel = 0;
-    elseif itmain==startvelit
-        dovel  = 1;
+for itmain=1:nitmain                          
+
+    if itmain==2
+        % Most of the objfun improvements are in the first iteration,
+        % so show only improvements after this, as they are more clearly visible.
+        [L,gL] = init_L(N);
     end
     
-    if itmain==stpaff
-       nitaff = 1; 
+    if itmain==it2strtreg(3) && do.v0
+        % Large deformation model
+        int_args = 8;
+        do.v     = 1;
     end
+    if itmain==it2strtreg(2) && do.v0
+        % Small deformation model
+        do.v = 1;
+    end
+    if itmain==it2strtreg(1) && do.a0
+        % Affine
+        do.a = 1;
+    end
+       
+%     if do.v
+%         % Decrease diffeomorphic regularisation over iterations------------
+%         prm = [vx rparam*sched(itmain)];
+%     end
     
-    % Decrease regularisation over iterations------------------------------     
-    if dovel        
-        prm    = [vx rparam*sched(itmain - startvelit + 1)*prod(vx)];
+    if int_args > 1      
         Greens = spm_shoot_greens('kernel',d,prm);
     else
-        prm    = [];
         Greens = [];
     end             
     
-    % Mean correcting------------------------------------------------------
-    if N>1
-        % Affine transform parameters--------------------------------------
-        muaffpar = mean(cat(3,affpar{:}),3);
-        
-        if dovel
-            % Velocity fields--------------------------------------------------            
-            for n=1:N
-               [~,v,~] = load_from_nii(n,pthx,pthv,pthmsk);                         
-               muv     = muv + v;
-            end
-            muv = muv/N;
-
-            clear v
-        end
-    end
+%     if N>1 && do.amu
+%         % For mean correcting affine transform parameters
+%         amu = mean(cat(3,a{:}),3);
+%     else 
+%         amu = 0;
+%     end
     
-    for n=1:N % For each subject
-        fprintf('it=%d, n=%d\n',itmain,n); 
-        
-        r = 0;
-        
+    muden = 0; munum = 0;  
+    
+    parfor (n=1:N,pars.runpar) % For each subject
+%     for n=1:N
+        fprintf('it=%d, n=%d\n',itmain,n);                   
+                
         % Load data--------------------------------------------------------
-        [x,v,msk] = load_from_nii(n,pthx,pthv,pthmsk);                        
-%         [x,v] = load_from_nii(n,pthx,pthv,pthmsk);   
-%         msk   = ones([prod(d) 1],'logical');
+        [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);    
         
-        % Warp mu----------------------------------------------------------        
-        [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens,dovel);
-        E                    = spm_dexpm(affpar{n},B);
-        Affine               = matmu\E*matim;     
+%         if N>1 && do.amu
+%             % Mean correct affine parameters-------------------------------
+%             a{n} = a{n} - amu;
+%         end 
+        
+        % Warp template to subject-----------------------------------------        
+        [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens);
+        E                    = spm_dexpm(a{n},B);
+        Affine               = Mmu\E*Mf;     
         y1                   = affine_transf(Affine,phi);                   
-%         wlnmu                = warp(lnmu,y1,ord);       
-        wlnmu = sample_mu(lnmu,y1);
-                            
-        % Get bias field---------------------------------------------------
-        bf = get_bf(chan{n},C,d);
+        wlnmu                = warp(lnmu,y1,bs); y1 = [];        
         
-        % Compute priors of objective--------------------------------------
-        [Ebf,Eaff,Evel,Ell] = calc_E(dobias,doaff,dovel,chan{n},itmain,N,pthmu,affpar{n},Raff,v,prm);
-      
+        % Re-generate bias field-------------------------------------------
+        bf = get_bf(chan{n},d);
         
+        % Objective function-----------------------------------------------
+        [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);        
+              
         %------------------------------------------------------------------
         % Cluster and bias part
-        %------------------------------------------------------------------
+        %------------------------------------------------------------------                                                          
             
-        if docp || dobias                                                  
+        for itcb=1:nitcb
+
+            %----------------------------------------------------------
+            % Update cluster parameters
+            %----------------------------------------------------------   
+                                              
+            [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);
+            L{n}         = [L{n}; Lz + Lbf + La + Lv 2];
+
+            %----------------------------------------------------------
+            % Update bias field parameters (as in spm_preproc8)
+            %----------------------------------------------------------
+
+            if do.bf
             
-            for itcb=1:nitcb
-                
-                %----------------------------------------------------------
-                % Update cluster parameters
-                %----------------------------------------------------------   
+                % Precisions-----------------------------------------------
+                pr = zeros(C,C,K);
+                for k=1:K
+                    pr(:,:,k) = cp(n).po.n(k)*cp(n).po.W(:,:,k); % Mean of Wishart prior
+                end               
+
+                oL = L{n}(end,1);
+                for c=1:C                        
+                    f   = reshape(f,[d C]);
+                    bf  = reshape(bf,[d C]);    
+                    msk = reshape(msk,[d 1]);    
                     
-                if docp                                                    
-                    [Ell,r,cp(n)] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);
-                    L{n}          = [L{n}; Ell + Ebf + Eaff + Evel 2];
-                end
+                    d3 = numel(chan{n}(c).T);
+                    if d3>0
+                        
+                        % Gradient and Hessian------------------------------
+                        H = zeros(d3,d3);
+                        g = zeros(d3,1);  
 
-                
-                %----------------------------------------------------------
-                % Update bias field parameters
-                %----------------------------------------------------------
-                
-                if dobias
-                    % Precisions-----------------------------------------------
-                    pr = zeros(C,C,K,'single');
-                    for k=1:K
-                        pr(:,:,k) = inv(cp(n).po.W(:,:,k))/(cp(n).po.nu(k) - C - 1);
-                    end
+                        for z=1:d(3)
 
-                    for c=1:C
-                        if numel(chan{n}(c).T)>0
+                            mskz = msk(:,:,z);
+                            nm   = nnz(mskz);
 
-                            % Get derivatives and Hessian wrt bias parameters--
-                            [g,H] = diff_bf(chan{n},bf,r,x,msk,d,K,C,cp(n),pr,c);
-
-                            % Include prior------------------------------------
-                            g = g + chan{n}(1).C*chan{n}(c).T(:);
-                            H = H + chan{n}(1).C;
-
-                            % Gauss-Newton update------------------------------
-                            Update = reshape(H\g,size(chan{n}(c).T));
-
-                            % Do linesearch--------------------------------------------                        
-                            oT    = chan{n}(c).T;
-                            oEbf  = Ebf;
-                            oEll  = Ell;
-                            scale = 1;
-                            for line_search=1:12
-                                chan{n}(c).T = chan{n}(c).T - scale*Update;
+                            if nm==0, continue; end
+                            
+                            cr = cell(N,1);
+                            for c1=1:C
+                                fz  = f(:,:,z,c1);   fz  = fz(mskz);
+                                bfz = bf(:,:,z,c1); bfz = bfz(mskz);
                                 
-                                bf  = get_bf(chan{n},C,d);                                
-                                Ebf = -0.5*chan{n}(1).T(:)'*chan{n}(1).C*chan{n}(1).T(:);                                
-                                Ell = update_cp(K,x,bf,wlnmu,cp(n),msk,d);
-
-                                if Ell + Ebf + Eaff + Evel > L{n}(end,1)
-                                    break;
-                                else                                
-                                    chan{n}(c).T = oT;
-                                    scale    = 0.5*scale;
-
-                                    if line_search==12
-                                        % Revert back to old parameters--------
-                                        Ebf = oEbf;
-                                        Ell = oEll;
-                                        bf  = get_bf(chan{n},C,d);
-                                    end
-                                end 
+                                cr{c1} = double(fz).*double(bfz); 
                             end
+
+                            w1 = zeros(nm,1);
+                            w2 = zeros(nm,1);
+                            for k=1:K
+                                rk  = r(:,:,z,k);
+                                rk  = rk(mskz);
+                                w0  = zeros(nm,1);
+                                for c1=1:C
+                                    w0 = w0 + pr(c1,c,k)*(cp(n).po.m(c1,k) - cr{c1});
+                                end
+                                w1  = w1 + rk.*w0;
+                                w2  = w2 + rk*pr(c,c,k);
+                            end
+                            wt1       = zeros(d(1:2));
+                            wt1(mskz) = -(1 + cr{c}.*w1); % US eq. 34 (gradient)
+                            wt2       = zeros(d(1:2));
+                            wt2(mskz) = cr{c}.*cr{c}.*w2 + 1; % Simplified Hessian of US eq. 34
+                            cr = [];
+
+                            b3 = chan{n}(c).B3(z,:)';
+                            g  = g  + kron(b3,spm_krutil(wt1,chan{n}(c).B1,chan{n}(c).B2,0));
+                            H  = H + kron(b3*b3',spm_krutil(wt2,chan{n}(c).B1,chan{n}(c).B2,1));
+                            wt1 = []; wt2 = []; b3 = [];
                         end
-                    end                              
 
-                    L{n} = [L{n}; Ell + Ebf + Eaff + Evel 3];  
-                end
+                        Lam = chan{n}(c).C; % Inverse covariance of priors                            
 
-                if itcb==nitcb && dobias && docp
-                    % Update responsibilities and cluster parameters-------                
-                    [Ell,r,cp(n)] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);
-                    L{n}          = [L{n};  Ell + Ebf + Eaff + Evel 2];  
-                end   
-            end    
-        end
+                        % Gauss-Newton update------------------------------
+                        Update = reshape((H + Lam)\(g + Lam*chan{n}(c).T(:)),size(chan{n}(c).T)); g = []; H = [];                            
+
+                        % Line-search--------------------------------------
+                        
+                        f   = reshape(f,[prod(d) C]);
+                        msk = reshape(msk,[prod(d) 1]);
+                        
+                        scale = 1.0;
+                        oLz   = Lz;
+                        oLbf  = Lbf;
+                        oT    = chan{n}(c).T;
+                        for line_search=1:12
+                            chan{n}(c).T = chan{n}(c).T - scale*Update; % Backtrack if necessary
+
+                            % Re-generate bias field-----------------------
+                            bf = get_bf(chan{n},d);  
+
+                            % Objective function---------------------------
+                            [Lz,Lbf] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
+
+                            if Lz + Lbf + La + Lv >= oL
+                                oL = Lz + Lbf + La + Lv;
+                                break;
+                            else                                
+                                chan{n}(c).T = oT;
+                                scale        = 0.5*scale;
+
+                                if line_search==12
+                                    % Revert back to old parameters--------
+                                    Lbf = oLbf;
+                                    Lz  = oLz;
+                                    bf  = get_bf(chan{n},d);
+                                end
+                            end 
+                        end                        
+                        oT = []; Update = [];
+                    end                                                                
+                end                
+                pr = [];   
                 
+                L{n} = [L{n}; Lz + Lbf + La + Lv 3]; 
+            end
+
+            if itcb==nitcb && do.bf
+                % Update responsibilities and cluster parameters-------                
+                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);
+                L{n}         = [L{n};  Lz + Lbf + La + Lv 2];  
+            end   
+        end   
+             
+        if debuglevel>2
+            set(0,'CurrentFigure',fig5);                                              
+            show_warped_mu(fig5,K,wlnmu,r,d,zix);
+        end
+            
         %------------------------------------------------------------------
         % Registration part
         %------------------------------------------------------------------
         
-        if (doaff || dovel) && (~isempty(pthmu) || (itmain>1 && N>1))                                            
-                
+        if ~isempty(pthmu) || (itmain>1 && N>1)                                                            
+            
             %--------------------------------------------------------------
             % Update affine parameters
             %--------------------------------------------------------------                                
             
-            if doaff                                                         
-                for itaff=1:nitaff
-                    
-                    r = reshape(r,[d K]);
-                
-                    if showwarp
-                        z = floor(d(3)/2);
-                        figure(777)
-                        for k=1:K
-                            subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);                
-                            subplot(2,K,k+K); imagesc(r(:,:,z,k)');    axis image xy off; colormap(gray);
-                        end
-                        drawnow
-                    end
-                                            
-                    if N>1
-                        % Mean correct-------------------------------------
-                        affpar{n} = affpar{n} - muaffpar;
-                    end
-                    
-                    % Get derivatives and Hessian wrt affine parameters----
-                    [g,H] = diff_aff(affpar{n},r,lnmu,log(cp(n).w),B,matmu,matim,phi,ord,msk);
+            if do.a                                   
+                     
+                oL = L{n}(end,1);
+                for gauss_newton=1:1
+                    % Gradient and Hessian-------------------------------------
+                    [g,H] = diff_a(a{n},r,lnmu,cp(n).lnw,B,Mmu,Mf,phi);
 
-                    % Include prior----------------------------------------
-%                     g = g + Raff*affpar{n};               
-%                     H = H + Raff;
+                    % Include prior--------------------------------------------
+%                     g = g + R*a{n};               
+%                     H = H + R;
 
-                    % Gauss-Newton update----------------------------------
-                    Update = H\g; 
+                    % Gauss-Newton update--------------------------------------
+                    Update = H\g; g = []; H = []; 
 
-                    % Do linesearch----------------------------------------    
-%                     Pmu    = weighted_softmax(wlnmu,log(cp.w),msk);
-%                     Ell    = sum(sum(rmsk(r,msk,d,K).*log(Pmu),2),1);
-                    
-                    oEaff   = Eaff;
-                    oEll    = Ell;
-                    oaffpar = affpar{n};
-                    scale   = 1;
+                    % Line-search----------------------------------------------
+                    scale = 1.0;
+                    oLa   = La;
+                    oLz   = Lz;
+                    oa    = a{n};
                     for line_search=1:12
-                        affpar{n} = affpar{n} - scale*Update;
-                        
-                        E      = spm_dexpm(affpar{n},B);
-                        Affine = matmu\E*matim; 
+                        a{n} = a{n} - scale*Update; % Backtrack if necessary
+
+                        % Warp template to subject-----------------------------
+                        E      = spm_dexpm(a{n},B);
+                        Affine = Mmu\E*Mf; 
                         y1     = affine_transf(Affine,phi);                    
-%                         wlnmu  = warp(lnmu,y1,ord);                     
-                        wlnmu = sample_mu(lnmu,y1);
-        
-%                         Pmu   = weighted_softmax(wlnmu,log(cp.w),msk);
-%                         Ell   = sum(sum(rmsk(r,msk,d,K).*log(Pmu),2),1)
-                        
-                        Ell  = update_cp(K,x,bf,wlnmu,cp(n),msk,d); 
-                        Eaff = 0;%-0.5*affpar{n}'*Raff*affpar{n}; 
+                        wlnmu  = warp(lnmu,y1,bs); y1 = [];                   
 
-                        if Ell + Ebf + Eaff + Evel > L{n}(end,1)
-                            if showwarp
+                        % Objective function-----------------------------------
+                        [Lz,Lbf,La] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
+
+                        if Lz + Lbf + La + Lv >= oL
+
+                            if debuglevel>2
                                 fprintf('Affine converged (n=%d,it=%d)\n',n,line_search); 
-
-                                z = floor(d(3)/2);
-                                figure(777)
-                                for k=1:K
-                                    subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);
-                                    subplot(2,K,k+K); imagesc(r(:,:,z,k)');     axis image xy off; colormap(gray);
-                                end
-                                drawnow
+                                show_warped_mu(fig5,K,wlnmu,r,d,zix);
                             end                        
 
-                            [Ell,r,cp(n)] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);       
-                            L{n}          = [L{n}; Ell + Ebf + Eaff + Evel 4];  
-                        
+                            oL = Lz + Lbf + La + Lv;
                             break;
                         else
-                            scale     = 0.5*scale;
-                            affpar{n} = oaffpar;
+                            scale = 0.5*scale;
+                            a{n}  = oa;
 
                             if line_search==12
-                                % Revert back to old parameters------------
-                                E      = spm_dexpm(affpar{n},B);
-                                Affine = matmu\E*matim; 
+                                % Revert back to old parameters----------------
+                                E      = spm_dexpm(a{n},B);
+                                Affine = Mmu\E*Mf; 
                                 y1     = affine_transf(Affine,phi);
-%                                 wlnmu  = warp(lnmu,y1,ord); 
-                                wlnmu = sample_mu(lnmu,y1);
-        
-                                Eaff = oEaff;
-                                Ell  = oEll;
-                                
-                                L{n} = [L{n}; Ell + Ebf + Eaff + Evel 4];
+                                wlnmu  = warp(lnmu,y1,bs); y1 = [];           
+
+                                La = oLa;
+                                Lz = oLz; 
                             end
                         end
-                    end
-                end                                
+                    end                   
+                end
+
+                L{n} = [L{n}; Lz + Lbf + La + Lv 4];
+                
+                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);       
+                L{n}         = [L{n}; Lz + Lbf + La + Lv 2];
+
+                Update = [];                              
             end
             
             %--------------------------------------------------------------
             % Update velocity parameters
             %--------------------------------------------------------------
             
-            if dovel                                
-                
-                r = reshape(r,[d K]);
-                
-                if showwarp
-                    z = floor(d(3)/2);
-                    figure(777)
-                    for k=1:K
-                        subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);                
-                        subplot(2,K,k+K); imagesc(r(:,:,z,k)');    axis image xy off; colormap(gray);
-                    end
-                    drawnow
-                end
-                
-                if N>1
-                    % Mean correct-----------------------------------------
-                    v = v - muv;
-                end
+            if do.v                    
                     
-                % Get derivatives and Hessian wrt velocity parameters------
-                [g,H] = diff_vel(r,lnmu,log(cp(n).w),Affine,phi,int_args,ord,msk);
+                % Gradient and Hessian-------------------------------------
+                [g,H] = diff_v(r,lnmu,cp(n).lnw,Affine,phi,int_args);
 
                 % Include prior--------------------------------------------
                 u = spm_diffeo('vel2mom',v,prm);
-                g = g + u;
+                g = g + u; u = [];
 
                 % Gauss-Newton update--------------------------------------
-                Update = spm_diffeo('fmg',H,g,[prm 3 2]);
+                Update = spm_diffeo('fmg',H,g,[prm 3 2]); g = []; H = [];
 
-                % Do linesearch--------------------------------------------
-%                 Pmu   = weighted_softmax(wlnmu,log(cp.w),msk);
-%                 Ell   = sum(sum(rmsk(r,msk,d,K).*log(Pmu)));
-                
-                oEll  = Ell;
-                oEvel = Evel;
+                % Line-search----------------------------------------------
+                scale = 1.0;
+                oLz   = Lz;
+                oLv   = Lv;
                 ov    = v;
-                scale = 1;
                 for line_search=1:12
-                    v = v - scale*Update;
+                    v = v - scale*Update; % Backtrack if necessary
+                    if d(3)==1
+                        v(:,:,:,3) = 0;
+                    end
                     
-                    [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens,dovel);
+                    % Warp template to subject-----------------------------
+                    [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens);
                     y1                   = affine_transf(Affine,phi);                    
-%                     wlnmu                = warp(lnmu,y1,ord); 
-                    wlnmu = sample_mu(lnmu,y1);
+                    wlnmu                = warp(lnmu,y1,bs); y1 = [];          
                               
-%                     Pmu = weighted_softmax(wlnmu,log(cp.w),msk);
-%                     Ell = sum(sum(rmsk(r,msk,d,K).*log(Pmu)));
-
-                    Ell  = update_cp(K,x,bf,wlnmu,cp(n),msk,d);
-                    u    = spm_diffeo('vel2mom',v,prm);
-                    Evel = -0.5*sum(sum(sum(sum(u.*v))));
+                    % Objective function-----------------------------------
+                    [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
                     
-                    if Ell + Ebf + Eaff + Evel  > L{n}(end,1) 
-                        if showwarp
-                            fprintf('Nonlinear converged (n=%d,it=%d)\n',n,line_search); 
-                            
-                            z = floor(d(3)/2);
-                            figure(777)
-                            for k=1:K
-                                subplot(2,K,k  ); imagesc(wlnmu(:,:,z,k)'); axis image xy off; colormap(gray);
-                                subplot(2,K,k+K); imagesc(r(:,:,z,k)');     axis image xy off; colormap(gray);
-                            end
-                            drawnow
-                        end
+                    if Lz + Lbf + La + Lv >= L{n}(end,1) 
                         
-                        [Ell,r,cp(n)] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);       
-                        L{n}          = [L{n}; Ell + Ebf + Eaff + Evel 5];  
+                        if debuglevel>2
+                            fprintf('Nonlinear converged (n=%d,it=%d)\n',n,line_search); 
+                            show_warped_mu(fig5,K,wlnmu,r,d,zix);                            
+                        end                        
                             
                         break;
                     else
@@ -530,15 +459,25 @@ for itmain=1:nitmain
                         
                         if line_search==12
                             % Revert back to old parameters----------------
-                            [~,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens,dovel);
+                            [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens);
                             
-                            Evel = oEvel;                            
-                            Ell  = oEll;
-                            
-                            L{n} = [L{n}; Ell + Ebf + Eaff + Evel 5];  
+                            E      = spm_dexpm(a{n},B);
+                            Affine = Mmu\E*Mf; 
+                            y1     = affine_transf(Affine,phi);
+                            wlnmu  = warp(lnmu,y1,bs); y1 = [];    
+                                
+                            Lv = oLv;                            
+                            Lz = oLz;                                                        
                         end
                     end
                 end
+                
+                L{n} = [L{n}; Lz + Lbf + La + Lv 5];  
+                                
+                [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);
+                L{n}         = [L{n}; Lz + Lbf + La + Lv 2];     
+                
+                Update = []; ov = [];
             end     
 
         end    
@@ -547,174 +486,163 @@ for itmain=1:nitmain
         % Update statistics for TPM
         %------------------------------------------------------------------
         
-        if dotpm && N>1                                
-            % Compute multinomial part
-            wmu  = bsxfun(@times,reshape(mu,[prod(d),K]),cp(n).w);
-            mnom = bsxfun(@rdivide,wmu,sum(wmu,2));
+        if do.mu && N>1         
+                        
+            % Get logs of mixing weights
+            c1 = cp(n).lnw;
+            c1 = c1';
+            c1 = repmat(c1,1,prod(d)); % [KxNf]
             
-            % Compute likelihood part
-            [~,~,~,lik] = update_cp(K,x,bf,wlnmu,cp(n),msk,d); 
+            % Get logs of template
+            a1 = reshape(lnmu,[prod(d) K])';
             
-            % Warp likelihood to template space
-            E      = spm_dexpm(affpar{n},B);
-            Affine = matmu\E*matim; 
-            y1     = spm_diffeo('comp',theta,affine_transf(inv(Affine),identity(d)));            
-            lik    = warp(reshape(single(lik),[d K]),y1,ord);   
+            % Get likelihoods
+            [~,~,~,Pf] = update_cp(f,bf,wlnmu,cp(n),msk);  
+            Pf         = reshape(Pf,[d K]);
             
-            % Multiply warped likelihood w. determinants of inv(Affine) and Jtheta
-            lik = bsxfun(@times,lik,spm_diffeo('det',Jtheta)*det(inv(Affine)));                                            
-            lik = reshape(lik,[prod(d) K]);
+            % Warp likelihoods to template
+            E         = spm_dexpm(a{n},B);
+            Affine    = Mmu\E*Mf; 
+            invAffine = inv(Affine);           
+            y1        = spm_diffeo('comp',theta,affine_transf(invAffine,identity(d)));
+            if d(3)==1, y1(:,:,:,3) = 1; end            
+            Pf        = warp(Pf,y1,bs); y1 = []; 
             
-            % Compute numerator part of mu update for subject n
-            tmp             = mnom.*lik;    
-            tmp             = bsxfun(@rdivide,tmp,sum(tmp,2));
-            tmp(isnan(tmp)) = 0;                        
-            munum           = munum + tmp; % Sum over subjects
-        
-            % Compute denomenator part of mu update for subject n
-            tmp             = 1./sum(wmu,2);    
-            tmp             = bsxfun(@times,cp(n).w,repmat(tmp,1,K));
-            tmp(isnan(tmp)) = 0;                              
-            muden           = muden + tmp; % Sum over subjects
+            % Scale warped likelihoods by Jacobian determinants
+            dt = spm_diffeo('det',Jtheta)*abs(det(invAffine(1:3,1:3)));
+            Pf = bsxfun(@times,Pf,dt); dt = [];
+            b1 = reshape(Pf,[prod(d) K]); Pf = [];
+            b1 = b1';
+            
+            % Solve dF/dmu=0 for mu
+            ac  = bsxfun(@plus,a1,c1); a1 = [];   
+            eac = exp(ac); ac= [];
+
+            eacb = bsxfun(@times,eac,b1); b1= [];
+
+            r1                = bsxfun(@rdivide,eacb,sum(eacb,1)); eacb = [];
+            r1(~isfinite(r1)) = 0;   
+            
+            munum = munum + r1; r1 = []; % Add to sum over subjects
+
+            pn                = 1./sum(eac,1); eac = [];
+            cn                = exp(c1); c1 = [];
+            p1                = bsxfun(@times,pn,cn); pn = []; cn = [];
+            p1(~isfinite(p1)) = 0; 
+            
+            muden = muden + p1; p1 = []; % Add to sum over subjects
         end
         
         % Save data--------------------------------------------------------
         save_to_nii(n,pthv,v);
         
-        fprintf('cp(%i).w: %s\n',n,sprintf('%3.3f ',cp(n).w));
+        fprintf('cp(%i).w: %s\n',n,sprintf('%3.3f ',exp(cp(n).lnw)));
     end
-    
+       
     %----------------------------------------------------------------------
-    % Normalize TPMs
+    % Update template (mu)
     %----------------------------------------------------------------------            
     
-    if dotpm && N>1
-%         % "better way" (John hopes)----------------------------------------
-%         mu = munum./muden; 
-%         mu = bsxfun(@rdivide,mu,sum(mu,2)); 
+    if do.mu && N>1     
         
-        % "naive way"------------------------------------------------------
-        mu = bsxfun(@rdivide,munum,sum(munum,2)); 
+        % Update template--------------------------------------------------
+        lnmu = log(munum./muden + eps); munum = []; muden = []; % eps can be considered a Dirichlet prior
+        lnmu = reshape(lnmu',[d K]);
         
-        % Make sure that mu is a valid probability distribution------------
-        msk     = ~isfinite(sum(mu,2)) | sum(mu,2) == 0;
-        msk     = repmat(msk,1,K);
-        mu(msk) = 1/K;                
-        
-        if sum(~isfinite(mu(:))), 
-            warning('sum(~isfinite(mu(:)))'); 
-        end        
-                
-        mu   = reshape(mu,[d K]);
-        lnmu = log(mu + tiny);
-    
-        if sum(~isfinite(lnmu(:))), 
-            warning('sum(~isfinite(lnmu(:)))'); 
-        end        
+        if sum(~isfinite(lnmu(:))), warning('sum(~isfinite(lnmu(:)))'); end                                
         
         % Compute objective------------------------------------------------                
-        for n=1:N
-            [x,v,msk] = load_from_nii(n,pthx,pthv,pthmsk);
+        parfor (n=1:N,pars.runpar)
+%         for n=1:N
+            [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);
             
-            [Ebf,Eaff,Evel] = calc_E(dobias,doaff,dovel,chan{n},itmain,N,pthmu,affpar{n},Raff,v,prm);  
+            % Re-generate bias field---------------------------------------
+            bf = get_bf(chan{n},d);
             
-            phi = make_deformation(v,prm,int_args,Greens,dovel);
-            
-            E      = spm_dexpm(affpar{n},B);
-            Affine = matmu\E*matim;                           
+            % Warp temlate to subject--------------------------------------
+            phi    = make_deformation(v,prm,int_args,Greens);            
+            E      = spm_dexpm(a{n},B);
+            Affine = Mmu\E*Mf;                           
             y1     = affine_transf(Affine,phi);                    
-%             wlnmu  = warp(lnmu,y1,ord); 
-            wlnmu = sample_mu(lnmu,y1);
-                          
-            bf = get_bf(chan{n},C,d);
+            wlnmu  = warp(lnmu,y1,bs); y1 = [];                                                 
             
-            Ell = update_cp(K,x,bf,wlnmu,cp(n),msk,d);  
-            
-            L{n} = [L{n}; Ell + Ebf + Eaff + Evel 6];
+            % Objective function-------------------------------------------
+            [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);            
+            L{n}           = [L{n}; Lz + Lbf + La + Lv 6];
                                 
-            % Update responsibilities and cluster parameters---------------
-            [Ell,~,cp(n)] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);       
-            L{n}          = [L{n}; Ell + Ebf + Eaff + Evel 2];              
+            % Update cluster parameters------------------------------------
+            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);       
+            L{n}         = [L{n}; Lz + Lbf + La + Lv 2];      
+            
+            f = []; v = []; bf = []; phi = []; wlnmu = [];
         end
-    end
-        
+    end                        
+    
     %----------------------------------------------------------------------
-    % Update intensity priors
+    % Update intensity prior hyper-parameters
     %----------------------------------------------------------------------    
     
-    if doprior && N>1 
-        oLpr = cat(3,L{:});
-        oLpr = sum(oLpr(end,1,:));
-        ocp  = cp;
+    if do.pr && N>1 
         
+        % Update intensity prior hyper-parameters--------------------------
         pr = update_pr(cp);
         for n=1:N
             cp(n).pr = pr;
-        end
+        end        
         
-        % Compute objective------------------------------------------------  
-        L1 = zeros(N,2);
-        L2 = zeros(N,2);        
-        for n=1:N
-            [x,v,msk] = load_from_nii(n,pthx,pthv,pthmsk);
+        % Compute objective------------------------------------------------                
+        parfor (n=1:N,pars.runpar)
+%         for n=1:N
+            [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);
             
-            [Ebf,Eaff,Evel] = calc_E(dobias,doaff,dovel,chan{n},itmain,N,pthmu,affpar{n},Raff,v,prm);     
+            % Re-generate bias field---------------------------------------
+            bf = get_bf(chan{n},d);
             
-            phi = make_deformation(v,prm,int_args,Greens,dovel);
-            
-            E      = spm_dexpm(affpar{n},B);
-            Affine = matmu\E*matim;                           
+            % Warp temlate to subject--------------------------------------
+            phi    = make_deformation(v,prm,int_args,Greens);            
+            E      = spm_dexpm(a{n},B);
+            Affine = Mmu\E*Mf;                           
             y1     = affine_transf(Affine,phi);                    
-%             wlnmu  = warp(lnmu,y1,ord); 
-            wlnmu = sample_mu(lnmu,y1);
-                        
-            bf = get_bf(chan{n},C,d);
+            wlnmu  = warp(lnmu,y1,bs); y1 = [];                                                
             
-            Ell = update_cp(K,x,bf,wlnmu,cp(n),msk,d);  
+            % Objective function-------------------------------------------
+            [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);            
+            L{n}           = [L{n}; Lz + Lbf + La + Lv 7];
+                                
+            % Update cluster parameters------------------------------------
+            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);       
+            L{n}         = [L{n}; Lz + Lbf + La + Lv 2];    
             
-            L1(n,:) = [Ell + Ebf + Eaff + Evel 7];
-            
-            % Update responsibilities and cluster parameters---------------
-            [Ell,~,cp(n)] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);       
-            L2(n,:)       = [Ell + Ebf + Eaff + Evel 2];              
-        end    
-        
-        nLpr = sum(L1(:,1));
-        
-        if nLpr<oLpr
-            cp = ocp;
-        else
-            for n=1:N
-                L{n} = [L{n}; L1(n,:)];
-                L{n} = [L{n}; L2(n,:)];
-            end
+            f = []; v = []; bf = []; phi = []; wlnmu = [];
         end
-    end    
-                  
+    end  
+    
     %----------------------------------------------------------------------
     % Plot, check stopping criteria, save, etc.
     %----------------------------------------------------------------------
     
     % Display results------------------------------------------------------    
-    if debugmode
-        visualize_progress(fig,d,K,rndn,mu,pthv,C,chan,affpar,prm,int_args,Greens,dovel,matmu,matim,ord,B,pthx,pthmsk,cp);
+    if debuglevel>1
+        visualize_progress(fig,d,K,rndn,lnmu,pthv,chan,zix);
     end
         
     % Save most recent TPM-------------------------------------------------
-    write_mu(tag,mu,matmu);
-        
+    if do.writemu
+        write_mu(tag,lnmu,Mmu,d,K);
+    end
     
     % Plot lower bound-----------------------------------------------------
-    if plotL
+    if debuglevel
         plot_L(L,itmain,fig);  
     end
     
     % Check convergence----------------------------------------------------
-    Lglobal = get_Lglobal(Lglobal,L);                  
+    gL = globalL(gL,L);                  
+    if sum(~isfinite(gL(2:end))), warning('~isfinite(gL)'); end
+
+    fprintf('%d %g %g\n',itmain,gL(end),abs((gL(end) - gL(end - 1))/gL(end)));
     
-    fprintf('%d %g %g\n',itmain,Lglobal(end),abs((Lglobal(end) - Lglobal(end - 1))/Lglobal(end)));
-    
-    if abs((Lglobal(end) - Lglobal(end - 1))/Lglobal(end))<tol && itmain>20
+    if abs((gL(end) - gL(end - 1))/gL(end))<tol && itmain>9
         fprintf('Algorithm converged in %d iterations.\n',itmain)                        
         break;
     end
@@ -722,41 +650,97 @@ end
 %==========================================================================
 
 %==========================================================================
-function write_mu(tag,mu,matmu)
+function [pthf,C,N,V] = get_pth2f(imdir,N,C)
+folder    = dir(imdir);         % folder with subfolders containing multi-channel data of subjects
+folder    = folder(3:end);
+dirflag   = [folder.isdir];
+subfolder = folder(dirflag);    % subfolders (S1,S2,...)
+N1        = numel(subfolder);
+if N>N1
+    N = N1; % Number of subjects
+end
+
+fname = dir(fullfile(imdir,subfolder(1).name,'*.nii'));
+C1    = numel(fname);
+if C>C1
+    C = C1; % Number of channels
+end
+
+pthf = cell(N,C);
+for n=1:N
+    folder = fullfile(imdir,subfolder(n).name);
+    fname  = dir(fullfile(folder,'*.nii'));
+    for c=1:C
+        pthf{n,c} = fullfile(folder,fname(c).name);
+    end
+end
+
+V = get_all_V(pthf);
+
+fprintf('Loading data from %d subjects having %d channels each\n',N,C); 
+%==========================================================================
+
+%==========================================================================
+function V = get_all_V(pthf)
+[N,C] = size(pthf);
+
+V = cell(N,C);
+for c=1:C
+    for n=1:N
+        V{n,c} = spm_vol(pthf{n,c});
+    end
+end
+%==========================================================================
+
+%==========================================================================
+function write_mu(tag,lnmu,Mmu,d,K)
+lnmu = reshape(lnmu,[prod(d) K]);
+mu   = softmax(lnmu);
+mu   = reshape(mu,[d K]);
+
 f     = fullfile('results',tag);
 fname = fullfile(f,[tag '__tpm.nii']);
-create_nii(fname,mu,matmu,'float32','TPM');   
+create_nii(fname,mu,Mmu,'float32','TPM');   
 %==========================================================================
 
 %=======================================================================        
-function [Ebf,Eaff,Evel,Ell] = calc_E(dobias,doaff,dovel,chan,itmain,N,pthmu,affpar,Raff,v,prm)
-Ebf  = 0;
-Eaff = 0;
-Evel = 0;
-Ell  = 0;
+function [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,lnmu,cp,chan,a,R,v,prm,msk)
+Lbf = 0; La = 0; Lv = 0;
 
-if dobias                                  
-    Ebf = -0.5*chan(1).T(:)'*chan(1).C*chan(1).T(:);
+% E[ln(p(X|Z,µ,Σ,b))] + E[ln(p(Z|π,w,v,a))] + E[ln(p(µ,Σ))] - E[ln(q(Z))] - E[ln(q(µ,Σ))]
+Lz = update_cp(f,bf,lnmu,cp,msk);
+
+if do.bf && nargout > 1    
+    % ln(p(b))
+    Lbf = -0.5*chan(1).T(:)'*chan(1).C*chan(1).T(:);
 end
 
-if doaff && (~isempty(pthmu) || (itmain>1 && N>1))   
-    Eaff = 0;%-0.5*affpar'*Raff*affpar;   
+if do.a && nargout > 2
+    % ln(p(a))
+    La = 0;%-0.5*a'*R*a;   
 end
-if dovel && (~isempty(pthmu) || (itmain>1 && N>1))   
-    Evel = -0.5*sum(sum(sum(sum(spm_diffeo('vel2mom',v,prm).*v))));
+if do.v && nargout > 3
+    % ln(p(v))
+    u  = spm_diffeo('vel2mom',v,prm);
+    Lv = -0.5*sum(sum(sum(sum(double(u).*double(v)))));
 end     
 %=======================================================================
 
 %==========================================================================
-function [x,v,msk] = load_from_nii(n,pthx,pthv,pthmsk)
-x = nifti(pthx{n});
-x = single(x.dat(:,:,:));
+function [f,v,msk] = load_from_nii(n,pthf,pthv,d,C)
+f   = zeros([prod(d) C],'single');
+msk = zeros([prod(d),C],'logical');
+for c=1:C
+    Nii    = nifti(pthf{n,c});
+    f(:,c) = reshape(Nii.dat(:,:,:),[],1);     
+    
+    msk(:,c) = get_msk(f(:,c));
+end
+
+msk = sum(msk,2)==C;
 
 v = nifti(pthv{n});
 v = single(v.dat(:,:,:,:));
-
-msk = nifti(pthmsk{n});
-msk = logical(reshape(msk.dat(:,:,:),[],1));
 %==========================================================================
 
 %==========================================================================
@@ -766,12 +750,12 @@ Nii.dat(:,:,:,:) = v;
 %==========================================================================
 
 %==========================================================================
-function visualize_progress(fig,d,K,rndn,mu,pthv,C,chan,affpar,prm,int_args,Greens,dovel,matmu,matim,ord,B,pthx,pthmsk,cp)
-z = floor((d(3)+1)/2);   
-n = rndn(end);
+function visualize_progress(fig,d,K,rndn,lnmu,pthv,chan,zix)
+C = numel(chan{1});
 
 % Velocity fields
 set(0,'CurrentFigure',fig{2});
+clf(fig{2}); 
 
 cnt = 1;
 for f1=1:numel(rndn)
@@ -780,7 +764,7 @@ for f1=1:numel(rndn)
 
     for f2=1:3
         subplot(numel(rndn),3,cnt)
-        imagesc(v(:,:,z,f2)'); axis image xy off; title(['v' num2str(f2) ', n=' num2str(rndn(f1))]); colormap(gray); colorbar;
+        imagesc(v(:,:,zix,f2)'); axis image xy off; title(['v' num2str(f2) ', n=' num2str(rndn(f1))]); colormap(gray); colorbar;
         cnt = cnt + 1;
     end
 end
@@ -788,15 +772,18 @@ drawnow
 
 % Bias fields
 set(0,'CurrentFigure',fig{3});
+clf(fig{3}); 
 
 cnt = 1;
 for f1=1:numel(rndn)
-    bf = get_bf(chan{rndn(f1)},C,d);
+    bf = get_bf(chan{rndn(f1)},d);
     bf = reshape(bf,[d C]);
 
-    bf1 = bf(:,:,floor(size(bf,3)/2));
-    bf2 = squeeze(bf(floor(size(bf,1)/2),:,:));
-    bf3 = squeeze(bf(:,floor(size(bf,2)/2),:));  
+    c = 1;
+    
+    bf1 = bf(:,:,floor((size(bf,3) + 1)/2),c);
+    bf2 = squeeze(bf(floor((size(bf,1) + 1)/2),:,:,c));
+    bf3 = squeeze(bf(:,floor((size(bf,2) + 1)/2),:,c));  
 
     subplot(numel(rndn),3,cnt)
     imagesc(bf1'); axis image xy off; title(['bf' num2str(1) ', n=' num2str(rndn(f1))]); colormap(parula); colorbar;
@@ -812,57 +799,36 @@ for f1=1:numel(rndn)
 end    
 drawnow
 
-% Warped atlas
+% Template
 set(0,'CurrentFigure',fig{4});
+clf(fig{4}); 
 
-[x,v,msk] = load_from_nii(n,pthx,pthv,pthmsk);
+lnmu = reshape(lnmu,[prod(d) K]);
+mu   = softmax(lnmu);
+mu   = reshape(mu,[d K]);
 
-phi    = make_deformation(v,prm,int_args,Greens,dovel);
-E      = spm_dexpm(affpar{n},B);
-Affine = matmu\E*matim;
-y1     = affine_transf(Affine,phi);                    
-% wmu    = warp(mu,y1,ord);
-wmu = sample_mu(mu,y1);
-        
+K1 = floor(sqrt(K));
+K2 = ceil(K/K1);      
 for k=1:K
-    subplot(2,K,k);
-    imagesc(mu(:,:,z,k)'); axis image xy off; title(['mu, k=' num2str(k)]); colormap(gray);            
-end
-for k=(K + 1):2*K
-    subplot(2,K,k);
-    imagesc(wmu(:,:,z,k - K)'); axis image xy off; title(['wmu, n=' num2str(n) ', k=' num2str(k - K)]); colormap(gray);            
-end
-drawnow
-
-% Resps
-set(0,'CurrentFigure',fig{5});    
-
-% wlnmu = warp(log(mu),y1,ord);
-wlnmu = sample_mu(log(mu),y1);
-[~,r] = update_cp(K,x,bf,wlnmu,cp(n),msk,d);
-r     = reshape(r,[d K]);
-
-F  = K;
-F1 = floor(sqrt(F));
-F2 = ceil(F/F1);      
-for f=1:F
-    subplot(F1,F2,f);
-    imagesc(r(:,:,z,f)'); axis image xy off; title(['r, n=' num2str(n) ', k=' num2str(f)]); colormap(gray);
+    subplot(K1,K2,k);
+    imagesc(mu(:,:,zix,k)'); axis image xy off; title(['mu, k=' num2str(k)]); colormap(gray);
 end  
 drawnow
 %==========================================================================
 
 %==========================================================================
-function Lglobal = get_Lglobal(Lglobal,L)
+function gL = globalL(gL,L,verbose)
+if nargin<3, verbose = false; end
+
 sL = zeros(size(L{1},1),1);
 for n=1:numel(L)
     sL = sL + L{n}(:,1);
 end
     
-Lglobal(end + 1) = sL(end);
+gL(end + 1) = sL(end);
 
-if Lglobal(end) - Lglobal(end - 1) < 0
-    fprintf(2,'Global LB decreased by %1.2f\n',Lglobal(end) - Lglobal(end - 1));
+if gL(end) - gL(end - 1) < 0 && verbose
+    fprintf(2,'Global LB decreased by %1.2f\n',gL(end) - gL(end - 1));
 end
 %==========================================================================
 
@@ -875,16 +841,18 @@ for n=1:numel(L)
     sL = sL + L{n}(:,1);
 end
 
+if any(diff(sL) < 0)
+    fprintf(2,'any(diff(sL) < 0)\n');
+end
+
 n      = 1;
 colmap = {'m.','g.','y.','b.','r.','c.','k.'};
 
 set(0,'CurrentFigure',fig{1});
+clf(fig{1}); 
 
 sL  = sL(2:end);
-slb = L{n}(2:end,1);
 col = L{n}(2:end,2);
-
-subplot(121)
 
 hold on
 plot(1:numel(sL),sL,'k-','LineWidth',1);
@@ -894,69 +862,112 @@ end
 hold off
 xlabel('Convergence (global)')    
 title(['iter=' num2str(iter)])
-
-subplot(122)
-
-hold on
-plot(1:numel(slb),slb,'k-','LineWidth',1);
-for i=1:numel(slb)
-    plot(i,slb(i,ix),colmap{col(i)},'markersize',10);
-end
-hold off
-xlabel(['Convergence (n=' num2str(n) ')'])    
-title(['iter=' num2str(iter)])
-
 drawnow          
 %==========================================================================
 
 %==========================================================================
-function [fig,rndn] = init_fig(N,debugmode,plotL)
+function [fig,rndn,z] = init_fig(N,debuglevel,d,ixstart)
 fig = cell(5,1);
 
-if debugmode && plotL
+ixstart = 1 + 5*(ixstart - 1);
+
+if debuglevel>2
+    showwarp = 1;
+else
+    showwarp = 0;
+end
+
+if debuglevel>1
+    showres = 1;
+else
+    showres = 0;
+end
+
+if debuglevel
+    showL = 1;
+else
+    showL = 0;
+end
+
+if showres && showL && showwarp
     for i=1:5
-        fig{i} = figure(666 + i); 
+        fig{i} = figure(ixstart + i - 1); 
         clf(fig{i});     
     end    
-elseif debugmode && ~plotL
+elseif showres && ~showL && ~showwarp
     for i=1:5
-        if i==1
-            close(figure(666 + i));
+        if i==1 || i==5
+            close(figure(ixstart + i - 1));
         else
-            fig{i} = figure(666 + i); 
+            fig{i} = figure(ixstart + i - 1); 
             clf(fig{i});
         end
     end    
-elseif ~debugmode && plotL
+elseif showres && showL && ~showwarp
     for i=1:5
-        if i==1
-            fig{i} = figure(666 + i); 
-            clf(fig{i});
+        if i==5
+            close(figure(ixstart + i - 1));
         else
-           close(figure(666 + i));
+            fig{i} = figure(ixstart + i - 1); 
+            clf(fig{i});           
         end
     end
+elseif ~showres && showL && showwarp
+    for i=1:5
+        if i==1 || i==5
+            fig{i} = figure(ixstart + i - 1); 
+            clf(fig{i});
+        else
+           close(figure(ixstart + i - 1));
+        end
+    end
+elseif ~showres && ~showL && showwarp
+    for i=1:5
+        if i==5
+            fig{i} = figure(ixstart + i - 1); 
+            clf(fig{i});
+        else
+           close(figure(ixstart + i - 1));
+        end
+    end    
+elseif ~showres && showL && ~showwarp
+    for i=1:5
+        if i==1
+            fig{i} = figure(ixstart + i - 1); 
+            clf(fig{i});
+        else
+           close(figure(ixstart + i - 1));
+        end
+    end     
 else
     for i=1:5
-        close(figure(666 + i));
+        close(figure(ixstart + i - 1));
     end
 end
 drawnow;
 
 rndn = datasample(1:N,min(N,4),'Replace',false);
+
+z = floor((d(3) + 1)/2);
 %==========================================================================
 
-%=======================================================================
-function V = get_V(imdir,tempdir,N)
-pth = dir(fullfile(imdir,'*.nii'));  
-if N>numel(pth)
-   error('N>numel(pth)');
-end
-V = cell(N,2);
+%==========================================================================
+function [L,gL] = init_L(N)
+L = cell(N,1);
 for n=1:N
-    V{n,1} = spm_vol(fullfile(imdir,pth(n).name));
+    L{n} = [-Inf 1];
 end
-for n=1:N
-    V{n,2} = spm_vol(fullfile(tempdir,'preproc',['im' num2str(n) '.nii']));
+gL = -Inf;
+%==========================================================================
+
+%==========================================================================
+function show_warped_mu(fig,K,mu,r,d,zix)
+set(0,'CurrentFigure',fig);       
+                        
+mu = reshape(mu,[d K]);
+for k=1:K
+    subplot(2,K,k  ); imagesc(mu(:,:,zix,k)'); axis image xy off; colormap(gray); title(['mu' num2str(k)]);
+    subplot(2,K,k+K); imagesc(r(:,:,zix,k)');  axis image xy off; colormap(gray); title(['r' num2str(k)]);
 end
-%=======================================================================
+drawnow
+%==========================================================================

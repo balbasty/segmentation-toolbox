@@ -1,16 +1,13 @@
 % TODO---------------------------------------------------------------------
-% -Does the FOV of the template cover each subject? (look at spm_preproc8)
-% -Correct parameterisation of registration parameters?
-% -Do not warp images to same size
+% -Do not warp images beforehand
 % -Push instead of interpolate
-% -Extend to missing data (when using more than one modality)
-% -Make compatible with multi-channel data
-% -Does affine registration really work well?
-% -Correct precision for bias field estimation?
+% -Extend to missing data (when using more than one modality) -> also in Kmeans
+% -Regularise template update using spm_shoot_blur.m 
+% -Add regularisation for W and n update in update_pr (for more stability)
+% -Why is L decreasing if deg > 1
+% -Start weights update later?
 
-% Qs-----------------------------------------------------------------------
-% -If multiple classes per tissue, how to chose number of classes?
-% -For tissue updates, OK to skip update if nL<oL
+clear;
 
 addpath('./core')
 addpath('./util')
@@ -21,48 +18,51 @@ addpath('./util')
 
 pars = [];
 
-pars.N = 8; % Number of subjects
-pars.K = 6;  % Number of classes
+pars.imdir   = '/home/mbrud/Dropbox/PhD/Data/IXI-2D/';
+pars.tempdir = './temp/'; % A temporary folder which will contain the preprocessed and warped images 
 
-pars.imdir   = '/home/mbrud/Data/IXI-clean/IXI-T1/'; % A folder containing nifti MRIs
-% pars.imdir   = '/home/smajjk/Data/IXI-T1/'; % A folder containing nifti MRIs
-pars.tempdir = './tempmri/';                         % A temporary folder which will contain the preprocessed and warped images 
+pars.N = 32; % Number of subjects
+pars.K = 6; % Number of classes
+pars.C = 3; % Number of channels
 
-% Preprocessing options----------------------------------------------------
-pars.imload      = 0; % After the images have been preprocessed the first time, this option can be set to 1, to skip preprocessing the input images each time
-pars.denoiseimg  = 0;
-pars.cropimg     = 0;
-pars.makenonneg  = 0;
-pars.mnialign    = 0;
-pars.resetorigin = 0;
+pars.runpar = 8; % The number of workers to use in parfor (if zero, uses just a regular for-loop)
+
+pars.debuglevel = 3;
+pars.figix      = 1;
+
+pars.samp = 1.5; % Sampling size
+pars.bs   = [1 1 1 1 1 1];
+
+% Which parts of the algorithm to run
+pars.do.w   	= 1;
+pars.do.bf  	= 1;
+pars.do.a0      = 0; % Doesn't work well?
+pars.do.v0      = 1;
+pars.do.pr      = 1;
+pars.do.mu      = 1;
+pars.do.writemu = 0;
+
+% Iteration numbers and stopping tolerance
+pars.nitmain    = 100; % 100
+pars.nitcb      = 1;
+pars.it2strtreg = [2 5 15]; % affine, small def., large def.
+pars.tol        = 1e-4;
+pars.rparam     = [0 0.005 1 0.25 1]; % Diffeomorphic regularisation
 
 % pars.pthmu = path2spmtpm; % Use default SPM TPMs   
 pars.pthmu = '';            % Generate TPMs from multiple subject brains
 
-pars.samp = 1.5; % Sampling size
-pars.ord  = 1; % Degree of b-spline interpolation
+pars.alam = 1e-1;
 
-% Set to 1 to display TPMs and some random bias fields and velocity fields
-pars.debugmode = 1;
-pars.plotL     = 1;
-pars.showwarp  = 1;
+pars.bflam  = 1e-3;
+pars.bffwhm = 60;
 
-% Which parts of the algorithm to run
-pars.docp    = 1;
-pars.dobias  = 1;
-pars.doaff   = 0;
-pars.doprior = 0;
-pars.dotpm   = 1;
-
-% Iteration numbers and stopping tolerance
-pars.nitmain    = 50;
-pars.nitcb      = 8;
-pars.stpaff     = 5;
-pars.nitaff     = 4;
-pars.startvelit = 2;
-pars.tol        = 1e-4;
-
-pars.int_args = 8;                  % Set to 1 for small deformation approximation
-pars.rparam   = [0 0.005 1 0.25 1]; % Diffeomorphic regularisation
+% Preprocessing options----------------------------------------------------
+pars.preproc.imload      = 0; % After the images have been preprocessed the first time, this option can be set to 1, to skip preprocessing the input images each time
+pars.preproc.denoiseimg  = 0;
+pars.preproc.cropimg     = 0;
+pars.preproc.makenonneg  = 0;
+pars.preproc.mnialign    = 0;
+pars.preproc.resetorigin = 0;
 
 run(pars);
