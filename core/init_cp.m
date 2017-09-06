@@ -8,19 +8,13 @@ Nf    = zeros(N,1);
 
 for n1=1:N
     f   = zeros([prod(d) D]);
-    msk = zeros([prod(d),D],'logical');
     for c=1:D
         Nii    = nifti(pthf{n1,c});
         f(:,c) = reshape(Nii.dat(:,:,:),[],1);
-        
-        msk(:,c) = get_msk(f(:,c));
     end
-    Nf(n1) = nnz(f(:))/D;    
-
-    msk     = sum(msk,2)==D;
-    f(~msk) = 0;
+    Nf(n1) = nnz(f(:))/D;   
     
-    [mu,Sig,w] = Kmeans(f,K);
+    [w,mu,Sig] = kmeans(f,K);
 
     % To ensure positive semi-definite covariance matrix
     for k=1:K
@@ -60,7 +54,7 @@ for n1=1:N
     for k=1:K
         cp(n1).pr.W(:,:,k) = eye(D,D);
     end
-    cp(n1).pr.n = (D + 1)*ones(1,K);
+    cp(n1).pr.n = (D + 20)*ones(1,K);
 
     % Use 'responsibilities' from initialization to set sufficient statistics
     Nk   = Nf(n1)*wpo(:,:,n1);
@@ -85,7 +79,7 @@ for n1=1:N
     cp(n1).po.n = n;
 
     cp(n1).dow = do.w;
-    cp(n1).lnw = log(ones(1,K)/K);    
+    cp(n1).lnw = log(ones(1,K));    
 end
 
 % for n=1:N  

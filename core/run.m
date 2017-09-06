@@ -147,7 +147,8 @@ for itmain=1:nitmain
     end
     if itmain==it2strtreg(2) && do.v0
         % Small deformation model
-        do.v = 1;
+        int_args = 1;
+        do.v     = 1;
     end
     if itmain==it2strtreg(1) && do.a0
         % Affine
@@ -165,7 +166,7 @@ for itmain=1:nitmain
         Greens = [];
     end             
     
-%     if N>1 && do.amu
+%     if N>1 && do.amu && do.a
 %         % For mean correcting affine transform parameters
 %         amu = mean(cat(3,a{:}),3);
 %     else 
@@ -179,12 +180,7 @@ for itmain=1:nitmain
         fprintf('it=%d, n=%d\n',itmain,n);                   
                 
         % Load data--------------------------------------------------------
-        [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);    
-        
-%         if N>1 && do.amu
-%             % Mean correct affine parameters-------------------------------
-%             a{n} = a{n} - amu;
-%         end 
+        [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);            
         
         % Warp template to subject-----------------------------------------        
         [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens);
@@ -197,8 +193,8 @@ for itmain=1:nitmain
         bf = get_bf(chan{n},d);
         
         % Objective function-----------------------------------------------
-        [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);        
-              
+        [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk); % Lz not necessary
+
         %------------------------------------------------------------------
         % Cluster and bias part
         %------------------------------------------------------------------                                                          
@@ -219,10 +215,7 @@ for itmain=1:nitmain
             if do.bf
             
                 % Precisions-----------------------------------------------
-                pr = zeros(C,C,K);
-                for k=1:K
-                    pr(:,:,k) = cp(n).po.n(k)*cp(n).po.W(:,:,k); % Mean of Wishart prior
-                end               
+                cpLam = get_cpLam(cp(n));                            
 
                 oL = L{n}(end,1);
                 for c=1:C                        
@@ -259,10 +252,10 @@ for itmain=1:nitmain
                                 rk  = rk(mskz);
                                 w0  = zeros(nm,1);
                                 for c1=1:C
-                                    w0 = w0 + pr(c1,c,k)*(cp(n).po.m(c1,k) - cr{c1});
+                                    w0 = w0 + cpLam(c1,c,k)*(cp(n).po.m(c1,k) - cr{c1});
                                 end
                                 w1  = w1 + rk.*w0;
-                                w2  = w2 + rk*pr(c,c,k);
+                                w2  = w2 + rk*cpLam(c,c,k);
                             end
                             wt1       = zeros(d(1:2));
                             wt1(mskz) = -(1 + cr{c}.*w1); % US eq. 34 (gradient)
@@ -276,10 +269,10 @@ for itmain=1:nitmain
                             wt1 = []; wt2 = []; b3 = [];
                         end
 
-                        Lam = chan{n}(c).C; % Inverse covariance of priors                            
+                        bfLam = chan{n}(c).C; % Inverse covariance of priors                            
 
                         % Gauss-Newton update------------------------------
-                        Update = reshape((H + Lam)\(g + Lam*chan{n}(c).T(:)),size(chan{n}(c).T)); g = []; H = [];                            
+                        Update = reshape((H + bfLam)\(g + bfLam*chan{n}(c).T(:)),size(chan{n}(c).T)); g = []; H = [];                            
 
                         % Line-search--------------------------------------
                         
@@ -317,7 +310,7 @@ for itmain=1:nitmain
                         oT = []; Update = [];
                     end                                                                
                 end                
-                pr = [];   
+                cpLam = [];   
                 
                 L{n} = [L{n}; Lz + Lbf + La + Lv 3]; 
             end
@@ -346,61 +339,62 @@ for itmain=1:nitmain
             
             if do.a                                   
                      
-                oL = L{n}(end,1);
-                for gauss_newton=1:1
-                    % Gradient and Hessian-------------------------------------
-                    [g,H] = diff_a(a{n},r,lnmu,cp(n).lnw,B,Mmu,Mf,phi);
+%                 if do.amu
+%                     % Mean correct affine parameters-------------------------------
+%                     a{n} = a{n} - amu;
+%                 end 
+                
+                % Gradient and Hessian-------------------------------------
+                [g,H] = diff_a(a{n},r,lnmu,cp(n).lnw,B,Mmu,Mf,phi);
 
-                    % Include prior--------------------------------------------
+                % Include prior--------------------------------------------
 %                     g = g + R*a{n};               
 %                     H = H + R;
 
-                    % Gauss-Newton update--------------------------------------
-                    Update = H\g; g = []; H = []; 
+                % Gauss-Newton update--------------------------------------
+                Update = H\g; g = []; H = []; 
 
-                    % Line-search----------------------------------------------
-                    scale = 1.0;
-                    oLa   = La;
-                    oLz   = Lz;
-                    oa    = a{n};
-                    for line_search=1:12
-                        a{n} = a{n} - scale*Update; % Backtrack if necessary
+                % Line-search----------------------------------------------
+                scale = 1.0;
+                oLa   = La;
+                oLz   = Lz;
+                oa    = a{n};
+                for line_search=1:12
+                    a{n} = a{n} - scale*Update; % Backtrack if necessary
 
-                        % Warp template to subject-----------------------------
-                        E      = spm_dexpm(a{n},B);
-                        Affine = Mmu\E*Mf; 
-                        y1     = affine_transf(Affine,phi);                    
-                        wlnmu  = warp(lnmu,y1,bs); y1 = [];                   
+                    % Warp template to subject-----------------------------
+                    E      = spm_dexpm(a{n},B);
+                    Affine = Mmu\E*Mf; 
+                    y1     = affine_transf(Affine,phi);                    
+                    wlnmu  = warp(lnmu,y1,bs); y1 = [];                   
 
-                        % Objective function-----------------------------------
-                        [Lz,Lbf,La] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
+                    % Objective function-----------------------------------
+                    [Lz,Lbf,La] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
 
-                        if Lz + Lbf + La + Lv >= oL
+                    if Lz + Lbf + La + Lv >= L{n}(end,1)
 
-                            if debuglevel>2
-                                fprintf('Affine converged (n=%d,it=%d)\n',n,line_search); 
-                                show_warped_mu(fig5,K,wlnmu,r,d,zix);
-                            end                        
+                        if debuglevel>2
+                            fprintf('Affine converged (n=%d,it=%d)\n',n,line_search); 
+                            show_warped_mu(fig5,K,wlnmu,r,d,zix);
+                        end                        
 
-                            oL = Lz + Lbf + La + Lv;
-                            break;
-                        else
-                            scale = 0.5*scale;
-                            a{n}  = oa;
+                        break;
+                    else
+                        scale = 0.5*scale;
+                        a{n}  = oa;
 
-                            if line_search==12
-                                % Revert back to old parameters----------------
-                                E      = spm_dexpm(a{n},B);
-                                Affine = Mmu\E*Mf; 
-                                y1     = affine_transf(Affine,phi);
-                                wlnmu  = warp(lnmu,y1,bs); y1 = [];           
+                        if line_search==12
+                            % Revert back to old parameters----------------
+                            E      = spm_dexpm(a{n},B);
+                            Affine = Mmu\E*Mf; 
+                            y1     = affine_transf(Affine,phi);
+                            wlnmu  = warp(lnmu,y1,bs); y1 = [];           
 
-                                La = oLa;
-                                Lz = oLz; 
-                            end
+                            La = oLa;
+                            Lz = oLz; 
                         end
-                    end                   
-                end
+                    end
+                end  
 
                 L{n} = [L{n}; Lz + Lbf + La + Lv 4];
                 
@@ -486,15 +480,7 @@ for itmain=1:nitmain
         % Update statistics for TPM
         %------------------------------------------------------------------
         
-        if do.mu && N>1         
-                        
-            % Get logs of mixing weights
-            c1 = cp(n).lnw;
-            c1 = c1';
-            c1 = repmat(c1,1,prod(d)); % [KxNf]
-            
-            % Get logs of template
-            a1 = reshape(lnmu,[prod(d) K])';
+        if do.mu && N>1                                 
             
             % Get likelihoods
             [~,~,~,Pf] = update_cp(f,bf,wlnmu,cp(n),msk);  
@@ -511,13 +497,23 @@ for itmain=1:nitmain
             % Scale warped likelihoods by Jacobian determinants
             dt = spm_diffeo('det',Jtheta)*abs(det(invAffine(1:3,1:3)));
             Pf = bsxfun(@times,Pf,dt); dt = [];
-            b1 = reshape(Pf,[prod(d) K]); Pf = [];
-            b1 = b1';
             
-            % Solve dF/dmu=0 for mu
+            % Solve dF/dmu=0 for mu----------------------------------------
+            
+            % Get logs of mixing weights
+            c1 = cp(n).lnw;
+            c1 = c1';
+            c1 = repmat(c1,1,prod(d)); % [KxNf]
+            
+            % Get logs of template
+            a1 = reshape(lnmu,[prod(d) K])';
+            
             ac  = bsxfun(@plus,a1,c1); a1 = [];   
             eac = exp(ac); ac= [];
 
+            % Get likelihoods
+            b1   = reshape(Pf,[prod(d) K]); Pf = [];
+            b1   = b1';
             eacb = bsxfun(@times,eac,b1); b1= [];
 
             r1                = bsxfun(@rdivide,eacb,sum(eacb,1)); eacb = [];
@@ -737,6 +733,7 @@ for c=1:C
     msk(:,c) = get_msk(f(:,c));
 end
 
+% msk = sum(msk,2)>0;
 msk = sum(msk,2)==C;
 
 v = nifti(pthv{n});
@@ -818,7 +815,7 @@ drawnow
 
 %==========================================================================
 function gL = globalL(gL,L,verbose)
-if nargin<3, verbose = false; end
+if nargin<3, verbose = true; end
 
 sL = zeros(size(L{1},1),1);
 for n=1:numel(L)
@@ -833,15 +830,16 @@ end
 %==========================================================================
 
 %==========================================================================
-function plot_L(L,iter,fig,ix)
-if nargin<4, ix = 1; end
+function plot_L(L,iter,fig,ix,verbose)
+if nargin<4, ix      = 1; end
+if nargin<5, verbose = true; end
 
 sL = zeros(size(L{1},1),1);
 for n=1:numel(L)
     sL = sL + L{n}(:,1);
 end
 
-if any(diff(sL) < 0)
+if any(diff(round(sL,8)) < 0) && verbose
     fprintf(2,'any(diff(sL) < 0)\n');
 end
 

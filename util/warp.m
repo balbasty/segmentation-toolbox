@@ -13,5 +13,8 @@ wf = zeros([d K],'single');
 for k=1:K
     wf(:,:,:,k) = spm_diffeo('bsplins',f(:,:,:,k),phi,bs);
 end
+% if sum(~isfinite(wf))
+%    disp('~isfinite(wf)')
+% end
 wf(~isfinite(wf)) = 0;
 %==========================================================================

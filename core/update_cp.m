@@ -6,194 +6,194 @@ K      = numel(cp.lnw);
 f    = double(f);  % data
 bf   = double(bf); % bias field
 lnmu = double(lnmu); % template
-
-msk1     = repmat(msk,1,D);
-f(~msk1) = 0;
-
 lnmu = reshape(lnmu,[Nf K]);
 
+% OBS: msk!
+% msk     = sum(f,2)>0;
+% f(~msk) = 0;
+
 f = bf.*f;
-f = f';
 
 lnbias = log(prod(bf,2));
 lnbias = repmat(lnbias,1,K);
 
-% initialize variables
-L = 0;
-
-m0 = cp.pr.m;
-b0 = cp.pr.b;
-W0 = cp.pr.W;
-n0 = cp.pr.n;
-
-m = cp.po.m;
-b = cp.po.b;
-W = cp.po.W;
-n = cp.po.n;
-
-lnw = cp.lnw;
-
-[lnPz,mgm] = multinomial(lnmu,lnw,msk);
+lnPz = multinomial(lnmu,cp.lnw);
 
 % Calculate r
 if nargout==4
-    [r,~,~,Pf] = resps(f,K,Nf,D,b,n,m,W,lnbias,lnPz);
+    [r,~,Pf] = resps(f,cp.po,lnbias,lnPz);
+    L        = 0;
     return;
 else
-    [r,logr,logLambdaTilde] = resps(f,K,Nf,D,b,n,m,W,lnbias,lnPz);
+    [r,logr] = resps(f,cp.po,lnbias,lnPz);
 end
 
-ss = suffstats(f,r);
+mom = suffstats(f,r);
 
 if nargout==3
     
+    if cp.dow       
+        b = zeros([nnz(msk) K]);
+        for k=1:K
+            b(:,k) = exp(lnmu(msk,k));
+        end
+
+        bw = bsxfun(@times,b,exp(cp.lnw));    
+        bw = 1./(sum(bw,2));
+        
+        mgm = bsxfun(@times,b,bw); bw = [];
+        mgm = sum(mgm);
+        
+        w      = (mom.s0 + 1)./(mgm + K); % Bias the solution towards one
+        w      = w/sum(w);
+        cp.lnw = log(w);
+        
+        lnPz = multinomial(lnmu,cp.lnw);
+    end
+
     % Begin M step
     % compute new parameters
-    [b,n,m,W,lnw] = vmstep(ss,K,b0,n0,m0,W0,mgm,lnw,cp.dow);
-
-    cp.po.m = m;
-    cp.po.b = b;
-    cp.po.W = W;
-    cp.po.n = n;
-    cp.lnw  = lnw;
+    cp.po = vmstep(mom,cp.pr);   
     
-    lnPz = multinomial(lnmu,lnw,msk);
+    [r,logr] = resps(f,cp.po,lnbias,lnPz);
     
-    [r,logr,logLambdaTilde] = resps(f,K,Nf,D,b,n,m,W,lnbias,lnPz);
-    
-    ss = suffstats(f,r);    
+    mom = suffstats(f,r);    
 end
 
-L = lowerbound(ss,K,D,r,logr,b0,n0,m0,W0,b,n,m,W,logLambdaTilde,lnbias,lnPz,msk);
-%==========================================================================
-
-%==========================================================================
-function L = lowerbound(ss,K,D,r,logr,b0,n0,m0,W0,b,n,m,W,logLambdaTilde,lnbias,lnPz,msk)
-
-Nk   = ss.s0;
-xbar = ss.s1;
-S    = ss.S2;
+L = lowerbound(mom,cp.pr,cp.po);
 
 msk     = repmat(msk,1,K);
-r(~msk) = 0;
+r(~msk) = NaN;
 
-% Various other parameters for different terms
-H = 0;
-logB0 = 0;
+L5 = nansum(nansum(r.*logr));
+L6 = nansum(nansum(r.*lnbias));
+L7 = nansum(nansum(r.*lnPz));
+
+%Bishop's Lower Bound
+L = L - L5 + L6 + L7;
+%==========================================================================
+
+%==========================================================================
+function L = lowerbound(mom,pr,po)
+
+s0 = mom.s0;
+s1 = mom.s1;
+S2 = mom.S2;
+
+m = po.m;
+n = po.n;
+W = po.W;
+b = po.b;
+
+m0 = pr.m;
+n0 = pr.n;
+W0 = pr.W;
+b0 = pr.b;
+
+[D,K] = size(m0);
+
+L = 0;
 for k = 1:K
     W0inv = inv(W0(:,:,k));
 
-    % B(lambda0)
-    logB0 = logB0 + (n0(k)/2)*log(det(W0inv)) - (n0(k)*D/2)*log(2) ...
+    logB0 = (n0(k)/2)*logdet(W0inv) - (n0(k)*D/2)*log(2) ...
           - (D*(D-1)/4)*log(pi) - sum(gammaln(0.5*(n0(k)+1 -[1:D])));
   
-  
-    % sum(H(q(Lamba(k))))
-    logBk = -(n(k)/2)*log(det(W(:,:,k))) - (n(k)*D/2)*log(2)...
+    t1          = psi(0, 0.5*repmat(n(k)+1,D,1) - 0.5*[1:D]');
+    logLamTilde = sum(t1) + D*log(2)  + logdet(W(:,:,k));
+    
+    logBk = -(n(k)/2)*logdet(W(:,:,k)) - (n(k)*D/2)*log(2)...
             - (D*(D-1)/4)*log(pi) - sum(gammaln(0.5*(n(k) + 1 - [1:D])));
-    H = H -logBk - 0.5*(n(k) -D-1)*logLambdaTilde(k) + 0.5*n(k)*D;
-    % for Lt1 - third term
-    trSW(k) = trace(n(k)*S(:,:,k)*W(:,:,k));
-    diff = xbar(:,k) - m(:,k);
-    xbarWxbar(k) = diff'*W(:,:,k)*diff;
-    % for Lt4 - Fourth term
-    diff = m(:,k) - m0(:,k);
-    mWm(k) = b0(k)*n(k)*diff'*W(:,:,k)*diff; 
-    trW0invW(k) = trace(W0inv*W(:,:,k));
+    H     = -logBk - 0.5*(n(k) -D-1)*logLamTilde + 0.5*n(k)*D;
+
+    trSW      = trace(n(k)*S2(:,:,k)*W(:,:,k));
+    diff      = s1(:,k) - m(:,k);
+    xbarWxbar = diff'*W(:,:,k)*diff;
+
+    diff     = m(:,k) - m0(:,k);
+    mWm      = b0(k)*n(k)*diff'*W(:,:,k)*diff; 
+    trW0invW = trace(W0inv*W(:,:,k));
+    
+    L1 = 0.5*(s0(k).*(logLamTilde - D./b(k) - trSW - n(k).*xbarWxbar - D*log(2*pi)));
+    L2 = 0.5*(D*log(b0(k)/(2*pi)) + logLamTilde - D*(b0(k)./b(k)) - mWm);
+    L3 = logB0 + 0.5*((n0(k) - D - 1).*logLamTilde) - 0.5*(n(k).*trW0invW);    
+    L4 = 0.5*(logLamTilde + D.*log(b(k)/(2*pi))) - 0.5*D*K - H;
+    
+    Lk = L1 + L2 + L3 - L4;
+    L  = L + Lk;
 end
-
-Lt1 = 0.5*sum(Nk.*(logLambdaTilde - D./b...
-    - trSW - n.*xbarWxbar - D*log(2*pi)));
-Lt41 = 0.5*sum(D*log(b0/(2*pi)) + logLambdaTilde - D*sum(b0./b) - mWm);
-Lt42 = logB0 + 0.5*sum((n0 - D - 1).*logLambdaTilde) - 0.5*sum(n.*trW0invW);
-Lt4 = Lt41+Lt42;
-Lt5 = sum(sum(r.*logr));
-Lt7 = 0.5*sum(logLambdaTilde + D.*log(b/(2*pi))) - 0.5*D*K - H;
-Lt3 = sum(sum(r.*lnbias));
-Lt8 = sum(sum(r.*lnPz)); % (10.72)
-
-%Bishop's Lower Bound
-L = Lt1 + Lt3 + Lt4 - Lt5 - Lt7 + Lt8;
 %==========================================================================
   
 %==========================================================================
-function [r,logr,logLambdaTilde,Pf] = resps(x,K,N,D,b,n,m,W,lnbias,lnPz)
+function [r,lnr,Pf] = resps(f,po,lnbias,lnPz)
+
+m = po.m;
+n = po.n;
+W = po.W;
+b = po.b;
+
+[D,K] = size(m);
+N     = size(lnPz,1);
 
 E              = zeros(N,K);
-logLambdaTilde = zeros(1,K);
+lnLamTilde = zeros(1,K);
 for k = 1:K
     t1 = psi(0, 0.5*repmat(n(k)+1,D,1) - 0.5*[1:D]');
-    logLambdaTilde(k) = sum(t1) + D*log(2)  + log(det(W(:,:,k)));
+    lnLamTilde(k) = sum(t1) + D*log(2)  + logdet(W(:,:,k));    
     
-%     for nf = 1:N
-%       % Calculate E
-%       diff1   = x(:,nf) - m(:,k);
-%       E(nf,k) = D/b(k) + n(k)*diff1'*W(:,:,k)*diff1;
-%     end
-    
-    diff1  = bsxfun(@minus,x,m(:,k));
+    diff1  = bsxfun(@minus,f',m(:,k));
     Q      = chol(W(:,:,k))*diff1;
     E(:,k) = D/b(k) + n(k)*dot(Q,Q,1);
 end
-if nargout==4
-    logRho     = repmat(0.5*logLambdaTilde, N,1) - 0.5*E  - D/2*log(2*pi);
-    max_logRho = max(logRho,[],2);    
-    Pf         = exp(bsxfun(@minus,logRho,max_logRho));
-    logr       = 0;
-    r          = 0;
+if nargout==3
+    lnRho     = repmat(0.5*lnLamTilde, N,1) - 0.5*E  - D/2*log(2*pi);
+    max_lnRho = max(lnRho,[],2);    
+    Pf        = exp(bsxfun(@minus,lnRho,max_lnRho));
+    lnr       = 0;
+    r         = 0;
 else
-    logRho    = repmat(0.5*logLambdaTilde, N,1) - 0.5*E  - D/2*log(2*pi) + lnbias + lnPz;
-    logSumRho = logsumexp(logRho,2);
-    logr      = logRho - repmat(logSumRho, 1,K);
-    r         = exp(logr);
+    lnRho     = repmat(0.5*lnLamTilde, N,1) - 0.5*E  - D/2*log(2*pi) + lnbias + lnPz;
+    lnSumRho  = logsumexp(lnRho,2);
+    lnr       = lnRho - repmat(lnSumRho, 1,K);
+    r         = exp(lnr);
 end
 %==========================================================================
 
 %==========================================================================
-function [b,n,m,W,lnw] = vmstep(ss,K,b0,n0,m0,W0,mgm,lnw,dow)
-D = size(m0,1);
+function po = vmstep(mom,pr)
 
-Nk   = ss.s0;
-xbar = ss.s1;
-S    = ss.S2;
+s0 = mom.s0;
+s1 = mom.s1;
+S2 = mom.S2;
 
-b = b0 + Nk;
-n = n0 + Nk;
+m0 = pr.m;
+n0 = pr.n;
+W0 = pr.W;
+b0 = pr.b;
+
+[D,K] = size(m0);
+
+b = b0 + s0;
+n = n0 + s0;
 W = zeros(D,D,K);
 for k = 1:K
-    m(:,k) = (b0(k)*m0(:,k) + Nk(k).*xbar(:,k))./b(k);
+    m(:,k) = (b0(k)*m0(:,k) + s0(k).*s1(:,k))./b(k);
     
     W0inv    = inv(W0(:,:,k));
-    mlt1     = b0(k).*Nk(k)/(b0(k) + Nk(k));
-    diff1    = xbar(:,k) - m0(:,k);
-    W(:,:,k) = inv(W0inv + Nk(k)*S(:,:,k) + mlt1*(diff1*diff1'));
+    mlt1     = b0(k).*s0(k)/(b0(k) + s0(k));
+    diff1    = s1(:,k) - m0(:,k);
+    W(:,:,k) = inv(W0inv + s0(k)*S2(:,:,k) + mlt1*(diff1*diff1'));
 end  
 
-if dow
-    w   = (Nk + 1)./(mgm + K); % Bias the solution towards one
-    w   = w/sum(w);
-    lnw = log(w);
-end
+po.m = m;
+po.b = b;
+po.W = W;
+po.n = n;
 %==========================================================================
 
 %==========================================================================
-function [lnPz,mgm] = multinomial(lnmu,lnw,msk)
-Pz = bsxfun(@plus,lnmu,lnw);
-
-if nargout==2
-    K = size(lnmu,2);        
-
-    Pz1 = bsxfun(@times,exp(lnmu),exp(lnw));
-    
-    % Unified segmentation (27)
-    mgm = 1./(sum(Pz1,2)); Pz1 = [];
-    mgm = bsxfun(@times,lnmu,mgm);
-    
-    msk       = repmat(msk,1,K);
-    mgm(~msk) = 0;
-    mgm       = sum(mgm);
-end
-
+function lnPz = multinomial(lnmu,lnw)
+Pz   = bsxfun(@plus,lnmu,lnw);
 Pz   = softmax(Pz);
 lnPz = log(Pz);
 %==========================================================================
@@ -202,8 +202,6 @@ lnPz = log(Pz);
 function mom = suffstats(X,Q,mom)
 % Modified version of spm_suffstats: uses the same suffstats equations as
 % in Bishop (10.51-53)
-X = X';
-
 if nargin<2 || isempty(Q),
     Q = ones(size(X,1),1);
 end
@@ -260,12 +258,12 @@ for i=2:numel(mom),
             Nk             = sum(q);            
             mom(i).s0(1,k) = mom(i).s0(1,k) + Nk;
             
-            xbar           = sum(repmat(q',M,1).*x',2)/Nk;                      
+            xbar           = (sum(bsxfun(@times,q,x))/Nk)';                      
             mom(i).s1(:,k) = mom(i).s1(:,k) + xbar;                        
             
-            diff1            = x' - repmat(xbar,1,Nx);
-            diff2            = repmat(q',M,1).*diff1;    
-            mom(i).S2(:,:,k) = mom(i).S2(:,:,k) + (diff2*diff1')./Nk;    
+            diff1            = bsxfun(@minus,x,xbar');
+            diff2            = bsxfun(@times,q,diff1);
+            mom(i).S2(:,:,k) = mom(i).S2(:,:,k) + (diff2'*diff1)./Nk;    
         end
     end
 end

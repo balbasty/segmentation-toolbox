@@ -88,7 +88,7 @@ end
 
 % Ensure that the FoV covers all images, with a few voxels to spare
 %-----------------------------------------------------------------------
-offset = 10;
+offset = 0;
 
 mn    =  Inf*ones(3,1);
 mx    = -Inf*ones(3,1);

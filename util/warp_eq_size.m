@@ -44,6 +44,10 @@ for n=1:N
         Nii  = nifti(pthf{n,c});
         matf = Nii.mat;        
         f    = Nii.dat(:,:,:);             
+      
+        % Warp image-------------------------------------------------------
+        phi = affine_transf(matf\mat,identity(d));
+        f   = warp(f,phi);           
 
         % Mask-------------------------------------------------------------
         msk = get_msk(f);
@@ -54,10 +58,6 @@ for n=1:N
         a = 512/mean(f(:));
         f = f*a;
         
-        % Warp image-------------------------------------------------------
-        phi = affine_transf(matf\mat,identity(d));
-        f   = warp(f,phi);           
-
         % Write warped image-----------------------------------------------
         [~,nam,ext] = fileparts(Nii.dat.fname);
 

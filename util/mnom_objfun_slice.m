@@ -6,12 +6,11 @@ lnmu1 = cell(dm(4),1);
 semu  = 0;
 dmu   = cell(dm(4),3);
 
-% Compute exp(log(mu) + log(w))/sum(exp(log(mu) + log(w)))
 for k=1:dm(4)
     if nargout>=2
-        [lnmu1{k},dmu{k,1},dmu{k,2},dmu{k,3}] = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 1 1 1]);
+        [lnmu1{k},dmu{k,1},dmu{k,2},dmu{k,3}] = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 0 0 0]);
     else
-        lnmu1{k} = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 1 1 1]);
+        lnmu1{k} = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 0 0 0]);
     end
     
     emu{k} = exp(lnmu1{k} + lnw(k));

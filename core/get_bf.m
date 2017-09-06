@@ -9,7 +9,10 @@ for c=1:C
     end
     bf(:,c) = bfc(:);
 end
-if sum(~isfinite(bf(:))), warning('sum(~isfinite(bf(:)))'); end
+% bf(~isfinite(bf)) = 1;
+% if sum(~isfinite(bf(:))), 
+%     warning('sum(~isfinite(bf(:)))'); 
+% end
 %=======================================================================
 
 %=======================================================================
