@@ -1,36 +1,58 @@
-function [L,r,cp,Pf] = update_cp(f,bf,lnmu,cp,msk)
+function [L,r,cp,Pf] = update_cp(f,bf,lnmu,cp)
 
-[Nf,D] = size(f);
-K      = numel(cp.lnw);
+missingdata = true;
 
-f    = double(f);  % data
-bf   = double(bf); % bias field
-lnmu = double(lnmu); % template
-lnmu = reshape(lnmu,[Nf K]);
+K = numel(cp.lnw);
 
-% OBS: msk!
-% msk     = sum(f,2)>0;
-% f(~msk) = 0;
+f    = double(f);                   % data
+bf   = double(bf);                  % bias field
+lnmu = double(lnmu);                % logs of template
+lnmu = reshape(lnmu,[size(f,1) K]);
 
 f = bf.*f;
 
-lnbias = log(prod(bf,2));
-lnbias = repmat(lnbias,1,K);
+lnbf = log(prod(bf,2));
+lnbf = repmat(lnbf,1,K);
 
 lnPz = multinomial(lnmu,cp.lnw);
 
 % Calculate r
 if nargout==4
-    [r,~,Pf] = resps(f,cp.po,lnbias,lnPz);
-    L        = 0;
+    if missingdata
+        [r,~,Pf] = resps_missing(f,cp.po,lnbf,lnPz);
+    else
+        [r,~,Pf] = resps(f,cp.po,lnbf,lnPz);
+    end
+    L = 0;
     return;
 else
-    [r,logr] = resps(f,cp.po,lnbias,lnPz);
+    if missingdata
+        [r,lnr] = resps_missing(f,cp.po,lnbf,lnPz);
+    else
+        [r,lnr] = resps(f,cp.po,lnbf,lnPz);    
+    end
 end
 
 mom = suffstats(f,r);
+if ~missingdata
+    mom = mom(end);
+end
+
+if missingdata
+    msk = sum(f>0,2)>0;
+else
+    msk = sum(f>0,2)==size(f,2);
+end
 
 if nargout==3
+    
+    % Begin M step
+    % compute new parameters
+    if missingdata
+        [~,cp.po] = VBGaussiansFromSuffStats(mom,cp.pr,cp.po);
+    else
+        cp.po     = vmstep(mom,cp.pr);   
+    end        
     
     if cp.dow       
         b = zeros([nnz(msk) K]);
@@ -44,29 +66,44 @@ if nargout==3
         mgm = bsxfun(@times,b,bw); bw = [];
         mgm = sum(mgm);
         
-        w      = (mom.s0 + 1)./(mgm + K); % Bias the solution towards one
-        w      = w/sum(w);
+        s0 = 0;
+        for m=1:numel(mom)
+            s0 = s0 + mom(m).s0;
+        end
+    
+%         w      = (s0 + 1)./(mgm + K); % Bias the solution towards one
+%         w      = w/sum(w);
+        w      = (s0 + mgm)./mgm; % Bias the solution towards one
         cp.lnw = log(w);
         
         lnPz = multinomial(lnmu,cp.lnw);
     end
-
-    % Begin M step
-    % compute new parameters
-    cp.po = vmstep(mom,cp.pr);   
     
-    [r,logr] = resps(f,cp.po,lnbias,lnPz);
+    if missingdata
+        [r,lnr] = resps_missing(f,cp.po,lnbf,lnPz);
+    else
+        [r,lnr] = resps(f,cp.po,lnbf,lnPz);
+    end
     
-    mom = suffstats(f,r);    
+    mom = suffstats(f,r); 
+    if ~missingdata
+        mom = mom(end);
+    end
 end
 
-L = lowerbound(mom,cp.pr,cp.po);
+    if missingdata
+        L = VBGaussiansFromSuffStats(mom,cp.pr,cp.po);
+    else
+        L = lowerbound(mom,cp.pr,cp.po);
+    end
+    
+if ~missingdata
+    msk     = repmat(msk,1,K);
+    r(~msk) = NaN;
+end
 
-msk     = repmat(msk,1,K);
-r(~msk) = NaN;
-
-L5 = nansum(nansum(r.*logr));
-L6 = nansum(nansum(r.*lnbias));
+L5 = nansum(nansum(r.*lnr));
+L6 = nansum(nansum(r.*lnbf));
 L7 = nansum(nansum(r.*lnPz));
 
 %Bishop's Lower Bound
@@ -125,8 +162,142 @@ end
 %==========================================================================
   
 %==========================================================================
-function [r,lnr,Pf] = resps(f,po,lnbias,lnPz)
+function [L,po] = VBGaussiansFromSuffStats(mom,pr,po,verbose)
+if nargin<4, verbose=false; end
 
+K = size(mom(1).s0,2);
+D = numel(mom(1).ind);
+
+% Get priors
+m0 = pr.m;
+b0 = pr.b;
+W0 = pr.W;
+n0 = pr.n;
+
+% Get posteriors
+n = po.n;
+W = po.W;
+b = po.b;
+m = po.m;
+
+if verbose
+    fprintf('----------------------\n');
+end
+
+L  = 0;
+for k=1:K,
+    
+    s0 = 0;
+    for i=1:numel(mom), 
+        s0 = s0 + mom(i).s0(k); 
+    end           
+    
+    Lk = -Inf;
+    for iter=1:1024,
+        oLk = Lk; 
+        
+        mu = m(:,k);
+        P  = W(:,:,k)*n(k);
+            
+        s1  = zeros(D,1);
+        S2  = zeros(D);        
+        s1i = zeros(D,1);
+        S2i = zeros(D,D);         
+        L5  = 0;
+        for i=1:numel(mom),
+            
+            if mom(i).s0(k),
+                
+                ind = mom(i).ind;
+                s0m = mom(i).s0(k);
+                s1m = mom(i).s1(:,k);
+                S2m = mom(i).S2(:,:,k);
+                        
+                [s1m,S2m] = mom_Bishop2John(s0m,s1m,S2m);
+                
+                mux            = mu( ind,:);
+                muy            = mu(~ind,:);
+                Pyy            = P(~ind,~ind);
+                Pyx            = P(~ind, ind);
+                R              = Pyy\Pyx;
+                Ex             = s1m/s0m;
+                Exx            = S2m/s0m;
+                tmp            = R*(mux-Ex)*muy';
+                s1i( ind)      = s1m;
+                S2i( ind, ind) = S2m;
+                s1i(~ind)      = s0m*(R*(mux-Ex) + muy);
+                S2i(~ind,~ind) = s0m*(R*(mux*mux'-mux*Ex'-Ex*mux'+Exx)*R' + tmp + tmp' + muy*muy' + inv(Pyy));
+                S2i( ind,~ind) = s0m*(R*(mux*Ex'-Exx) + muy*Ex');
+                S2i(~ind, ind) = S2i( ind,~ind)';
+                s1             = s1 + s1i;
+                S2             = S2 + S2i;
+                
+                L5 = L5 + 0.5*s0m*(logdet(Pyy) - size(Pyy,1)*(1+log(2*pi)));
+            end
+        end
+
+        [s1,S2] = mom_John2Bishop(s0,s1,S2);
+        
+        W0inv = inv(W0(:,:,k));
+        
+        if nargout>1
+            % VM-step----------------------------------------------------------                
+            b(k) = b0(k) + s0;
+
+            n(k) = n0(k) + s0;
+
+            m(:,k) = (b0(k)*m0(:,k) + s0.*s1)./b(k);
+            
+            mlt1     = b0(k).*s0/(b0(k) + s0);
+            diff1    = s1 - m0(:,k);
+            W(:,:,k) = inv(W0inv + s0*S2 + mlt1*(diff1*diff1'));
+        end
+        
+        % Compute objective function---------------------------------------        
+        logB0 = (n0(k)/2)*logdet(W0inv) - (n0(k)*D/2)*log(2) ...
+              - (D*(D-1)/4)*log(pi) - sum(gammaln(0.5*(n0(k)+1 -[1:D])));
+
+        t1          = psi(0, 0.5*repmat(n(k)+1,D,1) - 0.5*[1:D]');
+        logLamTilde = sum(t1) + D*log(2)  + logdet(W(:,:,k));
+
+        logBk = -(n(k)/2)*logdet(W(:,:,k)) - (n(k)*D/2)*log(2)...
+                - (D*(D-1)/4)*log(pi) - sum(gammaln(0.5*(n(k) + 1 - [1:D])));
+        H     = -logBk - 0.5*(n(k) -D-1)*logLamTilde + 0.5*n(k)*D;
+
+        trSW      = trace(n(k)*S2*W(:,:,k));
+        diff      = s1 - m(:,k);
+        xbarWxbar = diff'*W(:,:,k)*diff;
+
+        diff     = m(:,k) - m0(:,k);
+        mWm      = b0(k)*n(k)*diff'*W(:,:,k)*diff; 
+        trW0invW = trace(W0inv*W(:,:,k));
+
+        L1 = 0.5*(s0.*(logLamTilde - D./b(k) - trSW - n(k).*xbarWxbar - D*log(2*pi)));
+        L2 = 0.5*(D*log(b0(k)/(2*pi)) + logLamTilde - D*(b0(k)./b(k)) - mWm);
+        L3 = logB0 + 0.5*((n0(k) - D - 1).*logLamTilde) - 0.5*(n(k).*trW0invW);    
+        L4 = 0.5*(logLamTilde + D.*log(b(k)/(2*pi))) - 0.5*D*K - H;
+
+        Lk = L1 + L2 + L3 - L4 - L5;        
+
+        if verbose
+            fprintf('%d\t%g\n', iter,Lk);
+        end
+        if abs(Lk-oLk) < 1e-12, 
+            L = L + Lk;
+            break; 
+        end
+    end
+end
+
+% update posteriors
+po.m = m;
+po.n = n;
+po.W = W;
+po.b = b;
+%==========================================================================
+
+%==========================================================================
+function [r,lnr,Pf] = resps(f,po,lnbf,lnPz)
 m = po.m;
 n = po.n;
 W = po.W;
@@ -135,7 +306,7 @@ b = po.b;
 [D,K] = size(m);
 N     = size(lnPz,1);
 
-E              = zeros(N,K);
+E          = zeros(N,K);
 lnLamTilde = zeros(1,K);
 for k = 1:K
     t1 = psi(0, 0.5*repmat(n(k)+1,D,1) - 0.5*[1:D]');
@@ -152,9 +323,85 @@ if nargout==3
     lnr       = 0;
     r         = 0;
 else
-    lnRho     = repmat(0.5*lnLamTilde, N,1) - 0.5*E  - D/2*log(2*pi) + lnbias + lnPz;
+    lnRho     = repmat(0.5*lnLamTilde, N,1) - 0.5*E  - D/2*log(2*pi) + lnbf + lnPz;
     lnSumRho  = logsumexp(lnRho,2);
     lnr       = lnRho - repmat(lnSumRho, 1,K);
+    r         = exp(lnr);
+end
+%==========================================================================
+
+%==========================================================================
+function [r,lnr,Pf] = resps_missing(f,po,lnbf,lnPz)
+m = po.m;
+n = po.n;
+W = po.W;
+b = po.b;
+
+[D,K] = size(m);
+
+if D<=8,
+    cast = @uint8;
+    typ  = 'uint8';
+elseif D<=16,
+    cast = @uint16;
+    typ  = 'uint16';
+elseif D<=32,
+    cast = @uint32;
+    typ  = 'uint32';
+elseif D<=64,
+    cast = @uint64;
+    typ  = 'uint64';
+else,
+    error('Too many dimensions.');
+end
+
+code = zeros([size(f,1),1],typ);
+for i=1:D,
+    code = bitor(code,bitshift(feval(cast,isfinite(f(:,i)) & (f(:,i)~=0)),(i-1)));
+end
+
+lnRho = NaN(size(f,1),K);
+for i=1:2^D % For combinations of missing data
+    
+    msk0 = dec2bin(i-1,D)=='1';
+    ind  = find(code==msk0*(2.^(0:(D-1))'));      
+    
+    if ~msk0
+        msk0 = dec2bin(2^D-1,D)=='1';
+    end
+    
+    if ~isempty(ind)
+        fi  = f(ind,msk0);       
+        Nfi = size(fi,1);
+        
+        E          = zeros(Nfi,K);
+        lnLamTilde = zeros(1,K);
+        for k=1:K % For classes
+           
+            t1            = psi(0, 0.5*repmat(n(k)+1,D,1) - 0.5*[1:D]');
+            lnLamTilde(k) = sum(t1) + D*log(2) + logdet(W(msk0,msk0,k));
+
+            diff1  = bsxfun(@minus,fi',m(msk0,k));
+            Q      = chol(W(msk0,msk0,k))*diff1;
+            E(:,k) = D/b(k) + n(k)*dot(Q,Q,1)';
+        end
+        
+        if nargout==4
+            lnRho(ind,:) = repmat(0.5*lnLamTilde,Nfi,1) - 0.5*E  - D/2*log(2*pi);
+        else
+            lnRho(ind,:) = repmat(0.5*lnLamTilde,Nfi,1) - 0.5*E  - D/2*log(2*pi) + lnPz(ind,:) + lnbf(ind,:);
+        end
+    end
+end
+
+if nargout==3
+    max_lnRho = nanmax(lnRho,[],2);    
+    Pf        = exp(bsxfun(@minus,lnRho,max_lnRho));
+    lnr       = 0;
+    r         = 0;
+else
+    lnSumRho  = logsumexp(lnRho,2);
+    lnr       = lnRho - repmat(lnSumRho,1,K);
     r         = exp(lnr);
 end
 %==========================================================================
@@ -183,6 +430,11 @@ for k = 1:K
     mlt1     = b0(k).*s0(k)/(b0(k) + s0(k));
     diff1    = s1(:,k) - m0(:,k);
     W(:,:,k) = inv(W0inv + s0(k)*S2(:,:,k) + mlt1*(diff1*diff1'));
+    
+    [V,D]    = eig(W(:,:,k));
+    tol      = max(diag(D))*eps('single');
+    D        = diag(max(diag(D),tol));
+    W(:,:,k) = real(V*D*V');
 end  
 
 po.m = m;
@@ -267,27 +519,30 @@ for i=2:numel(mom),
         end
     end
 end
-
-mom = mom(end);
 %==========================================================================
 
 %==========================================================================
 function s = logsumexp(b, dim)
-% s = logsumexp(b) by Tom Minka
-% Returns s(i) = log(sum(exp(b(:,i))))  while avoiding numerical underflow.
-% s = logsumexp(b, dim) sums over dimension 'dim' instead of summing over rows
-
-if nargin < 2 % if 2nd argument is missing
-  dim = 1;
-end
-
-[B, junk] = max(b,[],dim);
-dims = ones(1,ndims(b));
+B         = nanmax(b,[],dim);
+dims      = ones(1,ndims(b));
 dims(dim) = size(b,dim);
-b = b - repmat(B, dims);
-s = B + log(sum(exp(b),dim));
-i = find(~isfinite(B));
+
+b      = b - repmat(B, dims);
+s      = B + log(nansum(exp(b),dim));
+i      = find(~isfinite(B));
 if ~isempty(i)
   s(i) = B(i);
 end
+%==========================================================================
+
+%==========================================================================
+function [s1b,S2b] = mom_John2Bishop(s0,s1j,S2j)
+s1b = s1j/s0;
+S2b = S2j/s0 - (s1j/s0)*(s1j/s0)';
+%==========================================================================
+
+%==========================================================================
+function [s1j,S2j] = mom_Bishop2John(s0,s1b,S2b)
+s1j = s0*s1b;
+S2j = s0*S2b + s0*(s1j/s0)*(s1j/s0)';
 %==========================================================================

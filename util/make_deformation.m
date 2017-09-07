@@ -3,7 +3,7 @@ function [phi,Jphi,theta,Jtheta] = make_deformation(v,prm,int_args,Greens)
 % Jphi   - Forward Jacobian tensors n1*n2*n3 (single prec. float)
 % theta  - Inverse deformation field n1*n2*n3*3 (single prec. float)
 % Jtheta - Inverse Jacobian tensors n1*n2*n3 (single prec. float)
-if int_args>1
+if ~isempty(Greens)
     [phi,Jphi,~,theta,Jtheta] = spm_shoot3d(v,prm,int_args,Greens);
 else
     dm = size(v);

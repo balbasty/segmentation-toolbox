@@ -73,7 +73,7 @@ for m=2:M
 end
 clear xvsub
 
-mom        = SuffStats(xv,label);
+mom       = SuffStats(xv,label);
 [w,mn,vr] = GaussiansFromSuffStats(mom);
 %========================================================================== 
 

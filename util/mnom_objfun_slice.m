@@ -8,9 +8,9 @@ dmu   = cell(dm(4),3);
 
 for k=1:dm(4)
     if nargout>=2
-        [lnmu1{k},dmu{k,1},dmu{k,2},dmu{k,3}] = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 0 0 0]);
+        [lnmu1{k},dmu{k,1},dmu{k,2},dmu{k,3}] = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 1 1 1]);
     else
-        lnmu1{k} = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 0 0 0]);
+        lnmu1{k} = spm_diffeo('bsplins',lnmu(:,:,:,k),y1(:,:,z,:),[1 1 1 1 1 1]);
     end
     
     emu{k} = exp(lnmu1{k} + lnw(k));

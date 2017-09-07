@@ -1,6 +1,8 @@
 function [pthv,sched,B,a] = init_reg(N,d,nitout,tempdir,Mf)
-sched = get_sched(nitout);  
-B     = affine_basis;
+sched = get_sched(nitout);
+sched = [sched(1), sched];
+
+B = affine_basis(12);
 
 f = fullfile(tempdir,'v');
 if (exist(f,'dir') == 0)

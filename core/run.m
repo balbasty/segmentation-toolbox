@@ -27,10 +27,10 @@ pthmu = pars.pthmu;
 
 do = pars.do;
 
-nitmain    = pars.nitmain;
-nitcb      = pars.nitcb;
-it2strtreg = pars.it2strtreg;
-tol        = pars.tol;
+nitmain   = pars.nitmain;
+nitcb     = pars.nitcb;
+itstrtreg = pars.itstrtreg;
+tol       = pars.tol;
 
 rparam = pars.rparam;
 
@@ -97,12 +97,14 @@ chan = init_bf(N,C,V,d,bflam,bffwhm);
 % Initialise registration parameters
 %--------------------------------------------------------------------------
 
-[pthv,~,B,a] = init_reg(N,d,nitmain,tempdir,Mf);
-prm          = [vx rparam];
-int_args     = 1;
-do.v         = 0;
-do.a         = 0;
-        
+[pthv,sched,B,a] = init_reg(N,d,nitmain,tempdir,Mf);
+prm0             = [vx rparam*sched(1)];
+prm              = prm0;
+int_args         = 1;
+do.v             = 0;
+do.a             = 0;
+vconv            = ones(1,N,'logical'); % Keeps track of convergence of velocity fields, so that the correct regularisation is used
+
 %--------------------------------------------------------------------------
 % Miscellaneous (results directory, lower bound, visualisation)
 %--------------------------------------------------------------------------
@@ -140,50 +142,52 @@ for itmain=1:nitmain
         [L,gL] = init_L(N);
     end
     
-    if itmain==it2strtreg(3) && do.v0
+    if itmain==itstrtreg(3) && do.v0
         % Large deformation model
         int_args = 8;
         do.v     = 1;
     end
-    if itmain==it2strtreg(2) && do.v0
+    if itmain==itstrtreg(2) && do.v0
         % Small deformation model
         int_args = 1;
         do.v     = 1;
     end
-    if itmain==it2strtreg(1) && do.a0
+    if itmain==itstrtreg(1) && do.a0
         % Affine
         do.a = 1;
     end
        
-%     if do.v
-%         % Decrease diffeomorphic regularisation over iterations------------
-%         prm = [vx rparam*sched(itmain)];
-%     end
+    % Depending on which component of the model is updated different Green
+    % functions as well as regularisation parameters need to be used. This
+    % is so that the objective functions converges properly.
+    Greens0 = [];
+    Greens  = [];                   
+    if int_args>1
+        % Decrease velocity field regularisation over iterations
+        prm0 = [vx rparam*sched(itmain - itstrtreg(3) + 1)];                 
+        prm  = [vx rparam*sched(itmain - itstrtreg(3) + 2)]; 
+
+        if itmain>itstrtreg(3)
+            Greens0 = spm_shoot_greens('kernel',d,prm0);    
+        end
+        Greens = spm_shoot_greens('kernel',d,prm);    
+    end   
     
-    if int_args > 1      
-        Greens = spm_shoot_greens('kernel',d,prm);
-    else
-        Greens = [];
-    end             
+    % Mean correct affine transform parameters
+    if N>1 && do.a && do.amu, amu = mean(cat(3,a{:}),3);
+    else                      amu = 0; end 
     
-%     if N>1 && do.amu && do.a
-%         % For mean correcting affine transform parameters
-%         amu = mean(cat(3,a{:}),3);
-%     else 
-%         amu = 0;
-%     end
-    
-    muden = 0; munum = 0;  
+    muden = 0; munum = 0; % Used for computing new template 
     
     parfor (n=1:N,pars.runpar) % For each subject
 %     for n=1:N
         fprintf('it=%d, n=%d\n',itmain,n);                   
                 
         % Load data--------------------------------------------------------
-        [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);            
+        [f,v] = load_from_nii(n,pthf,pthv,d,C);            
         
-        % Warp template to subject-----------------------------------------        
-        [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens);
+        % Warp template to subject-----------------------------------------  
+        [phi,~,theta,Jtheta] = make_deformation(v,prm0,int_args,Greens0);
         E                    = spm_dexpm(a{n},B);
         Affine               = Mmu\E*Mf;     
         y1                   = affine_transf(Affine,phi);                   
@@ -193,7 +197,7 @@ for itmain=1:nitmain
         bf = get_bf(chan{n},d);
         
         % Objective function-----------------------------------------------
-        [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk); % Lz not necessary
+        [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0); % Lz not necessary
 
         %------------------------------------------------------------------
         % Cluster and bias part
@@ -205,7 +209,7 @@ for itmain=1:nitmain
             % Update cluster parameters
             %----------------------------------------------------------   
                                               
-            [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);
+            [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n)); r = reshape(r,[d K]);
             L{n}         = [L{n}; Lz + Lbf + La + Lv 2];
 
             %----------------------------------------------------------
@@ -216,12 +220,14 @@ for itmain=1:nitmain
             
                 % Precisions-----------------------------------------------
                 cpLam = get_cpLam(cp(n));                            
+                
+                msk = f>0;
+                msk = reshape(msk,[d C]);  
 
                 oL = L{n}(end,1);
                 for c=1:C                        
-                    f   = reshape(f,[d C]);
-                    bf  = reshape(bf,[d C]);    
-                    msk = reshape(msk,[d 1]);    
+                    f  = reshape(f,[d C]);
+                    bf = reshape(bf,[d C]);     
                     
                     d3 = numel(chan{n}(c).T);
                     if d3>0
@@ -232,14 +238,14 @@ for itmain=1:nitmain
 
                         for z=1:d(3)
 
-                            mskz = msk(:,:,z);
+                            mskz = msk(:,:,z,c);
                             nm   = nnz(mskz);
 
                             if nm==0, continue; end
                             
                             cr = cell(N,1);
                             for c1=1:C
-                                fz  = f(:,:,z,c1);   fz  = fz(mskz);
+                                fz  = f(:,:,z,c1);  fz  = fz(mskz);
                                 bfz = bf(:,:,z,c1); bfz = bfz(mskz);
                                 
                                 cr{c1} = double(fz).*double(bfz); 
@@ -277,7 +283,6 @@ for itmain=1:nitmain
                         % Line-search--------------------------------------
                         
                         f   = reshape(f,[prod(d) C]);
-                        msk = reshape(msk,[prod(d) 1]);
                         
                         scale = 1.0;
                         oLz   = Lz;
@@ -290,7 +295,7 @@ for itmain=1:nitmain
                             bf = get_bf(chan{n},d);  
 
                             % Objective function---------------------------
-                            [Lz,Lbf] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
+                            [Lz,Lbf] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0);
 
                             if Lz + Lbf + La + Lv >= oL
                                 oL = Lz + Lbf + La + Lv;
@@ -310,16 +315,16 @@ for itmain=1:nitmain
                         oT = []; Update = [];
                     end                                                                
                 end                
-                cpLam = [];   
+                cpLam = []; msk = [];   
                 
                 L{n} = [L{n}; Lz + Lbf + La + Lv 3]; 
-            end
-
-            if itcb==nitcb && do.bf
-                % Update responsibilities and cluster parameters-------                
-                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);
-                L{n}         = [L{n};  Lz + Lbf + La + Lv 2];  
-            end   
+                
+                if itcb==nitcb
+                    % Update responsibilities and cluster parameters-------                
+                    [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n)); r = reshape(r,[d K]);
+                    L{n}         = [L{n};  Lz + Lbf + La + Lv 2];  
+                end 
+            end 
         end   
              
         if debuglevel>2
@@ -339,17 +344,13 @@ for itmain=1:nitmain
             
             if do.a                                   
                      
-%                 if do.amu
-%                     % Mean correct affine parameters-------------------------------
-%                     a{n} = a{n} - amu;
-%                 end 
+                if do.amu 
+                    % Mean correct affine parameters-------------------------------
+                    a{n} = a{n} - amu;
+                end
                 
                 % Gradient and Hessian-------------------------------------
                 [g,H] = diff_a(a{n},r,lnmu,cp(n).lnw,B,Mmu,Mf,phi);
-
-                % Include prior--------------------------------------------
-%                     g = g + R*a{n};               
-%                     H = H + R;
 
                 % Gauss-Newton update--------------------------------------
                 Update = H\g; g = []; H = []; 
@@ -369,7 +370,7 @@ for itmain=1:nitmain
                     wlnmu  = warp(lnmu,y1,bs); y1 = [];                   
 
                     % Objective function-----------------------------------
-                    [Lz,Lbf,La] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
+                    [Lz,Lbf,La] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0);
 
                     if Lz + Lbf + La + Lv >= L{n}(end,1)
 
@@ -398,7 +399,7 @@ for itmain=1:nitmain
 
                 L{n} = [L{n}; Lz + Lbf + La + Lv 4];
                 
-                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);       
+                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n)); r = reshape(r,[d K]);       
                 L{n}         = [L{n}; Lz + Lbf + La + Lv 2];
 
                 Update = [];                              
@@ -437,7 +438,7 @@ for itmain=1:nitmain
                     wlnmu                = warp(lnmu,y1,bs); y1 = [];          
                               
                     % Objective function-----------------------------------
-                    [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
+                    [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm);
                     
                     if Lz + Lbf + La + Lv >= L{n}(end,1) 
                         
@@ -446,6 +447,7 @@ for itmain=1:nitmain
                             show_warped_mu(fig5,K,wlnmu,r,d,zix);                            
                         end                        
                             
+                        vconv(n) = true;
                         break;
                     else
                         scale = 0.5*scale;
@@ -453,7 +455,7 @@ for itmain=1:nitmain
                         
                         if line_search==12
                             % Revert back to old parameters----------------
-                            [phi,~,theta,Jtheta] = make_deformation(v,prm,int_args,Greens);
+                            [phi,~,theta,Jtheta] = make_deformation(v,prm0,int_args,Greens0);
                             
                             E      = spm_dexpm(a{n},B);
                             Affine = Mmu\E*Mf; 
@@ -461,14 +463,16 @@ for itmain=1:nitmain
                             wlnmu  = warp(lnmu,y1,bs); y1 = [];    
                                 
                             Lv = oLv;                            
-                            Lz = oLz;                                                        
+                            Lz = oLz;      
+                            
+                            vconv(n) = false;
                         end
                     end
                 end
                 
                 L{n} = [L{n}; Lz + Lbf + La + Lv 5];  
                                 
-                [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);
+                [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n));
                 L{n}         = [L{n}; Lz + Lbf + La + Lv 2];     
                 
                 Update = []; ov = [];
@@ -482,17 +486,20 @@ for itmain=1:nitmain
         
         if do.mu && N>1                                 
             
-            % Get likelihoods
-            [~,~,~,Pf] = update_cp(f,bf,wlnmu,cp(n),msk);  
+            % Get likelihoods----------------------------------------------
+            
+            [~,~,~,Pf] = update_cp(f,bf,wlnmu,cp(n));  
             Pf         = reshape(Pf,[d K]);
             
             % Warp likelihoods to template
-            E         = spm_dexpm(a{n},B);
-            Affine    = Mmu\E*Mf; 
-            invAffine = inv(Affine);           
-            y1        = spm_diffeo('comp',theta,affine_transf(invAffine,identity(d)));
-            if d(3)==1, y1(:,:,:,3) = 1; end            
-            Pf        = warp(Pf,y1,bs); y1 = []; 
+            E               = spm_dexpm(a{n},B);
+            Affine          = Mmu\E*Mf; 
+            invAffine       = inv(Affine);           
+            y1              = spm_diffeo('comp',theta,affine_transf(invAffine,identity(d)));
+            if d(3)==1, 
+                y1(:,:,:,3) = 1; 
+            end            
+            Pf              = warp(Pf,y1,bs); y1 = []; 
             
             % Scale warped likelihoods by Jacobian determinants
             dt = spm_diffeo('det',Jtheta)*abs(det(invAffine(1:3,1:3)));
@@ -541,6 +548,9 @@ for itmain=1:nitmain
     
     if do.mu && N>1     
         
+        % Smooth template--------------------------------------------------
+        [munum,muden] = smooth_template(munum,muden,d);
+        
         % Update template--------------------------------------------------
         lnmu = log(munum./muden + eps); munum = []; muden = []; % eps can be considered a Dirichlet prior
         lnmu = reshape(lnmu',[d K]);
@@ -550,24 +560,26 @@ for itmain=1:nitmain
         % Compute objective------------------------------------------------                
         parfor (n=1:N,pars.runpar)
 %         for n=1:N
-            [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);
+            [f,v] = load_from_nii(n,pthf,pthv,d,C);
             
             % Re-generate bias field---------------------------------------
             bf = get_bf(chan{n},d);
             
             % Warp temlate to subject--------------------------------------
-            phi    = make_deformation(v,prm,int_args,Greens);            
-            E      = spm_dexpm(a{n},B);
-            Affine = Mmu\E*Mf;                           
-            y1     = affine_transf(Affine,phi);                    
-            wlnmu  = warp(lnmu,y1,bs); y1 = [];                                                 
+            if vconv(n), phi = make_deformation(v,prm,int_args,Greens);            
+            else         phi = make_deformation(v,prm0,int_args,Greens0); end     
+            E                = spm_dexpm(a{n},B);
+            Affine           = Mmu\E*Mf;                           
+            y1               = affine_transf(Affine,phi);                    
+            wlnmu            = warp(lnmu,y1,bs); y1 = [];                                                  
             
             % Objective function-------------------------------------------
-            [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);            
-            L{n}           = [L{n}; Lz + Lbf + La + Lv 6];
+            if vconv(n), [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm);            
+            else         [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0); end
+            L{n}                        = [L{n}; Lz + Lbf + La + Lv 6];
                                 
             % Update cluster parameters------------------------------------
-            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);       
+            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n));       
             L{n}         = [L{n}; Lz + Lbf + La + Lv 2];      
             
             f = []; v = []; bf = []; phi = []; wlnmu = [];
@@ -589,24 +601,26 @@ for itmain=1:nitmain
         % Compute objective------------------------------------------------                
         parfor (n=1:N,pars.runpar)
 %         for n=1:N
-            [f,v,msk] = load_from_nii(n,pthf,pthv,d,C);
+            [f,v] = load_from_nii(n,pthf,pthv,d,C);
             
             % Re-generate bias field---------------------------------------
             bf = get_bf(chan{n},d);
             
             % Warp temlate to subject--------------------------------------
-            phi    = make_deformation(v,prm,int_args,Greens);            
-            E      = spm_dexpm(a{n},B);
-            Affine = Mmu\E*Mf;                           
-            y1     = affine_transf(Affine,phi);                    
-            wlnmu  = warp(lnmu,y1,bs); y1 = [];                                                
+            if vconv(n), phi = make_deformation(v,prm,int_args,Greens);            
+            else         phi = make_deformation(v,prm0,int_args,Greens0); end     
+            E                = spm_dexpm(a{n},B);
+            Affine           = Mmu\E*Mf;                           
+            y1               = affine_transf(Affine,phi);                    
+            wlnmu            = warp(lnmu,y1,bs); y1 = [];                                                
             
             % Objective function-------------------------------------------
-            [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);            
-            L{n}           = [L{n}; Lz + Lbf + La + Lv 7];
+            if vconv(n), [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm);            
+            else         [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0); end
+            L{n}                        = [L{n}; Lz + Lbf + La + Lv 7];
                                 
             % Update cluster parameters------------------------------------
-            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);       
+            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n));       
             L{n}         = [L{n}; Lz + Lbf + La + Lv 2];    
             
             f = []; v = []; bf = []; phi = []; wlnmu = [];
@@ -700,11 +714,11 @@ create_nii(fname,mu,Mmu,'float32','TPM');
 %==========================================================================
 
 %=======================================================================        
-function [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,lnmu,cp,chan,a,R,v,prm,msk)
+function [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,lnmu,cp,chan,a,R,v,prm)
 Lbf = 0; La = 0; Lv = 0;
 
 % E[ln(p(X|Z,µ,Σ,b))] + E[ln(p(Z|π,w,v,a))] + E[ln(p(µ,Σ))] - E[ln(q(Z))] - E[ln(q(µ,Σ))]
-Lz = update_cp(f,bf,lnmu,cp,msk);
+Lz = update_cp(f,bf,lnmu,cp);
 
 if do.bf && nargout > 1    
     % ln(p(b))
@@ -723,18 +737,16 @@ end
 %=======================================================================
 
 %==========================================================================
-function [f,v,msk] = load_from_nii(n,pthf,pthv,d,C)
+function [f,v] = load_from_nii(n,pthf,pthv,d,C)
 f   = zeros([prod(d) C],'single');
-msk = zeros([prod(d),C],'logical');
 for c=1:C
     Nii    = nifti(pthf{n,c});
-    f(:,c) = reshape(Nii.dat(:,:,:),[],1);     
-    
-    msk(:,c) = get_msk(f(:,c));
+    f(:,c) = reshape(Nii.dat(:,:,:),[],1);  
 end
 
-% msk = sum(msk,2)>0;
-msk = sum(msk,2)==C;
+% msk = sum(f>0,2)==size(f,2);
+% % msk = sum(f>0,2)>0;
+% msk = repmat(msk,1,C);
 
 v = nifti(pthv{n});
 v = single(v.dat(:,:,:,:));
