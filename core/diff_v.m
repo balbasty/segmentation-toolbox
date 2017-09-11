@@ -2,10 +2,10 @@ function [g,H,ll] = diff_v(r,lnmu,lnw,Affine,y,int_args)
 d   = size(r);
 lkp = [1 4 5; 4 2 6; 5 6 3];
 
-g   = zeros([d(1:3),3],'single');
-H   = zeros([d(1:3),6],'single');
+g = zeros([d(1:3),3],'single');
+H = zeros([d(1:3),6],'single');
 
-y1  = affine_transf(Affine,y);
+y1 = affine_transf(Affine,y);
 if int_args > 1
     J  = spm_diffeo('def2jac',y1);
 else

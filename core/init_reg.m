@@ -1,8 +1,19 @@
-function [pthv,sched,B,a] = init_reg(N,d,nitout,tempdir,Mf)
-sched = get_sched(nitout);
-sched = [sched(1), sched];
+function [pthv,sched,B,a,R,prm0,prm,int_args,vconv] = init_reg(N,d,nitmain,tempdir,Mf,abasis,alam,vx,vlam)
 
-B = affine_basis(12);
+B = affine_basis(abasis);
+
+R(1:3,1:3)     = alam*eye(3); % translation
+R(4:6,4:6)     = alam*eye(3); % rotation
+R(7:9,7:9)     = alam*eye(3); % scaling
+R(10:12,10:12) = alam*eye(3); % skew    
+
+sched = get_sched(nitmain);
+prm0  = [vx vlam*sched(1)];
+prm   = prm0;
+
+int_args = 1;
+
+vconv = ones(1,N,'logical'); % Keeps track of convergence of velocity fields, so that the correct regularisation is used
 
 f = fullfile(tempdir,'v');
 if (exist(f,'dir') == 0)
@@ -21,10 +32,11 @@ end
 %==========================================================================
 
 %==========================================================================
-function sched = get_sched(iter)
+function sched = get_sched(nitmain)
 shotdef = spm_shoot_defaults;
 sched   = shotdef.sched;
-if numel(sched) < iter
-    sched = [sched, ones(1,iter - numel(sched)) 1];
+sched   = [sched(2) sched(2:end)];
+if numel(sched) < nitmain
+    sched = [sched, ones(1,nitmain - numel(sched)) 1];
 end
 %==========================================================================

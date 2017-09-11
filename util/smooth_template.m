@@ -1,5 +1,11 @@
 function [munum,muden] = smooth_template(munum,muden,d,fwhm)
-if nargin<4, fwhm = [0.5 0.5 0.5]; end
+if nargin<4, fwhm = 0.5; end
+
+if ~fwhm
+    return;
+end
+
+fwhm = fwhm*ones(1,3);
 
 lim = ceil(2*fwhm);
 x   = -lim(1):lim(1); x = spm_smoothkern(fwhm(1),x); x = x/sum(x);

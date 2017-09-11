@@ -43,7 +43,7 @@ for n=1:N
     for c=1:C
         Nii  = nifti(pthf{n,c});
         matf = Nii.mat;        
-        f    = Nii.dat(:,:,:);             
+        f    = single(Nii.dat(:,:,:));             
       
         % Warp image-------------------------------------------------------
         phi = affine_transf(matf\mat,identity(d));
