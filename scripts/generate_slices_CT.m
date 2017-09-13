@@ -5,8 +5,8 @@ addpath('../core/')
 addpath('../preproc/')
 
 % Parameters
-datadir  = '/home/mbrud/Data/CT-images/';
-slicedir = '/home/mbrud/Dropbox/PhD/Data/CT-slices/';
+datadir  = '/home/mbrud/Data/CT-healthy/';
+slicedir = '/home/mbrud/Dropbox/PhD/Data/CT-healthy-2D/';
 
 %% Get triplets of same subject images
 f = dir(fullfile(datadir,'*.nii'));
@@ -18,12 +18,11 @@ for i=1:N
     P{i} = fullfile(datadir,f(i).name);
 end
 
-%% Create slices
+%% Do processing
 if (exist(slicedir,'dir') == 0)
     mkdir(slicedir);
 end
 
-% Pslice = cell(NN,D);
 for i=1:N
     fprintf('%d ',i); 
 
@@ -44,9 +43,10 @@ for i=1:N
         [~,nam,ext] = fileparts(P{i,i2});
         Ptmp{i2}    = fullfile(f,[nam ext]);
 
-        nm_reorient(Ptmp{i2},1,1);
+        nm_reorient(Ptmp{i2},1.5,1);
         reset_origin(Ptmp{i2});
         rigid_align(Ptmp{i2});  
+%         atlas_crop(Ptmp{i2}); 
     end  
 
     % Warp same size
@@ -77,10 +77,10 @@ for i=1:N
     for i2=1:D  
         Nii  = nifti(Ptmp{i2});
         matf = Nii.mat;        
-        img    = Nii.dat(:,:,:);    
+        img  = Nii.dat(:,:,:);    
 
         phi = affine_transf(matf\mat,identity(dall));
-        img = warp(img,phi); 
+        img = warp(single(img),single(phi)); 
 
         [~,nam,ext] = fileparts(Nii.dat.fname);
 
@@ -102,7 +102,6 @@ for i=1:N
 
         [pth,nam,ext] = fileparts(Pw{i2});
         P{i,i2}       = fullfile(pth,[prefix nam ext]);
-%         Pslice{i,i2}  = fullfile(pth,[prefix nam ext]);
     end
 
     for i2=1:D
@@ -112,7 +111,7 @@ end
 fprintf('\n'); 
 
 %% Visualise
-N = min(N,6);
+N = min(N,12);
 
 F1  = floor(sqrt(N));
 F2  = ceil(N/F1);      
@@ -122,8 +121,8 @@ for i1=1:N
         Nii = nifti(P{i1,i2});
         img = squeeze(Nii.dat(:,:,:));
 
-        subplot(N,D,cnt);
-        imagesc(img); axis image xy off; title(['n=' num2str(i1)]); colormap(gray);
+        subplot(F1,F2,i1);
+        imagesc(img); axis image xy off; title(['n=' num2str(i1)]); colormap(gray); colorbar;
         
         cnt = cnt + 1;
     end

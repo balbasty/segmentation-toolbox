@@ -1,4 +1,4 @@
-function cp = init_cp(pthf,pthmu,mu,K,d,dow,runpar)
+function cp = init_cp(pthf,pthmu,mu,K,d,runpar)
 [N,D] = size(pthf);
 
 cp(N) = struct;
@@ -67,7 +67,7 @@ for n1=1:N
     cp(n1).po.b = b;
     cp(n1).po.W = W;
     cp(n1).po.n = n;
-    cp(n1).dow  = dow;
+    cp(n1).dow  = 0;
     cp(n1).lnw  = log(ones([1,K],'single')/K);    
 end
 
@@ -277,7 +277,10 @@ w = mg/sum(mg);
 
 %==========================================================================
 function labels = label_data(f,K,d)
-labels = kmeans(f,K);
+
+opts = statset('MaxIter',1000);
+
+labels = kmeans(f,K,'Options',opts);
 
 labels                    = labels';
 labels(~isfinite(labels)) = K + 1;

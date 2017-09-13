@@ -1,4 +1,4 @@
-function [pthwf,mat,d] = warp_eq_size(pthf,samp,tempdir)
+function [pthwf,mat,d] = warp_eq_size(pthf,samp,tempdir,ct)
 
 [N,C] = size(pthf);
 
@@ -45,18 +45,25 @@ for n=1:N
         matf = Nii.mat;        
         f    = single(Nii.dat(:,:,:));             
       
+        % Mask-------------------------------------------------------------
+        msk     = get_msk(f,ct);        
+        f(~msk) = 0;
+        
+%         if ct
+%             % For bias field correction to work properly negative values
+%             % are removed when images are CT
+%             f(msk) = f(msk) + 1100;
+%         end
+        
+        if ~ct
+            % Make images have simillar means (not for CT)
+            a = 512/mean(f(:));
+            f = f*a;
+        end
+        
         % Warp image-------------------------------------------------------
         phi = affine_transf(matf\mat,identity(d));
         f   = warp(f,phi);           
-
-        % Mask-------------------------------------------------------------
-        msk = get_msk(f);
-        
-        f(~msk) = 0;
-        
-        % Make images have simillar means----------------------------------                 
-        a = 512/mean(f(:));
-        f = f*a;
         
         % Write warped image-----------------------------------------------
         [~,nam,ext] = fileparts(Nii.dat.fname);

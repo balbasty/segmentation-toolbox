@@ -8,16 +8,23 @@ N = pars.N;
 K = pars.K;
 C = pars.C;
 
-runpar = pars.runpar;
+ct = pars.ct;
+
+if pars.runpar
+    runpar = get_nbr_of_cores; 
+else
+    runpar = 0;
+end
 
 samp = pars.samp;
 vx   = samp*ones(1,3);
 
 bs = pars.bs;
 
+figix      = pars.figix;
 debuglevel = pars.debuglevel;
-if runpar && debuglevel==3
-    debuglevel = 2;    
+if runpar && debuglevel==4
+    debuglevel = 3;    
 end
 
 imdir   = pars.imdir;
@@ -29,11 +36,12 @@ pthmu = pars.pthmu;
 
 do = pars.do;
 
-nitmain   = pars.nitmain;
-nitcpbf   = pars.nitcpbf;
-nitcp0    = pars.nitcp0;
-itstrtreg = pars.itstrtreg;
-tol       = pars.tol;
+nitmain    = pars.nitmain;
+nitcpbf    = pars.nitcpbf;
+nitcp0     = pars.nitcp0;
+nitsrtw    = pars.nitsrtw;
+nitstrtreg = pars.nitstrtreg;
+tol        = pars.tol;
 
 bflam  = pars.bflam;
 bffwhm = pars.bffwhm;
@@ -43,7 +51,7 @@ alam   = pars.alam;
 
 vlam = pars.vlam;
 
-mufwhm = pars.mufwhm;
+mufwhm = samp*pars.mufwhm;
 
 %--------------------------------------------------------------------------
 % Read and preprocess image data
@@ -65,7 +73,7 @@ if ~preproc.imload
     end
     
     % Preprocess images (reset origin, align to MNI, etc) -----------------
-    pthf = preproc_im(pthf,preproc,tempdir);
+    pthf = preproc_im(pthf,preproc,tempdir,runpar);
 else
     % Load already preprocessed images-------------------------------------
     
@@ -76,7 +84,7 @@ end
 % Warp images to same size
 %--------------------------------------------------------------------------
 
-[pthf,Mf,d] = warp_eq_size(pthf,samp,tempdir);
+[pthf,Mf,d] = warp_eq_size(pthf,samp,tempdir,ct);
 
 %--------------------------------------------------------------------------
 % Initialise atlas
@@ -88,7 +96,7 @@ end
 % Initialise cluster struct
 %--------------------------------------------------------------------------
 
-cp = init_cp(pthf,pthmu,lnmu,K,d,do.w,runpar); 
+cp = init_cp(pthf,pthmu,lnmu,K,d,runpar); 
 
 %--------------------------------------------------------------------------
 % Initialise bias field struct
@@ -100,7 +108,7 @@ chan = init_bf(N,C,V,d,bflam,bffwhm);
 % Initialise registration parameters
 %--------------------------------------------------------------------------
 
-[pthv,sched,B,a,R,prm0,prm,int_args,vconv] = init_reg(N,d,nitmain,tempdir,Mf,abasis,alam,vx,vlam);
+[pthv,sched,B,a,R,prm0,prm,int_args,vconv,do] = init_reg(N,d,nitmain,tempdir,Mf,abasis,alam,vx,vlam,do);
 
 %--------------------------------------------------------------------------
 % Miscellaneous (results directory, lower bound, visualisation, etc)
@@ -122,11 +130,24 @@ end
 
 [L,gL] = init_L(N);
 
-[fig,rndn,zix] = init_fig(N,debuglevel,d,pars.figix);
+[fig,rndn,zix] = init_fig(N,debuglevel,d,figix);
 fig5           = fig{5};
 
-do.v = 0;
-do.a = 0;
+if true
+    % Show image data (for debugging)
+    figure(1 + 5*(figix - 1) + 5);
+    NN = min(N,32);
+    N1 = floor(sqrt(NN));
+    N2 = ceil(NN/N1);      
+    for n=1:NN
+        subplot(N1,N2,n);
+        
+        Nii = nifti(pthf{n,1});
+        img = Nii.dat(:,:,zix);
+        imagesc(img'); axis image xy off; colormap(gray); colorbar;
+    end  
+    drawnow
+end
 
 %==========================================================================
 % Start algorithm 
@@ -151,17 +172,24 @@ for itmain=1:nitmain
         nitcp = nitcp0(itmain);
     end
     
-    if itmain==itstrtreg(3) && do.v0
+    if itmain==nitsrtw && do.w
+        % Start weight update
+        for n=1:N
+            cp(n).dow = 1;
+        end
+    end
+    
+    if itmain==nitstrtreg(3) && do.v0
         % Large deformation model
         int_args = 8;
         do.v     = 1;
     end
-    if itmain==itstrtreg(2) && do.v0
+    if itmain==nitstrtreg(2) && do.v0
         % Small deformation model
         int_args = 1;
         do.v     = 1;
     end
-    if itmain==itstrtreg(1) && do.a0
+    if itmain==nitstrtreg(1) && do.a0
         % Affine
         do.a = 1;
     end
@@ -173,10 +201,10 @@ for itmain=1:nitmain
     Greens  = [];                   
     if int_args>1
         % Decrease velocity field regularisation over iterations
-        prm0 = [vx vlam*sched(itmain - itstrtreg(3) + 1)];                 
-        prm  = [vx vlam*sched(itmain - itstrtreg(3) + 2)]; 
+        prm0 = [vx vlam*sched(itmain - nitstrtreg(3) + 1)];                 
+        prm  = [vx vlam*sched(itmain - nitstrtreg(3) + 2)]; 
 
-        if itmain>itstrtreg(3)
+        if itmain>nitstrtreg(3)
             Greens0 = spm_shoot_greens('kernel',d,prm0);    
         end
         Greens = spm_shoot_greens('kernel',d,prm);    
@@ -195,7 +223,7 @@ for itmain=1:nitmain
         r = 0; Lz = 0; % Needs to be defined to avoid warning message from parfor...
         
         % Load data--------------------------------------------------------
-        [f,v] = load_from_nii(n,pthf,pthv,d,C);            
+        [f,v,msk] = load_from_nii(n,pthf,pthv,d,C,ct);            
         
         % Warp template to subject-----------------------------------------  
         [phi,~,theta,Jtheta] = make_deformation(v,prm0,int_args,Greens0);
@@ -208,7 +236,7 @@ for itmain=1:nitmain
         bf = get_bf(chan{n},d);
         
         % Objective function-----------------------------------------------
-        [~,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0,false);
+        [~,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0,msk,false);
 
         %------------------------------------------------------------------
         % Cluster and bias part
@@ -221,7 +249,7 @@ for itmain=1:nitmain
             %----------------------------------------------------------   
                     
             for itcp=1:nitcp
-                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n)); r = reshape(r,[d K]);
+                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);
                 L{n}         = [L{n}; Lz + Lbf + La + Lv, 2];
             end
             
@@ -232,10 +260,7 @@ for itmain=1:nitmain
             if do.bf
             
                 % Precisions-----------------------------------------------
-                cpLam = get_cpLam(cp(n));                            
-                
-                msk = f>0;
-                msk = reshape(msk,[d C]);  
+                cpLam = get_cpLam(cp(n));        
 
                 oL = L{n}(end,1);
                 for c=1:C                        
@@ -312,7 +337,7 @@ for itmain=1:nitmain
                             bf = get_bf(chan{n},d);  
 
                             % Objective function---------------------------
-                            [Lz,Lbf] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0);
+                            [Lz,Lbf] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0,msk);
 
                             if Lz + Lbf + La + Lv >= oL
                                 oL = Lz + Lbf + La + Lv;
@@ -332,19 +357,19 @@ for itmain=1:nitmain
                         oT = []; Update = [];
                     end                                                                
                 end                
-                cpLam = []; msk = [];   
+                cpLam = [];
                 
                 L{n} = [L{n}; Lz + Lbf + La + Lv, 3]; 
                 
                 if itcpbf==nitcpbf
                     % Update responsibilities and cluster parameters-------                
-                    [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n)); r = reshape(r,[d K]);
+                    [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);
                     L{n}         = [L{n};  Lz + Lbf + La + Lv, 2];  
                 end 
             end 
         end   
              
-        if debuglevel>2
+        if debuglevel>3
             set(0,'CurrentFigure',fig5);                                              
             show_mu(fig5,K,wlnmu,r,d,zix);
         end
@@ -391,11 +416,11 @@ for itmain=1:nitmain
                     wlnmu  = warp(lnmu,y1,bs); y1 = [];                   
 
                     % Objective function-----------------------------------
-                    [Lz,Lbf,La] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0);
+                    [Lz,Lbf,La] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0,msk);
 
                     if Lz + Lbf + La + Lv >= L{n}(end,1)
 
-                        if debuglevel>2
+                        if debuglevel>3
                             fprintf('Affine converged (n=%d,it=%d)\n',n,line_search); 
                             show_mu(fig5,K,wlnmu,r,d,zix);
                         end                        
@@ -420,7 +445,7 @@ for itmain=1:nitmain
 
                 L{n} = [L{n}; Lz + Lbf + La + Lv, 4];
                 
-                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n)); r = reshape(r,[d K]);       
+                [Lz,r,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk); r = reshape(r,[d K]);       
                 L{n}         = [L{n}; Lz + Lbf + La + Lv, 2];
 
                 Update = [];                              
@@ -459,11 +484,11 @@ for itmain=1:nitmain
                     wlnmu                = warp(lnmu,y1,bs); y1 = [];          
                               
                     % Objective function-----------------------------------
-                    [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm);
+                    [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);
                     
                     if Lz + Lbf + La + Lv >= L{n}(end,1) 
                         
-                        if debuglevel>2
+                        if debuglevel>3
                             fprintf('Nonlinear converged (n=%d,it=%d)\n',n,line_search); 
                             show_mu(fig5,K,wlnmu,r,d,zix);                            
                         end                        
@@ -493,7 +518,7 @@ for itmain=1:nitmain
                 
                 L{n} = [L{n}; Lz + Lbf + La + Lv, 5];  
                                 
-                [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n));
+                [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);
                 L{n}         = [L{n}; Lz + Lbf + La + Lv, 2];     
                 
                 Update = []; ov = [];
@@ -508,7 +533,7 @@ for itmain=1:nitmain
             
             % Get likelihoods----------------------------------------------
             
-            [~,~,~,Pf] = update_cp(f,bf,wlnmu,cp(n));  
+            [~,~,~,Pf] = update_cp(f,bf,wlnmu,cp(n),msk);  
             Pf         = reshape(Pf,[d K]);
             
             % Warp likelihoods to template
@@ -559,7 +584,9 @@ for itmain=1:nitmain
         % Save data--------------------------------------------------------
         save_to_nii(n,pthv,v);
         
-        fprintf('cp(%i).w: %s\n',n,sprintf('%3.3f ',exp(cp(n).lnw)));
+        if debuglevel>2
+            fprintf('cp(%i).w: %s\n',n,sprintf('%3.3f ',exp(cp(n).lnw)));
+        end
     end
        
     %----------------------------------------------------------------------
@@ -580,7 +607,7 @@ for itmain=1:nitmain
         % Compute objective------------------------------------------------                
         parfor (n=1:N,runpar)
 %         for n=1:N
-            [f,v] = load_from_nii(n,pthf,pthv,d,C);
+            [f,v,msk] = load_from_nii(n,pthf,pthv,d,C,ct);
             
             % Re-generate bias field---------------------------------------
             bf = get_bf(chan{n},d);
@@ -594,12 +621,12 @@ for itmain=1:nitmain
             wlnmu            = warp(lnmu,y1,bs); y1 = [];                                                  
             
             % Objective function-------------------------------------------
-            if vconv(n), [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm);            
-            else         [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0); end
+            if vconv(n), [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);            
+            else         [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0,msk); end
             L{n}                        = [L{n}; Lz + Lbf + La + Lv, 6];
                                 
             % Update cluster parameters------------------------------------
-            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n));       
+            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);       
             L{n}         = [L{n}; Lz + Lbf + La + Lv, 2];      
             
             f = []; v = []; bf = []; phi = []; wlnmu = [];
@@ -621,7 +648,7 @@ for itmain=1:nitmain
         % Compute objective------------------------------------------------                
         parfor (n=1:N,runpar)
 %         for n=1:N
-            [f,v] = load_from_nii(n,pthf,pthv,d,C);
+            [f,v,msk] = load_from_nii(n,pthf,pthv,d,C,ct);
             
             % Re-generate bias field---------------------------------------
             bf = get_bf(chan{n},d);
@@ -635,12 +662,12 @@ for itmain=1:nitmain
             wlnmu            = warp(lnmu,y1,bs); y1 = [];                                                
             
             % Objective function-------------------------------------------
-            if vconv(n), [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm);            
-            else         [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0); end
+            if vconv(n), [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm,msk);            
+            else         [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,wlnmu,cp(n),chan{n},a{n},R,v,prm0,msk); end
             L{n}                        = [L{n}; Lz + Lbf + La + Lv, 7];
                                 
             % Update cluster parameters------------------------------------
-            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n));       
+            [Lz,~,cp(n)] = update_cp(f,bf,wlnmu,cp(n),msk);       
             L{n}         = [L{n}; Lz + Lbf + La + Lv, 2];    
             
             f = []; v = []; bf = []; phi = []; wlnmu = [];
@@ -672,7 +699,7 @@ for itmain=1:nitmain
 
     fprintf('%d %g %g\n',itmain,gL(end),abs((gL(end) - gL(end - 1))/gL(end)));
     
-    if abs((gL(end) - gL(end - 1))/gL(end))<tol && itmain>9
+    if abs((gL(end) - gL(end - 1))/gL(end))<tol && itmain>30
         fprintf('Algorithm converged in %d iterations.\n',itmain)                        
         break;
     end
@@ -734,14 +761,14 @@ create_nii(fname,mu,Mmu,'float32','TPM');
 %==========================================================================
 
 %=======================================================================        
-function [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,lnmu,cp,chan,a,R,v,prm,doLz)
-if nargin<11, doLz=true; end
+function [Lz,Lbf,La,Lv] = obj_fun(do,f,bf,lnmu,cp,chan,a,R,v,prm,msk,doLz)
+if nargin<12, doLz = true; end
 
 Lz = 0; Lbf = 0; La = 0; Lv = 0;
 
 if doLz
     % E[ln(p(X|Z,µ,Σ,b))] + E[ln(p(Z|π,w,v,a))] + E[ln(p(µ,Σ))] - E[ln(q(Z))] - E[ln(q(µ,Σ))]
-    Lz = update_cp(f,bf,lnmu,cp);
+    Lz = update_cp(f,bf,lnmu,cp,msk);
 end
 
 if do.bf && nargout > 1    
@@ -761,19 +788,19 @@ end
 %=======================================================================
 
 %==========================================================================
-function [f,v] = load_from_nii(n,pthf,pthv,d,C)
+function [f,v,msk] = load_from_nii(n,pthf,pthv,d,C,ct)
 f   = zeros([prod(d) C],'single');
+msk = zeros([prod(d) C],'logical');
 for c=1:C
-    Nii    = nifti(pthf{n,c});
-    f(:,c) = reshape(Nii.dat(:,:,:),[],1);  
+    Nii      = nifti(pthf{n,c});
+    f(:,c)   = reshape(Nii.dat(:,:,:),[],1);  
+    
+    msk(:,c) = get_msk(f(:,c),ct);
 end
+msk = reshape(msk,[d C]);
 
-% msk = sum(f>0,2)==size(f,2);
-% % msk = sum(f>0,2)>0;
-% msk = repmat(msk,1,C);
-
-v = nifti(pthv{n});
-v = single(v.dat(:,:,:,:));
+v   = nifti(pthv{n});
+v   = single(v.dat(:,:,:,:));
 %==========================================================================
 
 %==========================================================================
@@ -903,7 +930,7 @@ fig = cell(5,1);
 
 ixstart = 1 + 5*(ixstart - 1);
 
-if debuglevel>2
+if debuglevel>3
     showwarp = 1;
 else
     showwarp = 0;

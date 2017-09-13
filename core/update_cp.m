@@ -1,67 +1,49 @@
-function [L,r,cp,Pf] = update_cp(f,bf,lnmu,cp)
-
-missingdata = true;
-
+function [L,r,cp,Pf] = update_cp(f,bf,lnmu,cp,msk)
 K = numel(cp.lnw);
 
-lnmu = reshape(lnmu,[size(f,1) K]);
-
+% Apply bias field
 f = bf.*f;
 
+% Calculate log(det(B))
 lnbf = log(prod(bf,2));
 lnbf = repmat(lnbf,1,K);
 
+% Calculate multinomial part of model
+lnmu = reshape(lnmu,[size(f,1) K]);
 lnPz = multinomial(lnmu,cp.lnw);
 
-% Calculate r
 if nargout==4
-    if missingdata
-        [r,~,Pf] = resps_missing(f,cp.po,lnbf,lnPz);
-    else
-        [r,~,Pf] = resps(f,cp.po,lnbf,lnPz);
-    end
+    % Return only the likelihood (Bishop Eq. 10.67)
+    [r,~,Pf] = resps(f,cp.po,lnbf,lnPz);
     L = 0;
     return;
-else
-    if missingdata
-        [r,lnr] = resps_missing(f,cp.po,lnbf,lnPz);
-    else
-        [r,lnr] = resps(f,cp.po,lnbf,lnPz);    
-    end
+else   
+    % Calculate responsibilities
+    [r,lnr] = resps(f,cp.po,lnbf,lnPz);
 end
 
+% Get sufficient statistics
 mom = suffstats(f,r);
-if ~missingdata
-    mom = mom(end);
-end
-
-if missingdata
-    msk = sum(f>0,2)>0;
-else
-    msk = sum(f>0,2)==size(f,2);
-end
-
+   
 if nargout==3
+    % Do variational M-step where the posterior parameters are updated
+    [~,cp.po] = VBGaussiansFromSuffStats(mom,cp.pr,cp.po);
     
-    % Begin M step
-    % compute new parameters
-    if missingdata
-        [~,cp.po] = VBGaussiansFromSuffStats(mom,cp.pr,cp.po);
-    else
-        cp.po     = vmstep(mom,cp.pr);   
-    end        
-    
-    if cp.dow       
+    if cp.dow     
+        % Update tissue weights (Unified Segmentation Eq. 27)
+        msk = reshape(msk,size(f));
+        msk = sum(msk,2)>0;
+        
         b = zeros([nnz(msk) K],'single');
         for k=1:K
             b(:,k) = exp(lnmu(msk,k));
-        end
-
+        end       
+        
         w  = exp(cp.lnw);
         bw = bsxfun(@times,b,w);    
         bw = 1./(sum(bw,2));
         
-        mgm = bsxfun(@times,b,bw); bw = [];
+        mgm = bsxfun(@times,b,bw); bw = []; b = [];
         mgm = sum(mgm);
         
         s0 = 0;
@@ -73,36 +55,18 @@ if nargout==3
         w      = w/sum(w);        
         cp.lnw = log(w);
         
-        if sum(~isfinite(w))
-           error('sum(~isfinite(w))');
-        end
-        
         lnPz = multinomial(lnmu,cp.lnw);
     end
     
-    if missingdata
-        [r,lnr] = resps_missing(f,cp.po,lnbf,lnPz);
-    else
-        [r,lnr] = resps(f,cp.po,lnbf,lnPz);
-    end
+    % Recalculate responsibilities with updated parameters
+    [r,lnr] = resps(f,cp.po,lnbf,lnPz);
     
+    % Get sufficient statistics
     mom = suffstats(f,r); 
-    if ~missingdata
-        mom = mom(end);
-    end
 end
-
-    if missingdata
-        L = VBGaussiansFromSuffStats(mom,cp.pr,cp.po);
-    else
-        L = lowerbound(mom,cp.pr,cp.po);
-    end
+% Calculate the lower bound
+L = VBGaussiansFromSuffStats(mom,cp.pr,cp.po);
     
-if ~missingdata
-    msk     = repmat(msk,1,K);
-    r(~msk) = NaN;
-end
-
 L5 = nansum(nansum(r.*lnr));
 L6 = nansum(nansum(r.*lnbf));
 L7 = nansum(nansum(r.*lnPz));
@@ -111,57 +75,6 @@ L7 = nansum(nansum(r.*lnPz));
 L = L - L5 + L6 + L7;
 %==========================================================================
 
-%==========================================================================
-function L = lowerbound(mom,pr,po)
-
-s0 = mom.s0;
-s1 = mom.s1;
-S2 = mom.S2;
-
-m = po.m;
-n = po.n;
-W = po.W;
-b = po.b;
-
-m0 = pr.m;
-n0 = pr.n;
-W0 = pr.W;
-b0 = pr.b;
-
-[D,K] = size(m0);
-
-L = 0;
-for k = 1:K
-    W0inv = inv(W0(:,:,k));
-
-    logB0 = (n0(k)/2)*logdet(W0inv) - (n0(k)*D/2)*log(2) ...
-          - (D*(D-1)/4)*log(pi) - sum(gammaln(0.5*(n0(k)+1 -[1:D])));
-  
-    t1          = psi(0, 0.5*repmat(n(k)+1,D,1) - 0.5*[1:D]');
-    logLamTilde = sum(t1) + D*log(2)  + logdet(W(:,:,k));
-    
-    logBk = -(n(k)/2)*logdet(W(:,:,k)) - (n(k)*D/2)*log(2)...
-            - (D*(D-1)/4)*log(pi) - sum(gammaln(0.5*(n(k) + 1 - [1:D])));
-    H     = -logBk - 0.5*(n(k) -D-1)*logLamTilde + 0.5*n(k)*D;
-
-    trSW      = trace(n(k)*S2(:,:,k)*W(:,:,k));
-    diff      = s1(:,k) - m(:,k);
-    xbarWxbar = diff'*W(:,:,k)*diff;
-
-    diff     = m(:,k) - m0(:,k);
-    mWm      = b0(k)*n(k)*diff'*W(:,:,k)*diff; 
-    trW0invW = trace(W0inv*W(:,:,k));
-    
-    L1 = 0.5*(s0(k).*(logLamTilde - D./b(k) - trSW - n(k).*xbarWxbar - D*log(2*pi)));
-    L2 = 0.5*(D*log(b0(k)/(2*pi)) + logLamTilde - D*(b0(k)./b(k)) - mWm);
-    L3 = logB0 + 0.5*((n0(k) - D - 1).*logLamTilde) - 0.5*(n(k).*trW0invW);    
-    L4 = 0.5*(logLamTilde + D.*log(b(k)/(2*pi))) - 0.5*D*K - H;
-    
-    Lk = L1 + L2 + L3 - L4;
-    L  = L + Lk;
-end
-%==========================================================================
-  
 %==========================================================================
 function [L,po] = VBGaussiansFromSuffStats(mom,pr,po,verbose)
 if nargin<4, verbose=false; end
@@ -310,40 +223,6 @@ W = po.W;
 b = po.b;
 
 [D,K] = size(m);
-N     = size(lnPz,1);
-
-E          = zeros([N,K],'single');
-lnLamTilde = zeros([1,K],'single');
-for k = 1:K
-    t1 = psi(0, 0.5*repmat(n(k)+1,D,1) - 0.5*[1:D]');
-    lnLamTilde(k) = sum(t1) + D*log(2)  + logdet(W(:,:,k));    
-    
-    diff1  = bsxfun(@minus,f',m(:,k));
-    Q      = chol(W(:,:,k))*diff1;
-    E(:,k) = D/b(k) + n(k)*dot(Q,Q,1);
-end
-if nargout==3
-    lnRho     = repmat(0.5*lnLamTilde, N,1) - 0.5*E  - D/2*log(2*pi);
-    max_lnRho = max(lnRho,[],2);    
-    Pf        = exp(bsxfun(@minus,lnRho,max_lnRho));
-    lnr       = 0;
-    r         = 0;
-else
-    lnRho     = repmat(0.5*lnLamTilde, N,1) - 0.5*E  - D/2*log(2*pi) + lnbf + lnPz;
-    lnSumRho  = logsumexp(lnRho,2);
-    lnr       = lnRho - repmat(lnSumRho, 1,K);
-    r         = exp(lnr);
-end
-%==========================================================================
-
-%==========================================================================
-function [r,lnr,Pf] = resps_missing(f,po,lnbf,lnPz)
-m = po.m;
-n = po.n;
-W = po.W;
-b = po.b;
-
-[D,K] = size(m);
 
 if D<=8,
     cast = @uint8;
@@ -413,43 +292,6 @@ end
 %==========================================================================
 
 %==========================================================================
-function po = vmstep(mom,pr)
-
-s0 = mom.s0;
-s1 = mom.s1;
-S2 = mom.S2;
-
-m0 = pr.m;
-n0 = pr.n;
-W0 = pr.W;
-b0 = pr.b;
-
-[D,K] = size(m0);
-
-b = b0 + s0;
-n = n0 + s0;
-W = zeros([D,D,K],'single');
-for k = 1:K
-    m(:,k) = (b0(k)*m0(:,k) + s0(k).*s1(:,k))./b(k);
-    
-    W0inv    = inv(W0(:,:,k));
-    mlt1     = b0(k).*s0(k)/(b0(k) + s0(k));
-    diff1    = s1(:,k) - m0(:,k);
-    W(:,:,k) = inv(W0inv + s0(k)*S2(:,:,k) + mlt1*(diff1*diff1'));
-    
-    [V,D]    = eig(W(:,:,k));
-    tol      = max(diag(D))*eps('single');
-    D        = diag(max(diag(D),tol));
-    W(:,:,k) = real(V*D*V');
-end  
-
-po.m = m;
-po.b = b;
-po.W = W;
-po.n = n;
-%==========================================================================
-
-%==========================================================================
 function lnPz = multinomial(lnmu,lnw)
 Pz   = bsxfun(@plus,lnmu,lnw);
 Pz   = softmax(Pz);
@@ -512,15 +354,11 @@ for i=2:numel(mom),
         for k=1:K,
             q = Q(ind,k); 
             
-            s0             = sum(q) + eps;            
-            mom(i).s0(1,k) = mom(i).s0(1,k) + s0;
-            
-            if s0==0
-                error('s0==0');
-            end
-            
-            s1             = (sum(bsxfun(@times,q,x))/s0)';                      
-            mom(i).s1(:,k) = mom(i).s1(:,k) + s1;                        
+            s0               = sum(q) + eps;            
+            mom(i).s0(1,k)   = mom(i).s0(1,k) + s0;
+
+            s1               = (sum(bsxfun(@times,q,x))/s0)';                      
+            mom(i).s1(:,k)   = mom(i).s1(:,k) + s1;                        
             
             diff1            = bsxfun(@minus,x,s1');
             diff2            = bsxfun(@times,q,diff1);

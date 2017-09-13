@@ -25,16 +25,20 @@ opts.reltol   = 1e-4;
 opts.lstol    = 1e-4;
 
 % Get zero values
-msk = Y == 0;
+msk = get_msk(Y,true);
 
 Xhat = ADMM_img_solver(pm,{Y},lambda,opts);
 
 % Remask because values previously zero may have been slightly modified
-Xhat{1}(msk) = 0;
+Xhat{1}(~msk) = 0;
 
 % Write image
 V.fname    = fname;
-V.dim(1:3) = size(Y);
+d          = size(Y);
+if numel(d)==2
+   d(3)    = 1; 
+end
+V.dim(1:3) = d;
 V.mat      = Nii.mat;
 V          = spm_create_vol(V);
 spm_write_vol(V,Xhat{1});

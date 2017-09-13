@@ -1,5 +1,4 @@
-function pth = preproc_im(pthf,preproc,tempdir)  
-
+function pth = preproc_im(pthf,preproc,tempdir,runpar)  
 [N,C] = size(pthf);
 pth   = cell(N,C);
 
@@ -8,9 +7,10 @@ if (exist(folder,'dir') == 0)
     mkdir(folder);
 end
 
-fprintf('Preprocessing image:\n'); 
-for n=1:N
-    fprintf('%d ',n);
+fprintf('Preprocessing images...\n'); 
+parfor (n=1:N,floor(runpar/2)) % For each subject
+% for n=1:N
+%     fprintf('%d ',n);
     
     folder = fullfile(tempdir,'preproc',['n' num2str(n)]);
     if (exist(folder,'dir') == 0)
@@ -22,12 +22,8 @@ for n=1:N
 
         cpy_img(pthf{n,c},pth{n,c});                                  
 
-        if preproc.makenonneg
-            nonneg(pth{n,c},1000);
-        end
-
         if preproc.resetorigin
-            nm_reorient(pth{n,c},1,1);
+            nm_reorient(pth{n,c},1,0);
             reset_origin(pth{n,c});
         end
 
@@ -53,6 +49,9 @@ function msk = nonneg(P,val)
 Nii = nifti(P);
 img = Nii.dat(:,:,:);
 dim = size(Nii.dat(:,:,:));    
+if numel(dim)==2
+   dim(3) = 1; 
+end
 mat = Nii.mat;
 
 mn       = min(img(:));    

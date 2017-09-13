@@ -1,4 +1,7 @@
-function [pthv,sched,B,a,R,prm0,prm,int_args,vconv] = init_reg(N,d,nitmain,tempdir,Mf,abasis,alam,vx,vlam)
+function [pthv,sched,B,a,R,prm0,prm,int_args,vconv,do] = init_reg(N,d,nitmain,tempdir,Mf,abasis,alam,vx,vlam,do)
+
+do.v = 0;
+do.a = 0;
 
 B = affine_basis(abasis);
 
@@ -35,7 +38,7 @@ end
 function sched = get_sched(nitmain)
 shotdef = spm_shoot_defaults;
 sched   = shotdef.sched;
-sched   = [sched(2) sched(2:end)];
+sched   = [sched(3) sched(3:end)];
 if numel(sched) < nitmain
     sched = [sched, ones(1,nitmain - numel(sched)) 1];
 end
