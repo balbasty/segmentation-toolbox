@@ -1,4 +1,4 @@
-function [M_avg,d] = compute_avg_mat(Mat0,dims)
+function [M_avg,d] = compute_avg_mat(Mat0,dims,nvx)
 % Compute an average voxel-to-world mapping and suitable dimensions
 % FORMAT [M_avg,d] = compute_avg_mat(Mat0,dims)
 % Mat0  - array of matrices (4x4xN)
@@ -16,6 +16,45 @@ B(3,4,3)          = 1;
 B([1,2],[1,2],4)  = [0 1;-1 0];
 B([3,1],[3,1],5)  = [0 1;-1 0];
 B([2,3],[2,3],6)  = [0 1;-1 0];
+
+% Modify orientation matrices and dimensions to user specified
+% voxel dimensions.
+%-----------------------------------------------------------------------
+if nargin==3
+    if length(nvx)<3
+            nvx = [nvx nvx nvx];
+    end
+        
+    for i=1:size(Mat0,3)                
+
+        d = dims(i,:);
+        M = Mat0(:,:,i);
+        
+        c = [1    1    1    1
+             1    1    d(3) 1
+             1    d(2) 1    1
+             1    d(2) d(3) 1
+             d(1) 1    1    1
+             d(1) 1    d(3) 1
+             d(1) d(2) 1    1
+             d(1) d(2) d(3) 1]';
+
+        tc = M(1:3,1:4)*c;
+        if spm_flip_analyze_images, tc(1,:) = -tc(1,:); end;
+
+        mx = round(max(tc,[],2)');
+        mn = round(min(tc,[],2)');
+
+        M = spm_matrix(mn)*diag([nvx 1])*spm_matrix(-[1 1 1]);
+
+        d = ceil((M\[mx 1]')');
+
+        if spm_flip_analyze_images, M = diag([-1 1 1 1])*M; end;
+        
+        dims(i,:)   = d(1:3);
+        Mat0(:,:,i) = M;
+    end
+end
 
 % Find combination of 90 degree rotations and flips that brings all
 % the matrices closest to axial
@@ -112,5 +151,36 @@ if ~any(dims(:,3)>1)
 end
 M_avg = M_avg * [eye(3) mn-1; 0 0 0 1];
 M_avg(4,:)=[0 0 0 1];
+
+% if nargin==3
+%     if length(nvx)<3
+%         nvx = [nvx nvx nvx];
+%     end
+% 
+%     % Modify average orientation matrix and dimensions to user specified
+%     % voxel dimensions.
+%     c = [1    1    1    1
+%          1    1    d(3) 1
+%          1    d(2) 1    1
+%          1    d(2) d(3) 1
+%          d(1) 1    1    1
+%          d(1) 1    d(3) 1
+%          d(1) d(2) 1    1
+%          d(1) d(2) d(3) 1]';
+% 
+%     tc = M_avg(1:3,1:4)*c;
+%     if spm_flip_analyze_images, tc(1,:) = -tc(1,:); end;
+% 
+%     mx = round(max(tc,[],2)');
+%     mn = round(min(tc,[],2)');
+% 
+%     M_avg = spm_matrix(mn)*diag([nvx 1])*spm_matrix(-[1 1 1]);
+% 
+%     d = ceil((M_avg\[mx 1]')');
+%     d = d(1:3);
+
+%     if spm_flip_analyze_images, M_avg = diag([-1 1 1 1])*M_avg; end;
+% end
+
 return;
 %==========================================================================

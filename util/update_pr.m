@@ -1,10 +1,10 @@
-function pr = update_pr(cp)
-m0  = cp(1).pr.m;
-b0  = cp(1).pr.b;
-W0  = cp(1).pr.W;
-n0  = cp(1).pr.n;
+function pr = update_pr(obj)
+m0  = obj{1}.pr.m;
+b0  = obj{1}.pr.b;
+W0  = obj{1}.pr.W;
+n0  = obj{1}.pr.n;
 
-N = numel(cp);
+N = numel(obj);
 D = size(m0,1);
 K = size(m0,2);
 
@@ -17,7 +17,7 @@ for k=1:K
 g = zeros(D,1);
 H = zeros(D,D);
 for i=1:N    
-    [m,b,W,n] = get_po(cp,i);
+    [m,b,W,n] = get_po(obj,i);
     
     g = g + b0(k)*n(k)*W(:,:,k)*(m(:,k)-m0(:,k));
     H = H + b0(k)*n(k)*W(:,:,k);
@@ -32,7 +32,7 @@ m0(:,k) = m0(:,k) + H\g;
 
 g_const = 0;
 for i=1:N
-    [m,b,W,n] = get_po(cp,i);
+    [m,b,W,n] = get_po(obj,i);
     
     g_const = g_const - 0.5*(D/b(k) + n(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)));
 end
@@ -52,14 +52,14 @@ end
 
 nW_const = zeros(D);
 for i=1:N
-    [m,b,W,n] = get_po(cp,i);
+    [m,b,W,n] = get_po(obj,i);
     
     nW_const = nW_const + n(k)*W(:,:,k);
 end
 
 ElogLam = N*D*log(2);
 for i=1:N
-    [m,b,W,n] = get_po(cp,i);
+    [m,b,W,n] = get_po(obj,i);
     
     ElogLam = ElogLam + 2*sum(log(diag(chol(W(:,:,k)))));
     for j=1:D
@@ -82,7 +82,7 @@ for it=1:1000
     end
     E = (0.5*D*log(b0(k)/(2*pi)) + logB)*N + 0.5*(n0(k)-D-1)*ElogLam;
     for i=1:N
-        [m,b,W,n] = get_po(cp,i);
+        [m,b,W,n] = get_po(obj,i);
         
         e = 0.5*(-D*b0(k)/b(k) - b0(k)*n(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)))...
           - 0.5*n(k)*trace(W0(:,:,k)\W(:,:,k));
@@ -156,9 +156,9 @@ pr.W = W0;
 %==========================================================================
 
 %==========================================================================
-function [m,b,W,n] = get_po(cp,n)
-m = cp(n).po.m;
-b = cp(n).po.b;
-W = cp(n).po.W;
-n = cp(n).po.n;
+function [m,b,W,n] = get_po(obj,n)
+m = obj{n}.po.m;
+b = obj{n}.po.b;
+W = obj{n}.po.W;
+n = obj{n}.po.n;
 %==========================================================================
