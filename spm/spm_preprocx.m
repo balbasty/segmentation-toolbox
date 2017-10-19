@@ -77,8 +77,8 @@ wp_reg    = 1; % Bias wp towards 1
 
 tol1      = 1e-4; % Stopping criterion.  For more accuracy, use a smaller value
 
-Affine    = obj.Affine;
 V         = obj.image;
+Affine    = obj.Affine;
 M         = logtpm.M\Affine*V(1).mat;
 d0        = V(1).dim(1:3);
 dtpm      = logtpm.d;
@@ -89,9 +89,10 @@ z0        = 1:sk(3):d0(3);
 tiny      = eps*eps;
 lkp       = obj.lkp;
 if isempty(lkp)
-    K       = 2000;
-    Kb      = numel(logtpm.dat);
-    use_mog = false;
+    K         = 2000;
+    Kb        = numel(logtpm.dat);
+    use_mog   = false;
+    use_vbmog = false;
 else
     K       = numel(obj.lkp);
     Kb      = max(obj.lkp);
@@ -103,14 +104,16 @@ else
         use_mog   = true;
     end
 end
+lkpsemi = obj.lkpsemi;
 
 kron = @(a,b) spm_krutil(a,b);
 
-niter     = obj.niter;
-niter1    = obj.niter1;
-nsubitmog = obj.nsubitmog;
-nsubitbf  = obj.nsubitbf;
-nitdef    = obj.nitdef;
+niter      = obj.niter;
+niter1     = obj.niter1;
+nsubitmog  = obj.nsubitmog;
+nsubitbf   = obj.nsubitbf;
+nitdef     = obj.nitdef;
+niter_stop = obj.niter_stop;
 
 % Some random numbers are used, so initialise random number generators to
 % give the same results each time.
@@ -155,13 +158,11 @@ MT     = [sk(1) 0 0 (1-sk(1));0 sk(2) 0 (1-sk(2)); 0 0 sk(3) (1-sk(3));0 0 0 1];
 % and the actual image voxel indices.
 sk4    = reshape(sk,[1 1 1 3]);
 
+% Dimensions of sub-sampled image
 d      = [size(x0) length(z0)];
+
 if isfield(obj,'Twarp')
     Twarp = obj.Twarp; 
-elseif isfield(obj,'pthTwarp')
-    Nii   = nifti(obj.pthTwarp);
-    Twarp = single(Nii.dat(:,:,:,:));
-    clear Nii
 else
     Twarp = zeros([d,3],'single');
 end
@@ -230,21 +231,22 @@ mom2 = zeros(1,N);
 cl   = cell(length(z0),1);
 buf  = struct('msk',cl,'nm',cl,'f',cl,'dat',cl,'bf',cl);
 for z=1:length(z0)
-   % Load only those voxels that are more than 5mm up
-   % from the bottom of the tissue probability map.  This
-   % assumes that the affine transformation is pretty close.
-
-   %x1  = M(1,1)*x0 + M(1,2)*y0 + (M(1,3)*z0(z) + M(1,4));
-   %y1  = M(2,1)*x0 + M(2,2)*y0 + (M(2,3)*z0(z) + M(2,4));
-    z1  = M(3,1)*x0 + M(3,2)*y0 + (M(3,3)*z0(z) + M(3,4));
-    e   = sqrt(sum(logtpm.M(1:3,1:3).^2));
-    e   = 5./e; % mm from edge of TPM
-    if d(3)>1
-        buf(z).msk = z1>e(3);
-    else
-        % Input image is 2D
-        buf(z).msk = ones(d(1:2),'logical');
-    end
+%    % Load only those voxels that are more than 5mm up
+%    % from the bottom of the tissue probability map.  This
+%    % assumes that the affine transformation is pretty close.
+% 
+%    %x1  = M(1,1)*x0 + M(1,2)*y0 + (M(1,3)*z0(z) + M(1,4));
+%    %y1  = M(2,1)*x0 + M(2,2)*y0 + (M(2,3)*z0(z) + M(2,4));
+%     z1  = M(3,1)*x0 + M(3,2)*y0 + (M(3,3)*z0(z) + M(3,4));
+%     e   = sqrt(sum(logtpm.M(1:3,1:3).^2));
+%     e   = 5./e; % mm from edge of TPM
+%     if d(3)>1
+%         buf(z).msk = z1>e(3);
+%     else
+%         % Input image is 2D
+%         buf(z).msk = ones(d(1:2),'logical');
+%     end
+    buf(z).msk = ones(d(1:2),'logical');
     
     % Initially load all the data, but prepare to exclude
     % locations where any of the images is not finite, or
@@ -270,21 +272,26 @@ for z=1:length(z0)
     end
 end
 
+a = zeros(1,N);
 for z=1:length(z0)  
     for n=1:N                   
         fz = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
         
-        % To "normalise" image intensities
-        a = 512/(sumnm(n)/nm);
-
+        % To "normalise" image intensities        
+        if strcmp(V(n).descrip,'CT')
+            a(n) = 1.0;
+        else
+            a(n) = 512/(sumnm(n)/nm);
+        end
+       
         % Eliminate unwanted voxels
         if scrand(n)
             % Data is an integer type, so to prevent aliasing in the histogram, small
             % random values are added.  It's not elegant, but the alternative would be
             % too slow for practical use.
-            buf(z).f{n}  = single(a*fz(buf(z).msk)+rand(buf(z).nm,1)*scrand(n)-scrand(n)/2);
+            buf(z).f{n}  = single(a(n)*fz(buf(z).msk)+rand(buf(z).nm,1)*scrand(n)-scrand(n)/2);
         else
-            buf(z).f{n}  = single(a*fz(buf(z).msk));
+            buf(z).f{n}  = single(a(n)*fz(buf(z).msk));
         end     
         
         mom0(n) = mom0(n) + buf(z).nm;
@@ -296,13 +303,15 @@ for z=1:length(z0)
     buf(z).dat = zeros([buf(z).nm,Kb],'single');
 end
 
-% Construct a ``Wishart-style prior'' (vr0)
-vr0 = diag(mom2./mom0 - (mom1./mom0).^2)/Kb^2;
-%for n=1:N
-%    if spm_type(V(n).dt(1),'intt')
-%        vr0(n,n) = vr0(n,n) + 0.083*V(n).pinfo(1,1);
-%    end
-%end
+if ~use_vbmog
+    % Construct a ``Wishart-style prior'' (vr0)
+    vr0 = diag(mom2./mom0 - (mom1./mom0).^2)/Kb^2;
+    %for n=1:N
+    %    if spm_type(V(n).dt(1),'intt')
+    %        vr0(n,n) = vr0(n,n) + 0.083*V(n).pinfo(1,1);
+    %    end
+    %end
+end
 
 % Create initial bias field
 %-----------------------------------------------------------------------
@@ -330,20 +339,20 @@ else
     wp = ones(1,Kb)/Kb;
 end
 
+% Set weigths to zero and re-normalise (for semi-supervised approach)
+wp(lkpsemi) = eps;
+wp          = wp/sum(wp);
+
 % For debugging
 %-----------------------------------------------------------------------
 dobias = obj.dobias;
 dodef  = obj.dodef;
 dotpm  = obj.dotpm;
 
-verbose = obj.verbose;
 zslice  = floor(d(3)/2 + 1);
-if verbose==3
-    fig = obj.fig;
-    for i=1:size(fig,1)
-        clf(fig{i})
-    end       
-end
+fig     = obj.fig;
+
+conv_def = zeros(1,nitdef + 1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Run algorithm
@@ -372,6 +381,7 @@ for iter=1:niter
             % Starting estimates for Gaussian parameters
             %--------------------------------------------------------------
             if isfield(obj,'mg') && (isfield(obj,'po') && isfield(obj,'pr') || isfield(obj,'mn') && isfield(obj,'vr'))
+                % Use already estimated parameters
                 mg = obj.mg;
                 if isfield(obj,'po') && isfield(obj,'pr')                  
                     po = obj.po;
@@ -380,74 +390,105 @@ for iter=1:niter
                     mn = obj.mn;
                     vr = obj.vr;
                 end
-            else
+            else                
                 K   = Kb;
                 lkp = 1:Kb;
                 
+                mg  = ones(Kb,1); % Within tissue mixture weights
+                
                 if use_vbmog
-                    % Gaussian-Wishart priors
+                    % Initial Gaussian-Wishart priors
                     pr.m = zeros(N,Kb);
                     pr.b = ones(1,Kb);
                     pr.W = zeros(N,N,Kb);
                     for k=1:Kb
-                        pr.W(:,:,k) = 200*eye(N,N);
+                        pr.W(:,:,k) = eye(N,N);
                     end
-                    pr.n = 20*ones(1,Kb);
+                    pr.n = (N + 1)*ones(1,Kb);
                 end
-                
-                % Begin with moments:
-                mm0 = zeros(Kb,1) + tiny;
-                mm1 = zeros(N,Kb);
-                mm2 = zeros(N,N,Kb);
-                for z=1:length(z0)
-                    cr = zeros(size(buf(z).f{1},1),N);
-                    for n=1:N
-                        cr(:,n)  = double(buf(z).f{n}.*buf(z).bf{n});
-                    end
-                    for k1=1:Kb, % Moments
-                        b           = double(buf(z).dat(:,k1));
-                        mm0(k1)     = mm0(k1)     + sum(b);
-                        mm1(:,k1)   = mm1(:,k1)   + (b'*cr)';
-                        mm2(:,:,k1) = mm2(:,:,k1) + (repmat(b,1,N).*cr)'*cr;
-                    end
-                    clear cr
-                end
-                
-                if use_vbmog                                                
-                    % Use moments to compute initial Gaussian-Wishart
-                    % posteriors
-                    [mm1,mm2] = mom_John2Bishop(mm0,mm1,mm2);
                     
-                    po.b = pr.b + mm0';
-                    po.n = pr.n + mm0';
-                    po.m = zeros(N,Kb);
-                    po.W = zeros(N,N,Kb);
-                    for k=1:Kb
-                        po.m(:,k)   = (pr.b(k)*pr.m(:,k) + mm0(k).*mm1(:,k))./po.b(k);
+                if ~logtpm.uniform
+                    % Use data and tpm to estimate parameters
 
-                        invW0       = inv(pr.W(:,:,k));
-                        mlt1        = pr.b(k).*mm0(k)/(pr.b(k) + mm0(k));
-                        diff1       = mm1(:,k) - pr.m(:,k);
-                        po.W(:,:,k) = inv(invW0 + mm0(k)*mm2(:,:,k) + mlt1*(diff1*diff1'));
-                    end  
-                else       
-                    % Use moments to compute means and variances, and then use these
-                    % to initialise the Gaussians
-                    mn = zeros(N,Kb);
-                    vr = zeros(N,N,Kb);
-                    vr1 = zeros(N,N);
-                    for k1=1:Kb
-                        mn(:,k1)   = mm1(:,k1)/(mm0(k1)+tiny);
-                       %vr(:,:,k1) = (mm2(:,:,k1) - mm1(:,k1)*mm1(:,k1)'/mm0(k1))/(mm0(k1)+tiny);
-                        vr1 = vr1 + (mm2(:,:,k1) - mm1(:,k1)*mm1(:,k1)'/mm0(k1));
+                    % Begin with moments:
+                    mm0 = zeros(Kb,1) + tiny;
+                    mm1 = zeros(N,Kb);
+                    mm2 = zeros(N,N,Kb);
+                    for z=1:length(z0)
+                        cr = zeros(size(buf(z).f{1},1),N);
+                        for n=1:N
+                            cr(:,n)  = double(buf(z).f{n}.*buf(z).bf{n});
+                        end
+                        for k1=1:Kb, % Moments
+                            b           = double(buf(z).dat(:,k1));
+                            mm0(k1)     = mm0(k1)     + sum(b);
+                            mm1(:,k1)   = mm1(:,k1)   + (b'*cr)';
+                            mm2(:,:,k1) = mm2(:,:,k1) + (repmat(b,1,N).*cr)'*cr;
+                        end
+                        clear cr b
                     end
-                    vr1 = (vr1+N*vr0)/(sum(mm0)+N);
-                    for k1=1:Kb
-                        vr(:,:,k1) = vr1;
+
+                    if use_vbmog                                                
+                        % Use moments to compute initial Gaussian-Wishart
+                        % posteriors
+                        [mm1,mm2] = mom_John2Bishop(mm0,mm1,mm2);
+
+                        po.b = pr.b + mm0';
+                        po.n = pr.n + mm0';
+                        po.m = zeros(N,Kb);
+                        po.W = zeros(N,N,Kb);
+                        for k=1:Kb
+                            po.m(:,k)   = (pr.b(k)*pr.m(:,k) + mm0(k).*mm1(:,k))./po.b(k);
+
+                            invW0       = inv(pr.W(:,:,k));
+                            mlt1        = pr.b(k).*mm0(k)/(pr.b(k) + mm0(k));
+                            diff1       = mm1(:,k) - pr.m(:,k);
+                            po.W(:,:,k) = inv(invW0 + mm0(k)*mm2(:,:,k) + mlt1*(diff1*diff1'));
+                        end  
+                    else       
+                        % Use moments to compute means and variances, and then use these
+                        % to initialise the Gaussians
+                        mn = zeros(N,Kb);
+                        vr = zeros(N,N,Kb);
+                        vr1 = zeros(N,N);
+                        for k1=1:Kb
+                            mn(:,k1)   = mm1(:,k1)/(mm0(k1)+tiny);
+                           %vr(:,:,k1) = (mm2(:,:,k1) - mm1(:,k1)*mm1(:,k1)'/mm0(k1))/(mm0(k1)+tiny);
+                            vr1 = vr1 + (mm2(:,:,k1) - mm1(:,k1)*mm1(:,k1)'/mm0(k1));
+                        end
+                        vr1 = (vr1+N*vr0)/(sum(mm0)+N);
+                        for k1=1:Kb
+                            vr(:,:,k1) = vr1;
+                        end
+                    end                
+                else
+                    % Use a k-means algorithm to get parameter estimates
+                    [wp2,mn2,vr2] = spm_InitGaussians(buf,Kb);                    
+                    
+                    if use_vbmog
+                        % Use 'responsibilities' from initialization to set sufficient statistics
+                        mm0 = nm*wp2;
+                        mm1 = mn2;
+                        mm2 = vr2;
+
+                        po.b = pr.b + mm0;
+                        po.n = pr.n + mm0;
+                        po.m = zeros(N,Kb);
+                        po.W = zeros(N,N,Kb);
+                        for k=1:Kb
+                            po.m(:,k)   = (pr.b(k)*pr.m(:,k) + mm0(k).*mm1(:,k))./po.b(k);
+
+                            invW0    = inv(pr.W(:,:,k));
+                            mlt1     = pr.b(k).*mm0(k)/(pr.b(k) + mm0(k));
+                            diff1    = mm1(:,k) - pr.m(:,k);
+                            po.W(:,:,k) = inv(invW0 + mm0(k)*mm2(:,:,k) + mlt1*(diff1*diff1'));
+                        end  
+                    else               
+                        mn = mn2;
+                        vr = vr2;    
                     end
+                    clear wp2 mn2 vr2 
                 end
-                
-                mg = ones(Kb,1); % Within tissue mixture weights
             end
         else
             % Starting estimates for histograms
@@ -481,8 +522,10 @@ for iter=1:niter
         if use_mog || use_vbmog
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Estimate cluster parameters
-            %------------------------------------------------------------
+            %------------------------------------------------------------            
+           
             for subitmog=1:nsubitmog
+                
                 oll  = ll;
                 mom0 = zeros(K,1)+tiny; % Initialise moments
                 mom1 = zeros(N,K);
@@ -494,7 +537,7 @@ for iter=1:niter
                     B   = double(buf(z).dat);
                     s   = 1./(B*wp');
                     mgm = mgm + s'*B;
-                    
+                                        
                     % Calculate responsibilities
                     if use_mog
                         [q,dll] = latent(buf(z).f,buf(z).bf,mg,mn,vr,B,lkp,wp);                   
@@ -502,7 +545,7 @@ for iter=1:niter
                         [q,dll] = latent_vb(buf(z).f,buf(z).bf,mg,po,B,lkp,wp);                    
                     end
                     ll = ll + dll;
-                    
+
                     cr  = zeros(size(q,1),N);
                     for n=1:N
                         cr(:,n)  = double(buf(z).f{n}.*buf(z).bf{n});
@@ -527,6 +570,10 @@ for iter=1:niter
                 end
                 wp = wp/sum(wp);
                 
+                % Set weigths to zero and re-normalise (for semi-supervised approach)
+                wp(lkpsemi) = eps;
+                wp          = wp/sum(wp);
+                
                 if use_vbmog
                     [mom1,mom2] = mom_John2Bishop(mom0,mom1,mom2);
                     
@@ -534,7 +581,7 @@ for iter=1:niter
                     ll  = ll + dll;
                 end
                 
-                my_fprintf('MOG:\t%g\t%g\t%g\n', ll,llr,llrb,verbose);
+                my_fprintf('MOG:\t%g\t%g\t%g\n', ll,llr,llrb);
                                
                 if use_mog
                     % Means and Variances from moments
@@ -605,10 +652,10 @@ for iter=1:niter
                 wp = (sum(chan(1).hist)+wp_reg*1)./(mgm+wp_reg*Kb);
                 wp = wp/sum(wp);
 
-                my_fprintf('Hist:\t%g\t%g\t%g\n', ll,llr,llrb,verbose);
+                my_fprintf('Hist:\t%g\t%g\t%g\n', ll,llr,llrb);
 
                 if subith>1 || iter>1
-                    spm_plot_convergence('Set',ll);
+                    spm_plot_convergence('Set',ll); 
                 end
                 if subith>1 && ll-oll<tol1*nm
                     % Improvement is small, so go to next step
@@ -624,7 +671,7 @@ for iter=1:niter
             end
         end
 
-        if verbose==3  
+        if ~isempty(fig{1})
             % Visualise responsibilities    
             if use_vbmog
                 Btmp = double(buf(zslice).dat);
@@ -648,7 +695,9 @@ for iter=1:niter
                 subplot(K1,K2,i);
                 imagesc(tmp'); axis image xy off; title(['k=' num2str(lkp(i))]); colormap(gray);
             end              
-                      
+        end
+        
+        if ~isempty(fig{3})
             % Visualise bias field
             set(0,'CurrentFigure',fig{3});                    
             for i=1:N
@@ -668,7 +717,7 @@ for iter=1:niter
         end
         ooll = ll;
 
-        if dobias && iter1~=niter1
+        if dobias
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Estimate bias
             % Note that for multi-spectral data, the covariances among
@@ -811,14 +860,14 @@ for iter=1:niter
                                 clear mom0 mom1 mom2
                             end
                             if ll>=oll
-                                spm_plot_convergence('Set',ll);
-                                my_fprintf('Bias-%d:\t%g\t%g\t%g :o)\n', n, ll, llr,llrb,verbose);
+                                spm_plot_convergence('Set',ll); 
+                                my_fprintf('Bias-%d:\t%g\t%g\t%g :o)\n', n, ll, llr,llrb);
                                 break;
                             else
                                 ll        = oll;
                                 chan(n).T = oldT;
                                 armijo    = armijo*0.5;
-                                my_fprintf('Bias-%d:\t%g\t%g\t%g :o(\n', n, ll, llr,llrb,verbose);
+                                my_fprintf('Bias-%d:\t%g\t%g\t%g :o(\n', n, ll, llr,llrb);
                             end 
                         end
                         clear oldT
@@ -834,8 +883,8 @@ for iter=1:niter
         if iter==1 && iter1==1
             % Most of the log-likelihood improvements are in the first iteration.
             % Show only improvements after this, as they are more clearly visible.
-            spm_plot_convergence('Clear');
-            spm_plot_convergence('Init','Processing','Log-likelihood','Iteration');
+            spm_plot_convergence('Clear'); 
+            spm_plot_convergence('Init','Processing','Log-likelihood','Iteration'); 
 
             if numel(obj.lkp) ~= numel(lkp)
                 lkp = obj.lkp;
@@ -881,7 +930,7 @@ for iter=1:niter
                     
                     if use_mog
                         mn(:,lkp==k1)   = sqrtm(vr1(:,:,k1))*randn(N,kk)*w + repmat(mn1(:,k1),[1,kk]);
-                        vr(:,:,lkp==k1) = repmat(vr1(:,:,k1)*(1-w),[1,1,kk]);
+                        vr(:,:,lkp==k1) = repmat(vr1(:,:,k1)*(1 - w),[1,1,kk]);
                     elseif use_vbmog
                         vr1               = inv(n1(k1)*W1(:,:,k1));
                         pr1               = inv(vr1*(1 - w));                        
@@ -901,10 +950,12 @@ for iter=1:niter
         end
     end
 
-    if dodef && iter~=niter
+    if dodef
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Estimate deformations
         %------------------------------------------------------------
+        
+        conv_def(1) = conv_def(1) + 1;
         
         % Compute likelihoods, and save them in buf.dat
         ll_const = 0;
@@ -956,8 +1007,8 @@ for iter=1:niter
             end
             ll = ll + ll_const;
         end
-
-        oll = ll;
+        
+        oll      = ll;        
         for subitdef=1:nitdef
             Alpha  = zeros([size(x0),numel(z0),6],'single');
             Beta   = zeros([size(x0),numel(z0),3],'single');
@@ -1096,13 +1147,15 @@ for iter=1:niter
                 end
 
                 if ll1<ll
-                    % Still not better, so keep searching inwards.
-                    my_fprintf('Warp:\t%g\t%g\t%g :o(\t(%g)\n', ll1, llr1,llrb,armijo,verbose);
+                    % Still not better, so keep searching inwards.                    
+                    my_fprintf('Warp:\t%g\t%g\t%g :o(\t(%g)\n', ll1, llr1,llrb,armijo);
                     armijo = armijo*0.75;
                 else
                     % Better. Accept the new solution.
-                    spm_plot_convergence('Set',ll1); % ll1
-                    my_fprintf('Warp:\t%g\t%g\t%g :o)\t(%g)\n', ll1, llr1,llrb,armijo,verbose);
+                    conv_def(1 + subitdef) = conv_def(1 + subitdef) + 1;
+                    
+                    spm_plot_convergence('Set',ll1); 
+                    my_fprintf('Warp:\t%g\t%g\t%g :o)\t(%g)\n', ll1, llr1,llrb,armijo);
                     ll     = ll1;
                     llr    = llr1;
                     Twarp  = Twarp1;
@@ -1111,7 +1164,7 @@ for iter=1:niter
             end
             clear Alpha Beta
 
-            if verbose==3   
+            if ~isempty(fig{2})
                 % Visualise deformed TPM  
                 [x1,y1,z1] = defs(Twarp,zslice,x0,y0,z0,M,buf(zslice).msk);
                 b          = spm_sample_logpriors8(logtpm,x1,y1,z1);
@@ -1139,63 +1192,61 @@ for iter=1:niter
         end
     end
 
-    if ~((ll-ooll)>2*tol1*nm) && iter>1 % && iter>9
+    if ~((ll-ooll)>2*tol1*nm) && iter>niter_stop
         % Finished
         break
     end
 end
 
-my_fprintf('Algorithm convergence:\t%g/%g\t%g/%g\n',iter,niter,iter1,niter1,verbose);
+fprintf('Convergence (main):\t%g/%g\n',iter,niter);
+fprintf('Convergence (deformation): %s\n', sprintf('%d ', conv_def))
 
-if dotpm
+if dotpm            
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Estimate template
     %------------------------------------------------------------
 
     % Compute likelihoods
-    lik = NaN([prod(d(1:2)) d(3) Kb],'single');
-    if use_mog || use_vbmog
-        for z=1:length(z0)
-            if ~buf(z).nm, continue; end
-            q        = zeros(buf(z).nm,Kb);
+    lik = zeros([prod(d(1:2)) d(3) Kb],'single');
+    for z=1:length(z0)
+        if ~buf(z).nm, continue; end
+        
+        if use_mog || use_vbmog        
+            q      = zeros(buf(z).nm,Kb);
             if use_vbmog
-                qt   = log_likelihoods_vb(buf(z).f,buf(z).bf,po,mg);
+                qt = log_likelihoods_vb(buf(z).f,buf(z).bf,po,mg);
             elseif use_mog
-                qt   = log_likelihoods(buf(z).f,buf(z).bf,mg,mn,vr);
+                qt = log_likelihoods(buf(z).f,buf(z).bf,mg,mn,vr);
             end
-            max_qt   = max(qt,[],2);
+            max_qt = max(qt,[],2);
             for k1=1:Kb
                 for k=find(lkp==k1)
                     q(:,k1) = q(:,k1) + exp(qt(:,k) - max_qt);
                 end
                 lik(buf(z).msk,z,k1) = single(q(:,k1));
             end
-        end
-    else
-        for z=1:length(z0)
-            if ~buf(z).nm, continue; end
+            clear qt max_qt q
+        else
             q          = log_likelihoods_nonpar(buf(z).f,buf(z).bf,chan);
             max_q      = max(q,[],2);
             q          = exp(bsxfun(@minus,q,max_q));
-            for k1=1:Kb
-                lik(buf(z).msk,z,k1) = single(q(:,k1));
-            end        
-        end    
-    end
-    clear buf
+            for k=1:Kb
+                lik(buf(z).msk,z,k) = single(q(:,k));
+            end  
+            clear q max_q
+        end
+    end          
     lik = reshape(lik,[d Kb]);    
-    
-%     figure(1111);
-%     clf(figure(1111));
-%     for i=1:Kb
-% %         lik = reshape(lik,[d Kb]);
-%         
-%         subplot(2,Kb,i);
-%         imagesc(lik(:,:,zslice,i)'); axis image xy off; colormap(gray);
-%         
-% %         lik = reshape(lik,[prod(d(1:2)) d(3) Kb]);
-%     end  
+    clear buf
 
+    if ~isempty(fig{4}) 
+        set(0,'CurrentFigure',fig{4});      
+        for i=1:Kb
+            subplot(2,Kb,i);
+            imagesc(lik(:,:,zslice,i)'); axis image xy off; colormap(gray);
+        end  
+    end
+    
     % Push likelihoods to tpm space   
     t       = identity(d) + bsxfun(@times,Twarp,1./sk4); 
     MM      = M*MT;
@@ -1208,11 +1259,17 @@ if dotpm
     lik(~msk) = 0;
     clear msk c
     
-%     for i=(Kb + 1):2*Kb
-%         subplot(2,Kb,i);
-%         imagesc(lik1(:,:,floor(logtpm.d(3)/2 + 1),i - Kb)'); axis image xy off; colormap(gray);
-%     end  
-
+    lik = max(lik,eps);
+    lik = bsxfun(@rdivide,lik,sum(lik,4));    
+    
+    if ~isempty(fig{4}) 
+        set(0,'CurrentFigure',fig{4});      
+        for i=(Kb + 1):2*Kb
+            subplot(2,Kb,i);
+            imagesc(lik(:,:,floor(logtpm.d(3)/2 + 1),i - Kb)'); axis image xy off; colormap(gray);
+        end  
+    end
+    
     % Solve dF/dmu=0 for mu   
     a1 = zeros([Kb prod(dtpm)],'single'); % Get logs of template
     for k=1:Kb
@@ -1220,9 +1277,9 @@ if dotpm
     end
     clear logtpm
         
-    c1 = log(wp)'; % logs of mixing weights
-    c1 = repmat(c1,1,prod(dtpm));
-
+    c1  = log(wp)'; % logs of mixing weights
+    c1  = repmat(c1,1,prod(dtpm));
+    
     ac = bsxfun(@plus,a1,c1);
     clear a1  
 
@@ -1253,17 +1310,12 @@ else
 end
 
 % Save the results
-if isfield(obj,'Twarp')
-    obj.Twarp = Twarp;
-elseif isfield(obj,'pthTwarp')
-    Nii              = nifti(obj.pthTwarp);
-    Nii.dat(:,:,:,:) = Twarp;
-    clear Nii
-end
+obj.Twarp = Twarp;
 obj.Tbias = {chan(:).T};
 obj.mg    = mg;
 obj.wp    = wp;
 obj.ll    = ll;
+obj.nm    = nm;
 if use_vbmog
     obj.po = po;
     obj.pr = pr;
@@ -1292,11 +1344,17 @@ function L = log_likelihoods(f,bf,mg,mn,vr)
 K  = numel(mg);
 N  = numel(f);
 M  = numel(f{1});
+
 cr = zeros(M,N);
 for n=1:N
-    cr(:,n) = double(f{n}(:)).*double(bf{n}(:));
+    if isempty(bf)
+        cr(:,n) = double(f{n}(:));
+    else
+        cr(:,n) = double(f{n}(:)).*double(bf{n}(:));
+    end
 end
-L  = zeros(numel(f{1}),K);
+
+L = zeros(numel(f{1}),K);
 for k=1:K
     C      = chol(vr(:,:,k));
     d      = bsxfun(@minus,cr,mn(:,k)')/C;
@@ -1311,7 +1369,11 @@ M = numel(f{1});
 
 cr = zeros(M,N);
 for n1=1:N
-    cr(:,n1) = double(f{n1}(:)).*double(bf{n1}(:));
+    if isempty(bf)
+        cr(:,n1) = double(f{n1}(:));
+    else
+        cr(:,n1) = double(f{n1}(:)).*double(bf{n1}(:));
+    end
 end
 
 m = po.m;
@@ -1347,7 +1409,11 @@ Kb = size(chan(1).lik,2);
 N  = numel(chan);
 L  = zeros(numel(f{1}),Kb);
 for n=1:N
-    tmp     = f{n}.*bf{n}*chan(n).interscal(2) + chan(n).interscal(1);
+    if isempty(bf)
+        tmp = f{n}*chan(n).interscal(2) + chan(n).interscal(1);
+    else
+        tmp = f{n}.*bf{n}*chan(n).interscal(2) + chan(n).interscal(1);
+    end
     tmp     = min(max(round(tmp),1),K);
     loglik  = chan(n).alph;
     for k1=1:Kb
@@ -1368,32 +1434,6 @@ B = bsxfun(@times,B,wp);
 B = bsxfun(@times,B,1./sum(B,2));
 B = bsxfun(@times,B(:,lkp),mg');
 B = log(B);
-%=======================================================================
-
-%=======================================================================
-function [Q,lb] = latent_vb(f,bf,mg,po,B,lkp,wp)
-B       = log_spatial_priors_vb(B,wp,lkp,mg);
-Q       = log_likelihoods_vb(f,bf,po);
-Kb      = max(lkp);
-for k1=1:Kb
-    for k=find(lkp==k1)
-        Q(:,k) = Q(:,k) + B(:,k);
-    end
-end
-logSumQ = logsumexp(Q,2);
-logQ    = bsxfun(@minus,Q,logSumQ);
-Q       = exp(logQ);
-
-lb = -sum(sum(Q.*logQ));
-
-logbf = ones([numel(bf{1}) 1]);
-for n=1:numel(bf)
-    logbf = logbf.*bf{n};
-end
-logbf = repmat(log(logbf),1,size(Q,2));
-lb    = lb + sum(sum(Q.*logbf));
-
-lb = lb + sum(sum(Q.*B));
 %=======================================================================
 
 %=======================================================================
@@ -1427,13 +1467,29 @@ Q      = Q + B;
 %=======================================================================
 
 %=======================================================================
-function count = my_fprintf(varargin)
-verbose = varargin{end};
-if verbose
-    count = fprintf(varargin{1:end - 1});
-else
-    count = 0;
+function [Q,lb] = latent_vb(f,bf,mg,po,B,lkp,wp)
+B       = log_spatial_priors_vb(B,wp,lkp,mg);
+Q       = log_likelihoods_vb(f,bf,po);
+Kb      = max(lkp);
+for k1=1:Kb
+    for k=find(lkp==k1)
+        Q(:,k) = Q(:,k) + B(:,k);
+    end
 end
+logSumQ = logsumexp(Q,2);
+logQ    = bsxfun(@minus,Q,logSumQ);
+Q       = exp(logQ);
+
+lb = -sum(sum(Q.*logQ));
+
+logbf = ones([numel(bf{1}) 1]);
+for n=1:numel(bf)
+    logbf = logbf.*bf{n};
+end
+logbf = repmat(log(logbf),1,size(Q,2));
+lb    = lb + sum(sum(Q.*logbf));
+
+lb = lb + sum(sum(Q.*B));
 %=======================================================================
 
 %=======================================================================
@@ -1452,10 +1508,6 @@ return;
 
 %=======================================================================
 function lb = lowerbound_vb(mom0,mom1,mom2,po,pr)
-s0 = mom0;
-s1 = mom1;
-S2 = mom2;
-
 m = po.m;
 n = po.n;
 W = po.W;
@@ -1480,15 +1532,15 @@ for k=1:K
             - (N*(N-1)/4)*log(pi) - sum(gammaln(0.5*(n(k) + 1 - [1:N])));
     H     = -logBk - 0.5*(n(k) -N-1)*logLamTilde + 0.5*n(k)*N;
 
-    trSW      = trace(n(k)*S2(:,:,k)*W(:,:,k));
-    diff1     = s1(:,k) - m(:,k);
+    trSW      = trace(n(k)*mom2(:,:,k)*W(:,:,k));
+    diff1     = mom1(:,k) - m(:,k);
     xbarWxbar = diff1'*W(:,:,k)*diff1;
 
     diff1    = m(:,k) - m0(:,k);
     mWm      = b0(k)*n(k)*diff1'*W(:,:,k)*diff1; 
     trW0invW = trace(W0(:,:,k)\W(:,:,k));
     
-    lb1 = 0.5*(s0(k).*(logLamTilde - N./b(k) - trSW - n(k).*xbarWxbar - N*log(2*pi)));
+    lb1 = 0.5*(mom0(k).*(logLamTilde - N./b(k) - trSW - n(k).*xbarWxbar - N*log(2*pi)));
     lb2 = 0.5*(N*log(b0(k)/(2*pi)) + logLamTilde - N*(b0(k)./b(k)) - mWm);
     lb3 = logB0 + 0.5*((n0(k) - N - 1).*logLamTilde) - 0.5*(n(k).*trW0invW);    
     lb4 = 0.5*(logLamTilde + N.*log(b(k)/(2*pi))) - 0.5*N*K - H;
@@ -1500,10 +1552,6 @@ end
 
 %=======================================================================
 function po = vmstep_vb(mom0,mom1,mom2,pr)
-s0 = mom0';
-s1 = mom1;
-S2 = mom2;
-
 m0 = pr.m;
 n0 = pr.n;
 W0 = pr.W;
@@ -1511,17 +1559,17 @@ b0 = pr.b;
 
 [N,K] = size(m0);
 
-b = b0 + s0;
-n = n0 + s0;
+b = b0 + mom0';
+n = n0 + mom0';
 m = zeros(N,K);
 W = zeros(N,N,K);
 for k = 1:K
-    m(:,k) = (b0(k)*m0(:,k) + s0(k).*s1(:,k))./b(k);
+    m(:,k) = (b0(k)*m0(:,k) + mom0(k).*mom1(:,k))./b(k);
     
     W0inv    = inv(W0(:,:,k));
-    mlt1     = b0(k).*s0(k)/(b0(k) + s0(k));
-    diff1    = s1(:,k) - m0(:,k);
-    W(:,:,k) = inv(W0inv + s0(k)*S2(:,:,k) + mlt1*(diff1*diff1'));
+    mlt1     = b0(k).*mom0(k)/(b0(k) + mom0(k));
+    diff1    = mom1(:,k) - m0(:,k);
+    W(:,:,k) = inv(W0inv + mom0(k)*mom2(:,:,k) + mlt1*(diff1*diff1'));
     
     [V,D1]   = eig(W(:,:,k));
     tol      = max(diag(D1))*eps('single');
@@ -1589,3 +1637,12 @@ dlb         = lowerbound_vb(mom0,mom1,mom2,po,pr);
 lb          = lb + dlb; 
 clear mom0 mom1 mom2
 %==========================================================================
+
+%=======================================================================
+function count = my_fprintf(varargin)
+if 0
+    count = fprintf(varargin{:});
+else
+    count = 0;
+end
+%=======================================================================

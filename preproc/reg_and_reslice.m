@@ -16,12 +16,12 @@ if D>1
         matlabbatch{1}.spm.spatial.coreg.estwrite.ref = {V{s}(1).fname};
 
         for d=2:D
-            matlabbatch{1}.spm.spatial.coreg.estwrite.source = {V{s}(d).fname};
-            
-            delete(V{s}(d).fname);
+            matlabbatch{1}.spm.spatial.coreg.estwrite.source = {V{s}(d).fname};                        
             
             output_list = spm_jobman('run',matlabbatch);
-            V{s}(d)     = spm_vol(output_list{1}.rfiles{1});
+            delete(V{s}(d).fname);
+            
+            V{s}(d)     = spm_vol(output_list{1}.rfiles{1});            
         end
     end
 end

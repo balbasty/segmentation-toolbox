@@ -1,5 +1,5 @@
-function [Plogtpm,Kb] = init_logtpm(use_tpm,V,Kb,vxtpm,Plogtpm)
-if nargin<5, Plogtpm = './tpm/TPM.nii'; end
+function [Plogtpm,Kb,uniform] = init_logtpm(use_tpm,V,Kb,vxtpm,dirTPM)
+Plogtpm = fullfile(dirTPM,'TPM.nii');
 
 Pspm    = which('spm');
 Pspm    = Pspm(1:end-5);
@@ -7,7 +7,8 @@ Pspmtpm = fullfile(Pspm,'tpm','TPM.nii');
 Vspmtpm = spm_vol(Pspmtpm);    
 
 if use_tpm            
-    Kb = numel(Vspmtpm);
+    Kb      = numel(Vspmtpm);
+    uniform = false;
     
     Nii = nifti(Pspmtpm);
     if V{1}(1).dim(3)==1  
@@ -41,7 +42,9 @@ if use_tpm
         delete(vols{k});
     end
 else       
-    % Create a uniform tpm that covers all images                
+    % Create a uniform tpm that covers all images        
+    uniform = true;
+    
     S = numel(V);
     N = numel(V{1});
     
@@ -63,7 +66,7 @@ else
 
     [mat,dm] = compute_avg_mat(mat,dm,vxtpm);
     
-    img  = log(ones(dm)/Kb);
+    img  = zeros(dm);
     vols = cell(Kb,1);
     for k=1:Kb
         [~,nam,ext] = fileparts(Plogtpm);

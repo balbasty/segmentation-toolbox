@@ -1,6 +1,11 @@
-function V = mktmpdir(V,tmpdir)
+function V = copy2tmpdir(V,tmpdir)
 S = numel(V);
 D = numel(V{1});
+
+if exist(tmpdir,'dir')
+    rmdir(tmpdir,'s');
+end
+mkdir(tmpdir);
 
 for s=1:S
     fname = V{s}.fname;

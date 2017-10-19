@@ -44,11 +44,11 @@ if nargin<3,
     % Create empty data structure
     mom = struct('ind',[],'s0',0,'s1',[],'S2',[]);
     for i=1:2^M,
-        mom(i).ind = dec2bin(i-1,M)=='1'; % Inh/sum(h)/mddices
+        mom(i).ind = dec2bin(i-1,M)=='1';  % Inh/sum(h)/mddices
         Mi         = sum(mom(i).ind);
-        mom(i).s0  = zeros(1,K);     % Zeroeth moments
-        mom(i).s1  = zeros(Mi,K);    % First moments
-        mom(i).S2  = zeros(Mi,Mi,K); % Second moments
+        mom(i).s0  = zeros(1,K) + eps*eps; % Zeroeth moments
+        mom(i).s1  = zeros(Mi,K);          % First moments
+        mom(i).S2  = zeros(Mi,Mi,K);       % Second moments
     end
 else
     % Check compatibility of data structure

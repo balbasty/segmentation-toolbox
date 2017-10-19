@@ -1,56 +1,52 @@
-function [nm,wp,mn,vr] = spm_InitGaussians(V,K,samp)
+function [wp,mn,vr,Q] = spm_InitGaussians(buf,K,verbose)
 % Generate initial estimates for the parameters of a Gaussian mixture model
 % using the k-means algorithm
 %
-% FORMAT [nm,wp,mn,vr] = spm_InitGaussians(V,K,samp)
+% FORMAT [wp,mn,vr,Q] = spm_InitGaussians(buf,K,verbose)
 %     
-if nargin<3, samp=2; end
+if nargin<3, verbose = false; end
 
-N = numel(V);
+N = numel(buf(1).f);
+d = [size(buf(1).msk) numel(buf)];
 
-% Sub-sample images
-d0        = V(1).dim(1:3);
-vx        = sqrt(sum(V(1).mat(1:3,1:3).^2));
-sk        = max([1 1 1],round(samp*[1 1 1]./vx));
-[x0,y0,o] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
-z0        = 1:sk(3):d0(3);
-d         = [size(x0) length(z0)];
-
-f   = zeros([d N],'single');
-msk = zeros(size(f),'logical');
-for z=1:length(z0)
+f = NaN([prod(d(1:2)) d(3) N],'single');
+for z=1:numel(buf)
     for n=1:N
-        f(:,:,z,n)   = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
-        msk(:,:,z,n) = get_msk(f(:,:,z,n));
+        f(buf(z).msk,z,n) = buf(z).f{n};
     end
 end
-f   = reshape(f,[prod(d) N]);
-msk = reshape(msk,[prod(d) N]);
+f = reshape(f,[d N]);    
 
-msk = sum(msk,2)==N;
-nm  = nnz(msk);
-
-if nargout==1
-    % Only return number of voxels
-    return
-end
-
-% Mask images
-for n=1:N
-    f(~msk,n) = NaN;
-end
-
-% Make images have simillar means
-for n=1:N
-    a      = 512/mean(f(msk,n));
-    f(:,n) = a*f(:,n);
+if verbose
+    % Display input image(s)    
+   figure(get_nbr_figs + 1);
+   for n=1:N
+      subplot(1,N,n);
+      imagesc(f(:,:,floor(d(3)/2) + 1,n)'); axis image xy off; colormap(gray);
+   end
+   drawnow
 end
 
 % Label images using k-means
-labels = label_data(f,K,d);
+f = reshape(f,[prod(d) N]);
+Q = label_data(f,K,d);
+
+if verbose
+    % Display estimated labels    
+    figure(get_nbr_figs + 1);
+    tmp = reshape(Q,[d K]);                   
+    K1  = floor(sqrt(K));
+    K2  = ceil(K/K1); 
+    for k=1:K
+      subplot(K1,K2,k);
+      imagesc(tmp(:,:,floor(d(3)/2) + 1,k)'); axis image xy off; colormap(gray);
+    end
+    clear tmp
+    drawnow
+end
 
 % Generate estimates of MoG parameters
-mom        = spm_SuffStats(f,labels);
+mom        = spm_SuffStats(f,Q);
 [wp,mn,vr] = spm_GaussiansFromSuffStats(mom);
 wp         = wp/sum(wp); 
 
@@ -60,6 +56,9 @@ wp         = wp/sum(wp);
 mn = mn(:,ix);
 vr = vr(:,:,ix);
 wp = wp(:,ix);   
+
+% Q  = uint8(255*Q(:,ix));
+% Q  = reshape(Q,[d K]);
 %==========================================================================
 
 %==========================================================================
@@ -71,7 +70,7 @@ warning('off','stats:kmeans:FailedToConvergeRep')
 opts = statset('MaxIter',500);
 
 labels = kmeans(f,single(K),...
-                'Distance','cityblock',...
+                'Distance','sqeuclidean',...
                 'Start','plus',...
                 'Replicates',5,...
                 'Options',opts);

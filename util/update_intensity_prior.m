@@ -1,4 +1,4 @@
-function pr = update_pr(obj)
+function pr = update_intensity_prior(obj)
 m0  = obj{1}.pr.m;
 b0  = obj{1}.pr.b;
 W0  = obj{1}.pr.W;
