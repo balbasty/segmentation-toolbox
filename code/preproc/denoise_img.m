@@ -1,5 +1,4 @@
-function denoise_img(fname,lambda)
-if nargin < 2, lambda = 2; end
+function denoise_img(fname)
 
 % Get input data
 Nii = nifti(fname);
@@ -17,16 +16,19 @@ pm.A   = @(x) x;
 pm.At  = @(x) x;
 pm.AtA = @(x) x;
 
-% Set denoising options
+% Regularisation
+lambda = 4; 
+
+% Options
 opts          = [];
 opts.verbose  = 0;
 opts.usegpu   = false;
 opts.nonneg   = false;
 opts.vx       = vx;
 opts.bregmitr = 1;
-opts.rho      = 1e1;
-opts.lam2     = 0;
-opts.maxitr   = 30;
+opts.rho      = 0.25;
+opts.lam2     = 1e-3;
+opts.maxitr   = 100;
 opts.reltol   = 1e-4;
 opts.lstol    = 1e-4;
 

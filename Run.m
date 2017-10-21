@@ -2,123 +2,92 @@ clear; close all;
 
 %==========================================================================
 % TODO
-% -MRI+CT (need CT and MRI of the same subject)
+% -MRI+CT
 % -Healthy+unhealthy
-% -handle missing data
-% -registration should use affine+diffeo
+% -Handle missing data
+% -Registration should use affine+diffeo
 % -Add MRF
 % -Parameterisation: mu-f, matrix exponentials
+% -Use a smoothing prior for the template update
 % -Test on BRATS data
 %==========================================================================
 
-addpath('./util')
-addpath('./spm')
-addpath('./preproc')
+addpath(genpath('./code'))
 
-% Image data
-load_from_tmpdir = 0;
+S  = 1000; % Number of subjects
+Kb = 15;   % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
 
-S = 1000; % number of subjects
+% Define input image data, cell array should contain the following:
+% {'pth_to_images','healthy'/'non-healthy',number_of_subjects_to_use,'CT'/'MRI','pth_to_tmpdir'}
+%
+% pth_to_images: Assumes that images are organised into per subject subfolders, i.e. if
+% subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
+imdir = {'/home/mbrud/Data/Parashkev-CT-aged/','healthy',S,'CT','./tmp/'};
 
-imdir  = {};
-tmpdir = {};
+% Options for input data
+load_from_tmpdir = 0; % Run algorithm on images contained in the temporary directory
+run_on_2D        = 0; % Run algorithm on 2D data instead of 3D
 
-imdir{end + 1}  = {'/home/mbrud/Desktop/Parashkev-CT-aged/','healthy',S,'CT'};
-% imdir{end + 1}  = {'/home/mbrud/Desktop/CT-slices/CT-slices-lesion/','healthy',S,'CT'};
-% imdir{end + 1}  = {'/home/mbrud/Desktop/nifti-toolbox/resize-imgs/resized-data/','healthy',S,'CT'};
-tmpdir{end + 1} = {'./tmp/','healthy',S,'CT'};
-% tmpdir{end + 1} = {'./tmp_2D/','healthy',S,'CT'};
-% tmpdir{end + 1} = {imdir{end}{1},'healthy',S,'CT'};
+% Run the algorithm in parallel or not
+if 1, runpar = Inf;   % Uses maximum numbers of workers available
+else  runpar = 0; end
 
-% Algorithm parameters
-Kb    = 15;
-Ksemi = 0;
-nlkp  = 1;
+% Preprocessing options
+preproc.realign   = 1; % Realign to MNI space
+preproc.crop      = 1; % Remove data outside of head
+preproc.denoise   = 1; % Denoise (only done if data is CT)
+preproc.create_2D = 1; % Create 2D versions of preprocessed input data
 
-use_tpm   = 0;
-use_vbmog = 1;
+% The distance (mm) between samples (for sub-sampling input data--improves speed)
+samp = 1.5;
 
-samp  = 1.5;
-vxtpm = 1.5;
-deg   = 3; 
+% Segmentation parameters
+nlkp      = 1; % Number of gaussians per tissue
+use_vbmog = 1; % Use a variational Bayesian mixture model
 
-preproc.realign   = 1;
-preproc.crop      = 1;
-preproc.denoise   = 1;
-preproc.create_2D = 1;
+% What estimates to perform
+dobias = 1; % Bias field
+doaff  = 1; % Affine registration
+dodef  = 1; % Non-linear registration
+dopr   = 1; % Intensity priors
+dotpm  = 1; % Template
 
-dobias = 1;
-doaff  = 1;
-dodef  = 1;
-dopr   = 1;
-dotpm  = 1;
-
-rparam = [0 0.001 0.5 0.05 0.2]*0.1;
-
-fwhm_tpm = 0.5; % ad hoc...
-
-tol = 1e-4;
-
+% Different number of iterations and stopping tolerance of algorithm
 nitermain = 50;
 niter     = 30;
 niter1    = 8;
 nsubitmog = 20;
 nsubitbf  = 1;
 nitdef    = 3;
+tol       = 1e-4;
 
-tiny = 1e-4;
+% Regularisation for estimating deformations
+rparam = [0 0.001 0.5 0.05 0.2]*0.1;
 
+% Template options
+Ptpm     = '';   % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+vxtpm    = 1.5;  % Voxel size of template to be estimated
+deg      = 2;    % Degree of interpolation when sampling template
+tiny     = 1e-4; % Strength of Dirichlet prior used in template construction
+fwhm_tpm = 0.25; % Ad hoc smoothing of template
+
+% For debugging
 verbose = 1;
 figix   = 1;
 
-if 1
-    runpar = get_nbr_of_cores;
-else
-    runpar = 0;
-end
-
-% Make directories
-dirTPM    = './TPM/';
-dirTwarp  = './Twarp/';
-
-if exist(dirTPM,'dir')
-    rmdir(dirTPM,'s');
-end
-mkdir(dirTPM);
-
-if exist(dirTwarp,'dir')
-    rmdir(dirTwarp,'s');
-end
-mkdir(dirTwarp);
+% Define and create some directories
+dirTPM   = './TPM/';   % For template and estimated intensity priors
+dirTwarp = './Twarp/'; % For storing deformation fields
+if exist(dirTPM,'dir'),   rmdir(dirTPM,'s');   end; mkdir(dirTPM);
+if exist(dirTwarp,'dir'), rmdir(dirTwarp,'s'); end; mkdir(dirTwarp);
 
 %% Load and process image data
-
-% Assumes that images are organised into per subject subfolders, i.e. if
-% subject s=1 has a T1 and a T2 image, then they are in a subfolder S1.
-[V,N,S] = load_and_process_images(imdir,tmpdir,load_from_tmpdir,preproc);
+[V,N,S,V_2D] = load_and_process_images(imdir,load_from_tmpdir,preproc,runpar);
+if run_on_2D, V = V_2D; end
 % show_images_in_V(V)
 
-% Determine if a semi-supervised approach should be used, based on knowing if
-% input images contain pathology or not
-healthy_nonhealthy = {};
-for i=1:numel(imdir)
-    healthy_nonhealthy{i} = imdir{i}{2};
-end
-s1 = strcmp('healthy',healthy_nonhealthy);
-s2 = strcmp('nonhealthy',healthy_nonhealthy);
-
-semi_healthy = ~(all(s1 == s1(1)) && all(s2 == s2(1)));
-
-for s=1:S
-    for n=1:N
-        V{s}(n).brain_is = imdir{i}{2};
-        V{s}(n).descrip  = imdir{i}{4};
-    end    
-end
-
 %% Initialise template
-[Plogtpm,Kb,uniform] = init_logtpm(use_tpm,V,Kb,vxtpm,dirTPM);
-lkp                  = repelem(1:Kb,nlkp);
+[Plogtpm,Kb,uniform,use_tpm] = init_template(Ptpm,V,Kb,vxtpm,dirTPM);
 
 %% Initialise algorithm i/o   
 fig = cell(4,1);
@@ -150,7 +119,7 @@ for s=1:S
     obj{s}.use_vbmog = use_vbmog;
     obj{s}.use_tpm   = use_tpm;
     
-    obj{s}.lkp  = lkp;
+    obj{s}.lkp  = repelem(1:Kb,nlkp);
     obj{s}.nlkp = nlkp;
     
     obj{s}.Affine  = eye(4);
@@ -171,16 +140,6 @@ for s=1:S
     obj{s}.nitdef     = nitdef;
     obj{s}.niter_stop = 9;
     
-    % Determine if a semi-supervised approach should be used, based on knowing if
-    % input images contain pathology or not
-    if semi_healthy && strcmp(obj{s}.image.brain_is,'healthy') && Ksemi
-        lkpsemi        = fliplr(1:Kb);
-        obj{s}.lkpsemi = lkpsemi(1:Ksemi);
-    else
-        obj{s}.lkpsemi = [];
-    end
-
-    obj{s}.runpar = runpar; 
     obj{s}.fig    = fig; 
     
     % Allocate initial deformation field (only for multiple subjects)       
@@ -190,9 +149,8 @@ for s=1:S
 end
 
 %% Run algorithm
-
-Nm = 0; % Total # voxels in all images
-L  = -Inf;
+Nm = 0;    % Total number of voxels in all images
+L  = -Inf; % Lower bound of model
 for iter=1:nitermain
     
     % Update the template--------------------------------------------------                     
@@ -252,7 +210,7 @@ for iter=1:nitermain
         
         [obj{s},munum1,muden1] = update_model_parameters(obj{s},logtpm,iter);
         
-        ll = ll + obj{s}.ll;
+        ll = ll + obj{s}.ll; % Sum up likelihoods over all subjects
         
         if iter==1
            Nm = Nm + obj{s}.nm; % Count total number of voxels in all images
@@ -265,6 +223,7 @@ for iter=1:nitermain
     L(iter + 1) = ll;
 
     if verbose
+        % Plot lower bound
         set(0,'CurrentFigure',figL);                
         plot(0:numel(L) - 1,L,'b-','LineWidth',1);   hold on            
         plot(0:numel(L) - 1,L,'b.','markersize',10); hold off                        
@@ -275,7 +234,7 @@ for iter=1:nitermain
         fprintf('==========================================\n')                        
         fprintf('Algorithm converged in %d iterations.\n',iter)                        
         fprintf('==========================================\n')                        
-%         break;
+        break;
     end
 end
 

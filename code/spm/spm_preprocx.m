@@ -104,7 +104,7 @@ else
         use_mog   = true;
     end
 end
-lkpsemi = obj.lkpsemi;
+% lkpsemi = obj.lkpsemi;
 
 kron = @(a,b) spm_krutil(a,b);
 
@@ -114,6 +114,10 @@ nsubitmog  = obj.nsubitmog;
 nsubitbf   = obj.nsubitbf;
 nitdef     = obj.nitdef;
 niter_stop = obj.niter_stop;
+
+dobias = obj.dobias;
+dodef  = obj.dodef;
+dotpm  = obj.dotpm;
 
 % Some random numbers are used, so initialise random number generators to
 % give the same results each time.
@@ -231,22 +235,20 @@ mom2 = zeros(1,N);
 cl   = cell(length(z0),1);
 buf  = struct('msk',cl,'nm',cl,'f',cl,'dat',cl,'bf',cl);
 for z=1:length(z0)
-%    % Load only those voxels that are more than 5mm up
-%    % from the bottom of the tissue probability map.  This
-%    % assumes that the affine transformation is pretty close.
-% 
-%    %x1  = M(1,1)*x0 + M(1,2)*y0 + (M(1,3)*z0(z) + M(1,4));
-%    %y1  = M(2,1)*x0 + M(2,2)*y0 + (M(2,3)*z0(z) + M(2,4));
-%     z1  = M(3,1)*x0 + M(3,2)*y0 + (M(3,3)*z0(z) + M(3,4));
-%     e   = sqrt(sum(logtpm.M(1:3,1:3).^2));
-%     e   = 5./e; % mm from edge of TPM
-%     if d(3)>1
-%         buf(z).msk = z1>e(3);
-%     else
-%         % Input image is 2D
-%         buf(z).msk = ones(d(1:2),'logical');
-%     end
-    buf(z).msk = ones(d(1:2),'logical');
+    if ~dotpm && d(3)>1
+        % Load only those voxels that are more than 5mm up
+        % from the bottom of the tissue probability map.  This
+        % assumes that the affine transformation is pretty close.
+	 
+        %x1  = M(1,1)*x0 + M(1,2)*y0 + (M(1,3)*z0(z) + M(1,4));
+        %y1  = M(2,1)*x0 + M(2,2)*y0 + (M(2,3)*z0(z) + M(2,4));
+        z1  = M(3,1)*x0 + M(3,2)*y0 + (M(3,3)*z0(z) + M(3,4));
+        e   = sqrt(sum(logtpm.M(1:3,1:3).^2));
+        e   = 5./e; % mm from edge of TPM
+        buf(z).msk = z1>e(3);
+    else
+        buf(z).msk = ones(d(1:2),'logical');
+    end
     
     % Initially load all the data, but prepare to exclude
     % locations where any of the images is not finite, or
@@ -339,19 +341,14 @@ else
     wp = ones(1,Kb)/Kb;
 end
 
-% Set weigths to zero and re-normalise (for semi-supervised approach)
-wp(lkpsemi) = eps;
-wp          = wp/sum(wp);
+% % Set weigths to zero and re-normalise (for semi-supervised approach)
+% wp(lkpsemi) = eps;
+% wp          = wp/sum(wp);
 
 % For debugging
 %-----------------------------------------------------------------------
-dobias = obj.dobias;
-dodef  = obj.dodef;
-dotpm  = obj.dotpm;
-
-zslice  = floor(d(3)/2 + 1);
-fig     = obj.fig;
-
+zslice   = floor(d(3)/2 + 1);
+fig      = obj.fig;
 conv_def = zeros(1,nitdef + 1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -570,9 +567,9 @@ for iter=1:niter
                 end
                 wp = wp/sum(wp);
                 
-                % Set weigths to zero and re-normalise (for semi-supervised approach)
-                wp(lkpsemi) = eps;
-                wp          = wp/sum(wp);
+%                 % Set weigths to zero and re-normalise (for semi-supervised approach)
+%                 wp(lkpsemi) = eps;
+%                 wp          = wp/sum(wp);
                 
                 if use_vbmog
                     [mom1,mom2] = mom_John2Bishop(mom0,mom1,mom2);
@@ -1198,8 +1195,10 @@ for iter=1:niter
     end
 end
 
-fprintf('Convergence (main):\t%g/%g\n',iter,niter);
-fprintf('Convergence (deformation): %s\n', sprintf('%d ', conv_def))
+if 0
+    fprintf('Convergence (main):\t%g/%g\n',iter,niter);
+    fprintf('Convergence (deformation): %s\n', sprintf('%d ', conv_def))
+end
 
 if dotpm            
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

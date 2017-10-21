@@ -19,7 +19,7 @@ f = reshape(f,[d N]);
 
 if verbose
     % Display input image(s)    
-   figure(get_nbr_figs + 1);
+   figure(666);
    for n=1:N
       subplot(1,N,n);
       imagesc(f(:,:,floor(d(3)/2) + 1,n)'); axis image xy off; colormap(gray);
@@ -33,7 +33,7 @@ Q = label_data(f,K,d);
 
 if verbose
     % Display estimated labels    
-    figure(get_nbr_figs + 1);
+    figure(667);
     tmp = reshape(Q,[d K]);                   
     K1  = floor(sqrt(K));
     K2  = ceil(K/K1); 

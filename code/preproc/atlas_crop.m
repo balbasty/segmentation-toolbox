@@ -1,8 +1,6 @@
-function [nP,Affine] = atlas_crop(P,Affine,prefix)
+function Affine = atlas_crop(P,Affine,prefix)
 if nargin < 2, Affine = []; end
 if nargin < 3, prefix = ''; end
-
-nP = P;
 
 % Locate TPM.nii in SPM
 Pspm = which('spm');
@@ -18,10 +16,6 @@ mattpm = Vtpm.mat;
 if isempty(Affine)
     tpm    = spm_load_priors8(Vtpm);
     Affine = spm_maff8(P,3,16,tpm,eye(4),'mni');
-end
-
-if nargout==2
-    return
 end
 
 % Voxel locations in TPM.nii
@@ -53,7 +47,4 @@ end
 
 % Do cropping
 subvol(Vin,[mn(1) mx(1);mn(2) mx(2);mn(3) mx(3)]',prefix);
-
-[dir,nam,ext] = fileparts(P);
-nP            = fullfile(dir,[prefix nam ext]);
 %==========================================================================
