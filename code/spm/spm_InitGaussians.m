@@ -67,7 +67,7 @@ function nlabels = label_data(f,K,d)
 warning('off','stats:kmeans:MissingDataRemoved')
 warning('off','stats:kmeans:FailedToConvergeRep')
 
-opts = statset('MaxIter',500);
+opts = statset('MaxIter',1000);
 
 labels = kmeans(f,single(K),...
                 'Distance','sqeuclidean',...

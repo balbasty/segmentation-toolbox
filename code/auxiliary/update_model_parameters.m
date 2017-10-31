@@ -40,7 +40,14 @@ if isfield(obj,'pthTwarp')
 end
 
 % Run segmentation algorithm
-[obj,munum1,muden1] = spm_preprocx(obj,logtpm);
+try
+    [obj,munum1,muden1] = spm_preprocx(obj,logtpm);
+catch
+    obj.ll = 0;
+    obj.nm = 0;
+    munum1 = single(0);
+    muden1 = single(0);    
+end
 
 if isfield(obj,'pthTwarp')
     % To save memory, delete deformation from result structure

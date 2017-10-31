@@ -1,6 +1,7 @@
 function [Plogtpm,Kb,uniform,use_tpm] = init_template(Ptpm,V,Kb,vxtpm,dirTPM)
 Plogtpm = fullfile(dirTPM,'TPM.nii');
 if ~isempty(Ptpm)
+    % Load template from file (OBS: should change to Ptpm contains logs)
     use_tpm = true;
 
     Vtpm    = spm_vol(Ptpm);    
@@ -23,10 +24,9 @@ if ~isempty(Ptpm)
     
     vols = cell(Kb,1);
     for k=1:Kb
-        [~,nam,ext] = fileparts(Plogtpm);
-        fname       = [nam num2str(k) ext];                        
-        create_nii(fname,img(:,:,:,k),mat,Vtpm(1).dt(1),'TPM');            
-        vols{k}     = fname;
+        [pth,nam,ext] = fileparts(Plogtpm);
+        vols{k}       = fullfile(pth,[nam num2str(k) ext]);                        
+        create_nii(vols{k},img(:,:,:,k),mat,Vtpm(1).dt(1),'TPM'); 
     end    
     clear img
     
@@ -34,12 +34,8 @@ if ~isempty(Ptpm)
     matlabbatch{1}.spm.util.cat.name  = Plogtpm;
     matlabbatch{1}.spm.util.cat.dtype = Vtpm(1).dt(1);
     spm_jobman('run',matlabbatch);
-
-    for k=1:Kb
-        delete(vols{k});
-    end
 else       
-    % Create a uniform tpm that covers all images    
+    % No template provided so create a uniform TPM that covers all images    
     use_tpm = false;    
     uniform = true;
     
@@ -67,22 +63,21 @@ else
     img  = zeros(dm);
     vols = cell(Kb,1);
     for k=1:Kb
-        [~,nam,ext] = fileparts(Plogtpm);
-        fname       = [nam num2str(k) ext];
-        create_nii(fname,img,mat,[16 0],'TPM');
-        vols{k} = fname;
+        [pth,nam,ext] = fileparts(Plogtpm);
+        vols{k}       = fullfile(pth,[nam num2str(k) ext]);
+        create_nii(vols{k},img,mat,16,'TPM');
     end
     clear img
     
     matlabbatch{1}.spm.util.cat.vols  = vols;
     matlabbatch{1}.spm.util.cat.name  = Plogtpm;
-    matlabbatch{1}.spm.util.cat.dtype = [16 0];
+    matlabbatch{1}.spm.util.cat.dtype = 16;
     spm_jobman('run',matlabbatch);
-
-    for k=1:Kb
-        delete(vols{k});
-    end            
-    
+             
     [pth,nam] = fileparts(Plogtpm);
     delete(fullfile(pth,[nam '.mat']));
 end
+
+for k=1:Kb
+    delete(vols{k});
+end   

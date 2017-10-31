@@ -1,21 +1,21 @@
-function [V,N,S,V_2D] = load_and_process_images(imdir,load_from_tmpdir,preproc,runpar)
+function [V,N,S] = load_and_process_images(imdir,load_from_tmpdir,preproc,runpar,run_on_2D)
 
 if load_from_tmpdir
     % Read already processed image data into a cell array object
     imdir{1} = imdir{5};
     
-    sanity_check_dir(imdir);
-    
-    [V,N,S] = get_V(imdir);        
-    
-    dir       = fileparts(imdir{1});        
-    dirTPM_2D = [dir '_2D'];
-        
-    if exist(dirTPM_2D,'dir')
-        imdir{1} = dirTPM_2D;
-        V_2D = get_V(imdir); 
+    if ~run_on_2D
+        sanity_check_dir(imdir);        
+        [V,N,S] = get_V(imdir);            
     else
-        V_2D = {};
+        imdir_2D = [imdir{1} '_2D'];                  
+        if exist(imdir_2D,'dir')
+            imdir{1} = imdir_2D;
+            sanity_check_dir(imdir);
+            [V,N,S] = get_V(imdir);
+        else
+            error('exist(imdir_2D,''dir'')')
+        end
     end
 else
     % Read image data into a cell array object
@@ -29,13 +29,12 @@ else
     if preproc.create_2D
         % Create a temporary directory to store 2D versions of processed
         % images
-        dir       = fileparts(imdir{5});        
-        dirTPM_2D = [dir '_2D'];
+        imdir_2D = [imdir{5} '_2D'];
         
-        if exist(dirTPM_2D,'dir')
-            rmdir(dirTPM_2D,'s');
+        if exist(imdir_2D,'dir')
+            rmdir(imdir_2D,'s');
         end
-        mkdir(dirTPM_2D);
+        mkdir(imdir_2D);
     end
        
     % Process the input images in parallel
@@ -132,7 +131,7 @@ else
                         
                         reset_origin(nfname);
                         
-                        sdir = fullfile(dirTPM_2D,['S' num2str(s)]);
+                        sdir = fullfile(imdir_2D,['S' num2str(s)]);
                         if ~exist(sdir,'dir')
                             mkdir(sdir);
                         end                        
@@ -147,11 +146,9 @@ else
         end
     end
     
-    if preproc.create_2D
-        imdir{1} = dirTPM_2D;
-        V_2D     = get_V(imdir);
-    else
-        V_2D = {};
+    if run_on_2D
+        imdir{1} = imdir_2D;
+        V        = get_V(imdir);
     end
 end
 
@@ -160,15 +157,6 @@ for s=1:S
         V{s}(n).brain_is = imdir{2};
         V{s}(n).descrip  = imdir{4};
     end    
-end
-
-if ~isempty(V_2D)
-    for s=1:S
-        for n=1:N
-            V_2D{s}(n).brain_is = imdir{2};
-            V_2D{s}(n).descrip  = imdir{4};
-        end    
-    end
 end
 %==========================================================================
 

@@ -14,18 +14,19 @@ clear; close all;
 
 addpath(genpath('./code'))
 
-S  = 1000; % Number of subjects
-Kb = 15;   % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
+%==========================================================================
+S  = Inf; % Number of subjects
+Kb = 15;  % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
 
 % Define input image data, cell array should contain the following:
 % {'pth_to_images','healthy'/'non-healthy',number_of_subjects_to_use,'CT'/'MRI','pth_to_tmpdir'}
 %
 % pth_to_images: Assumes that images are organised into per subject subfolders, i.e. if
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
-imdir = {'/home/mbrud/Data/Parashkev-CT-aged/','healthy',S,'CT','./tmp/'};
+imdir = {'/home/mbrud/Data/Parashkev-CT-aged','healthy',S,'CT','./tmp'};
 
 % Options for input data
-load_from_tmpdir = 0; % Run algorithm on images contained in the temporary directory
+load_from_tmpdir = 1; % Run algorithm on images contained in the temporary directory
 run_on_2D        = 0; % Run algorithm on 2D data instead of 3D
 
 % Run the algorithm in parallel or not
@@ -53,7 +54,7 @@ dopr   = 1; % Intensity priors
 dotpm  = 1; % Template
 
 % Different number of iterations and stopping tolerance of algorithm
-nitermain = 50;
+nitermain = 100;
 niter     = 30;
 niter1    = 8;
 nsubitmog = 20;
@@ -76,19 +77,21 @@ verbose = 1;
 figix   = 1;
 
 % Define and create some directories
-dirTPM   = './TPM/';   % For template and estimated intensity priors
-dirTwarp = './Twarp/'; % For storing deformation fields
+dirTPM   = './TPM';   % For template and estimated intensity priors
+dirTwarp = './Twarp'; % For storing deformation fields
 if exist(dirTPM,'dir'),   rmdir(dirTPM,'s');   end; mkdir(dirTPM);
 if exist(dirTwarp,'dir'), rmdir(dirTwarp,'s'); end; mkdir(dirTwarp);
 
+%==========================================================================
 %% Load and process image data
-[V,N,S,V_2D] = load_and_process_images(imdir,load_from_tmpdir,preproc,runpar);
-if run_on_2D, V = V_2D; end
+[V,N,S] = load_and_process_images(imdir,load_from_tmpdir,preproc,runpar,run_on_2D);
 % show_images_in_V(V)
 
+%==========================================================================
 %% Initialise template
 [Plogtpm,Kb,uniform,use_tpm] = init_template(Ptpm,V,Kb,vxtpm,dirTPM);
 
+%==========================================================================
 %% Initialise algorithm i/o   
 fig = cell(4,1);
 if verbose    
@@ -148,6 +151,7 @@ for s=1:S
     end
 end
 
+%==========================================================================
 %% Run algorithm
 Nm = 0;    % Total number of voxels in all images
 L  = -Inf; % Lower bound of model
@@ -238,4 +242,7 @@ for iter=1:nitermain
     end
 end
 
+%==========================================================================
 %% Clean-up estimated template
+
+%==========================================================================
