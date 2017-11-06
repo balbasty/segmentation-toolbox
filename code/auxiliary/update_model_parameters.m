@@ -43,6 +43,8 @@ end
 try
     [obj,munum1,muden1] = spm_preprocx(obj,logtpm);
 catch
+    warning('spm_preprocx')
+
     obj.ll = 0;
     obj.nm = 0;
     munum1 = single(0);

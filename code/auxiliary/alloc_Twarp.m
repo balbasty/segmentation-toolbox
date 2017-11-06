@@ -1,4 +1,4 @@
-function pthTwarp = alloc_Twarp(obj,s)
+function pthTwarp = alloc_Twarp(obj,m,s)
 d0 = obj.image(1).dim;
 vx = sqrt(sum(obj.image(1).mat(1:3,1:3).^2));
 sk = max([1 1 1],round(obj.samp*[1 1 1]./vx));
@@ -7,6 +7,6 @@ z0 = 1:sk(3):d0(3);
 d  = [size(x0) length(z0)];
 
 Twarp    = zeros([d 3],'single');    
-pthTwarp = fullfile(obj.dirTwarp,['Twarp' num2str(s) '.mat']);     
+pthTwarp = fullfile(obj.dirTwarp,['Twarp_m' num2str(m) '_s' num2str(s) '.mat']);     
 save(pthTwarp,'Twarp');
 

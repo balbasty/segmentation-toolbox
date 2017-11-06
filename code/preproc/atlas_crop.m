@@ -1,6 +1,7 @@
-function Affine = atlas_crop(P,Affine,prefix)
-if nargin < 2, Affine = []; end
-if nargin < 3, prefix = ''; end
+function Affine = atlas_crop(P,Affine,prefix,excl_neck)
+if nargin < 2, Affine    = []; end
+if nargin < 3, prefix    = ''; end
+if nargin < 4, excl_neck = 1; end
 
 % Locate TPM.nii in SPM
 Pspm = which('spm');
@@ -23,8 +24,11 @@ Ltpm1 = [120 72.2 37.3 1]'; Ltpm2 = [120 72.2 75.9 1]';
 Rtpm1 = [3  72.2 37.3 1]'; Rtpm2 = [3  72.2 75.9 1]';
 
 Stpm1 = [58.6 42.6 119 1]'; Stpm2 = [58.60 99.4 119 1]';
-Itpm1 = [58.6 39.4 -200  1]'; Itpm2 = [58.60 99.4 -200 1]'; % -200 just so that the neck doesn't get cropped out
-
+if excl_neck
+    Itpm1 = [58.6 39.4 -200  1]'; Itpm2 = [58.60 99.4 -200 1]';
+else
+    Itpm1 = [58.6 39.4 2.5   1]'; Itpm2 = [58.60 99.4 2.5  1]';
+end
 Atpm1 = [58.6 144 28.4 1]'; Atpm2 = [58.60 144 82.3 1]';
 Ptpm1 = [58.6 3.5  28.4 1]'; Ptpm2 = [58.60 3.5 82.3 1]'; 
 

@@ -279,8 +279,8 @@ for z=1:length(z0)
     for n=1:N                   
         fz = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
         
-        % To "normalise" image intensities        
-        if strcmp(V(n).descrip,'CT')
+        % Normalise image intensities (not if CT)            
+        if strcmp(obj.descrip,'CT')
             a(n) = 1.0;
         else
             a(n) = 512/(sumnm(n)/nm);

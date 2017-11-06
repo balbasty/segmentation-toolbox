@@ -1,7 +1,7 @@
 function [Plogtpm,Kb,uniform,use_tpm] = init_template(Ptpm,V,Kb,vxtpm,dirTPM)
 Plogtpm = fullfile(dirTPM,'TPM.nii');
 if ~isempty(Ptpm)
-    % Load template from file (OBS: should change to Ptpm contains logs)
+    % Load template from file
     use_tpm = true;
 
     Vtpm    = spm_vol(Ptpm);    
@@ -9,14 +9,14 @@ if ~isempty(Ptpm)
     uniform = false;
     
     Nii = nifti(Ptpm);
-    if V{1}(1).dim(3)==1  
+    if V{1}{1}(1).dim(3)==1  
         % Subject data is 2D                
         d1  = floor(Vtpm(1).dim(3)/2 + 1);
-        img = log(Nii.dat(:,:,d1,:));        
+        img = log(Nii.dat(:,:,d1,:));  % OBS: remove log once Ptpm contains logs
         mat = Vtpm(1).mat*spm_matrix([0 0 d1 - 1]);                              
     else
         % Subject data is 3D        
-        img = log(Nii.dat(:,:,:,:));
+        img = log(Nii.dat(:,:,:,:)); % OBS: remove log once Ptpm contains logs
         mat = Nii.mat;
     end
     img(~isfinite(img)) = 0;
@@ -38,23 +38,26 @@ else
     % No template provided so create a uniform TPM that covers all images    
     use_tpm = false;    
     uniform = true;
-    
-    S = numel(V);
-    N = numel(V{1});
-    
+
+    M   = numel(V);
     mat = [];
-    dm  = [];
-    for s=1:S
-        for c=1:N
-            Nii = nifti(V{s}(c).fname);
-            M   = Nii.mat;
-            mat = cat(3,mat,M);
-            
-            d = size(Nii.dat);
-            if numel(d)==2
-               d(3) = 1;
-            end        
-            dm = cat(1,dm,d);
+    dm  = [];    
+    for m=1:M
+        S = numel(V{m});
+        N = numel(V{m}{1});
+
+        for s=1:S
+            for n=1:N
+                Nii = nifti(V{m}{s}(n).fname);
+                M   = Nii.mat;
+                mat = cat(3,mat,M);
+
+                d = size(Nii.dat);
+                if numel(d)==2
+                   d(3) = 1;
+                end        
+                dm = cat(1,dm,d);
+            end
         end
     end
 

@@ -1,41 +1,47 @@
-function [V,N,S] = load_and_process_images(imdir,load_from_tmpdir,preproc,runpar,run_on_2D)
+function [V,M,S,N] = load_and_process_images(imobj,preproc,runpar)
 
-if load_from_tmpdir
-    % Read already processed image data into a cell array object
-    imdir{1} = imdir{5};
-    
-    if ~run_on_2D
-        sanity_check_dir(imdir);        
-        [V,N,S] = get_V(imdir);            
-    else
-        imdir_2D = [imdir{1} '_2D'];                  
-        if exist(imdir_2D,'dir')
-            imdir{1} = imdir_2D;
-            sanity_check_dir(imdir);
-            [V,N,S] = get_V(imdir);
-        else
-            error('exist(imdir_2D,''dir'')')
-        end
+M = numel(imobj);
+V = cell(1,M);
+S = zeros(1,M);
+N = zeros(1,M);
+
+if ~preproc.do_preproc
+    % Load S images, of N channels, into a cell array object (V)  
+    for m=1:M
+        [V{m},S(m),N(m)]  = get_V(imobj{m});
     end
-else
-    % Read image data into a cell array object
-    sanity_check_dir(imdir);
+else   
+    if preproc.is_DICOM
+        % imdhir points to a folder structure of DICOMS, which is converted
+        % to NIFTIs
+%         if N>1
+%            error('N>1'); 
+%         end
+        
+        dirNII = './DICOM2NII';
+        if exist(dirNII,'dir')
+            rmdir(dirNII,'s');
+        end
+        mkdir(dirNII);
+        
+        search_and_convert_dcm(imobj{1},dirNII);
+        
+        niis = dir(fullfile(dirNII,'*.nii'));
+        for s=1:numel(niis)
+            dirs = fullfile(dirNII,['S' num2str(s)]);            
+            mkdir(dirs);
+        
+            movefile(fullfile(dirNII,niis(s).name),dirs);
+        end
+        
+        imobj{1} = dirNII;
+    end
     
-    [V,N,S] = get_V(imdir);   
+    % Read image data into a cell array object        
+    [V,S,N] = get_V(imobj);   
     
     % Copy input images to temporary directory
-    V = copy2tmpdir(V,imdir{5});        
-    
-    if preproc.create_2D
-        % Create a temporary directory to store 2D versions of processed
-        % images
-        imdir_2D = [imdir{5} '_2D'];
-        
-        if exist(imdir_2D,'dir')
-            rmdir(imdir_2D,'s');
-        end
-        mkdir(imdir_2D);
-    end
+    [V,imdir_2D] = cpy2imdir(V);            
        
     % Process the input images in parallel
     parfor (s=1:S,runpar)
@@ -101,7 +107,7 @@ else
                 end 
             end
             
-            if preproc.denoise && strcmp(imdir{4},'CT')
+            if preproc.denoise && strcmp(imobj{3},'CT')
                 % Denoise using L2-TV (ADMM)
                 try
                     denoise_img(V{s}(n).fname);                
@@ -117,136 +123,70 @@ else
                 end                
             end
             
-            if preproc.create_2D
-                % Save a 2D slice of the processed image
-                dm = V{s}(n).dim;
-                if dm(3)>1
-                    nz = floor(dm(3)/2) + 1; % z-dimension to slice
-                    
-                    try
-                        subvol(V{s}(n),[-inf inf;-inf inf;nz nz]','2D_');
-                        
-                        [pth,nam,ext] = fileparts(V{s}(n).fname);               
-                        nfname        = fullfile(pth,['2D_' nam ext]);
-                        
-                        reset_origin(nfname);
-                        
-                        sdir = fullfile(imdir_2D,['S' num2str(s)]);
-                        if ~exist(sdir,'dir')
-                            mkdir(sdir);
-                        end                        
+            % Save a 2D slice of the processed image
+            dm = V{s}(n).dim;
+            if dm(3)>1
+                nz = floor(dm(3)/2) + 1; % z-dimension to slice
 
-                        movefile(nfname,sdir);
-                    catch
-                        warning('Create 2D slice')
-                        disp(V{s}(n).fname);
-                    end  
-                end                                
-            end
+                try
+                    subvol(V{s}(n),[-inf inf;-inf inf;nz nz]','2D_');
+
+                    [pth,nam,ext] = fileparts(V{s}(n).fname);               
+                    nfname        = fullfile(pth,['2D_' nam ext]);
+
+                    reset_origin(nfname);
+
+                    sdir = fullfile(imdir_2D,['S' num2str(s)]);
+                    if ~exist(sdir,'dir')
+                        mkdir(sdir);
+                    end                        
+
+                    movefile(nfname,sdir);
+                catch
+                    warning('Create 2D slice')
+                    disp(V{s}(n).fname);
+                end  
+            end 
         end
     end
-    
-    if run_on_2D
-        imdir{1} = imdir_2D;
-        V        = get_V(imdir);
-    end
-end
-
-for s=1:S
-    for n=1:N
-        V{s}(n).brain_is = imdir{2};
-        V{s}(n).descrip  = imdir{4};
-    end    
 end
 %==========================================================================
 
 %=======================================================================
-function V = copy2tmpdir(V,tpmdir)
+function [V,imdir_2D] = cpy2imdir(V)
+imdir = './ims';
+
 S = numel(V);
 N = numel(V{1});
 
-if exist(tpmdir,'dir')
-    rmdir(tpmdir,'s');
+if exist(imdir,'dir')
+    rmdir(imdir,'s');
 end
-mkdir(tpmdir);
+mkdir(imdir);
 
+imdir_2D = './ims_2D';
+if exist(imdir_2D,'dir')
+    rmdir(imdir_2D,'s');
+end
+mkdir(imdir_2D);
+    
 nV = cell(1,S);
 for s=1:S
     fname = V{s}.fname;
-    pth   = fileparts(fname);
+    odir   = fileparts(fname);
     
-    splitstr = strsplit(pth,'/');
-    
-    f = fullfile(tpmdir,splitstr{end});
-    if exist(f,'dir')
-        rmdir(f,'s');
+    ndir = fullfile(imdir,['S' num2str(s)]);
+    if exist(ndir,'dir')
+        rmdir(ndir,'s');
     end
-    mkdir(f);
+    mkdir(ndir);
 
-    copyfile(pth,f);
+    copyfile(odir,ndir);
     
     for n=1:N
         [~,nam,ext] = fileparts(V{s}(n).fname);
-        nV{s}(n)     = spm_vol(fullfile(f,[nam ext]));
+        nV{s}(n)    = spm_vol(fullfile(ndir,[nam ext]));
     end
 end
 V = nV;
 %=======================================================================
-
-%==========================================================================
-function [V,N,S] = get_V(imdir)
-
-S_requested = imdir{3};
-
-folder    = dir(imdir{1});  % folder with subfolders containing multi-channel data of subjects
-folder    = folder(3:end);
-dirflag   = [folder.isdir];
-
-subfolder = folder(dirflag);   % subfolders (S1,S2,...)
-S1        = numel(subfolder);
-if S_requested>S1
-    S = S1;
-else
-    S = S_requested;
-end
-
-files = dir(fullfile(imdir{1},subfolder(1).name,'*.nii'));
-N     = numel(files);
-
-V = cell(1,S);
-for s=1:S
-    folder = fullfile(imdir{1},subfolder(s).name);
-    files  = dir(fullfile(folder,'*.nii'));
-    for n=1:N
-        V{s}(n) = spm_vol(fullfile(folder,files(n).name));
-    end        
-end 
-fprintf('Loading data from %d subjects having %d channels each\n',S,N); 
-%==========================================================================
-
-%==========================================================================
-function sanity_check_dir(imdir)
-if numel(imdir)~=5
-    error('numel(imdir)~=5')
-end
-
-folder    = dir(imdir{1}); 
-folder    = folder(3:end);
-dirflag   = [folder.isdir];
-
-subfolder = folder(dirflag);
-S         = numel(subfolder);
-if S==0
-    error('S==0')
-end
-
-files = dir(fullfile(imdir{1},subfolder(1).name,'*.nii'));
-N0    = numel(files);
-for s=2:S
-    files = dir(fullfile(imdir{1},subfolder(s).name,'*.nii'));
-    N1    = numel(files);
-    if N0~=N1
-        error('N0~=N1')
-    end
-end
-%==========================================================================
