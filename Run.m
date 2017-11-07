@@ -3,32 +3,46 @@ clear; close all;
 addpath(genpath('./code'))
 
 %==========================================================================
-S  = 64; % Number of subjects
-Kb = 15; % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
-
 %--------------------------------------------------------------------------
 % Define input image data, cell array should contain the following:
-% {'pth_to_images','healthy'/'non-healthy',number_of_subjects_to_use,'CT'/'MRI','pth_to_tmpdir'}
+% {'pth_to_images',number_of_subjects_to_use,'CT'/'MRI','healthy'/'non-healthy'}
 %
 % pth_to_images: Assumes that images are organised into per subject subfolders, i.e. if
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
 % imobj = {'/home/mbrud/Data/Slices/CT-hemorrhage-2D/',S,'CT','healthy'};
 
-imobj{1} = {'/home/mbrud/Data/Slices/IXI-2D/',          S,'MRI','healthy'};
-imobj{2} = {'/home/mbrud/Data/Slices/CT-hemorrhage-2D/',S,'CT', 'healthy'};
+% % Aged (OASIS+Parashkev)
+% S  = 150; % Number of subjects
+% Kb = 15; % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
+% imobj{1} = {'/home/mbrud/Data/2D-Data/OASIS-Longitudinal-2D/',S,'MRI','healthy'};
+% imobj{2} = {'/home/mbrud/Data/2D-Data/CT-aged-2D/',S,'CT','healthy'};
 
-%--------------------------------------------------------------------------
-% Run the algorithm in parallel or not
-if 1, runpar = Inf;   % Uses maximum numbers of workers available
-else  runpar = 0; end
+% IXI
+S  = 100;
+Kb = 6;
+imobj{1} = {'/home/mbrud/Data/2D-Data/IXI-2D/',S,'MRI','healthy'};
+
+% % CT-aged-2D
+% S  = Inf; % Number of subjects
+% Kb = 15; % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
+% imobj{1} = {'/home/mbrud/Data/2D-Data/CT-aged-2D/',S,'CT','healthy'};
+
+dir_data = './data'; % folder to store algorithm data
+if ~exist(dir_data,'dir'), mkdir(dir_data); end; 
 
 %--------------------------------------------------------------------------
 % Preprocessing options
-preproc.do_preproc = 0; % Do preprocessing on input images
-preproc.realign    = 1; % Realign to MNI space
-preproc.crop       = 1; % Remove data outside of head
-preproc.denoise    = 1; % Denoise (only done if data is CT)
-preproc.is_DICOM   = 0; % If input images are DICOM, converts DICOM to Nifti % TODO (work in progress)
+preproc.do_preproc  = 0; % Do preprocessing on input images
+preproc.realign     = 1; % Realign to MNI space
+preproc.crop        = 1; % Remove data outside of head
+preproc.denoise     = 1; % Denoise (only done if data is CT)
+preproc.is_DICOM    = 0; % If input images are DICOM, converts DICOM to Nifti % TODO (work in progress)
+preproc.crop_neck   = 0; % Remove neck (the spine, etc.)
+preproc.clean_up_CT = 1; % Try to remove CT images that are corrupted (e.g. bone windowed)
+
+%--------------------------------------------------------------------------
+% Run the algorithm in parallel
+runpar = Inf;
 
 %--------------------------------------------------------------------------
 % The distance (mm) between samples (for sub-sampling input data--improves speed)
@@ -49,13 +63,14 @@ dotpm  = 1; % Template
 
 %--------------------------------------------------------------------------
 % Different number of iterations and stopping tolerance of algorithm
-nitermain = 100;
-niter     = 30;
-niter1    = 8;
-nsubitmog = 20;
-nsubitbf  = 1;
-nitdef    = 3;
-tol       = 1e-4;
+nitermain = 200;
+tolmain   = 1e-5;
+
+niter     = 1; % 30
+niter1    = 8; % 8
+nsubitmog = 20; % 20
+nsubitbf  = 1; % 1
+nitdef    = 3; % 3
 
 %--------------------------------------------------------------------------
 % Regularisation for estimating deformations
@@ -74,20 +89,13 @@ fwhm_tpm = 0.25; % Ad hoc smoothing of template
 verbose = 1;
 figix   = 1;
 
-%--------------------------------------------------------------------------
-% Define and create some directories
-dirTPM   = './TPM';   % For template and estimated intensity priors
-dirTwarp = './Twarp'; % For storing deformation fields
-if exist(dirTPM,'dir'),   rmdir(dirTPM,'s');   end; mkdir(dirTPM);
-if exist(dirTwarp,'dir'), rmdir(dirTwarp,'s'); end; mkdir(dirTwarp);
-
 %==========================================================================
 %% Load and process image data
-[V,M,S,N] = load_and_process_images(imobj,preproc,runpar);
+[V,M,S,N] = load_and_process_images(imobj,preproc,dir_data,runpar);
 
 %==========================================================================
 %% Initialise template
-[Plogtpm,Kb,uniform,use_tpm] = init_template(Ptpm,V,Kb,vxtpm,dirTPM);
+[Plogtpm,Kb,uniform,use_tpm,dir_res] = init_template(Ptpm,V,Kb,vxtpm,dir_data);
 
 %==========================================================================
 %% Initialise algorithm i/o   
@@ -114,16 +122,16 @@ if verbose
     drawnow;
 end  
     
+dir_Twarp = fullfile(dir_data,'Twarp');
+if exist(dir_Twarp,'dir'), rmdir(dir_Twarp,'s'); end; mkdir(dir_Twarp);
+
 obj = cell(1,M);
 for m=1:M    
-
     obj{m} = cell(1,S(m));
     for s=1:S(m)
         obj{m}{s}.image    = V{m}{s};
         obj{m}{s}.biasfwhm = 60*ones(1,N(m));
-        obj{m}{s}.biasreg  = 1e-3*ones(1,N(m));
-
-        obj{m}{s}.dirTwarp = dirTwarp;
+        obj{m}{s}.biasreg  = 1e-3*ones(1,N(m));       
 
         obj{m}{s}.use_vbmog = use_vbmog;
         obj{m}{s}.use_tpm   = use_tpm;
@@ -156,7 +164,7 @@ for m=1:M
               
         if S(m)>1
             % Allocate initial deformation field (only for multiple subjects) 
-            obj{m}{s}.pthTwarp = alloc_Twarp(obj{m}{s},m,s);
+            [obj{m}{s}.pth_Twarp] = alloc_Twarp(obj{m}{s},m,s,dir_Twarp);
         end
     end
 end
@@ -196,13 +204,13 @@ for iter=1:nitermain
     munum = single(0); muden = single(0);   
     
     % Update intensity prior-----------------------------------------------
-    if dopr && use_vbmog && iter>=3
+    if dopr && use_vbmog && iter>2
         for m=1:M
             pr = update_intensity_prior(obj{m});
             for s=1:S(m)
                 obj{m}{s}.pr = pr;
             end      
-            save(fullfile(dirTPM,['pr_m' num2str(m) '.mat']),'pr'); 
+            save(fullfile(dir_res,['pr_m' num2str(m) '.mat']),'pr'); 
         end
     end
         
@@ -258,7 +266,7 @@ for iter=1:nitermain
         plot(0:numel(L) - 1,L,'b.','markersize',10); hold off                        
     end
     
-    if ~(abs(L(end)-L(end - 1))>2*tol*Nm)
+    if ~(abs(L(end)-L(end - 1))>2*tolmain*Nm)
         % Finished
         fprintf('==============================================\n')                        
         fprintf('Algorithm converged in %d iterations.\n',iter)                        
@@ -266,8 +274,3 @@ for iter=1:nitermain
         break;
     end
 end
-
-%==========================================================================
-%% Clean-up estimated template
-
-%==========================================================================

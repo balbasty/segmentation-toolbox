@@ -1,5 +1,8 @@
-function [Plogtpm,Kb,uniform,use_tpm] = init_template(Ptpm,V,Kb,vxtpm,dirTPM)
-Plogtpm = fullfile(dirTPM,'TPM.nii');
+function [Plogtpm,Kb,uniform,use_tpm,dir_res] = init_template(Ptpm,V,Kb,vxtpm,dir_data)
+dir_res = fullfile(dir_data,'results');
+if exist(dir_res,'dir'), rmdir(dir_res,'s'); end; mkdir(dir_res);
+
+Plogtpm = fullfile(dir_res,'TPM.nii');
 if ~isempty(Ptpm)
     % Load template from file
     use_tpm = true;

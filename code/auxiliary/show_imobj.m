@@ -1,7 +1,7 @@
-function show_niis(imdir,show_slices)
+function show_imobj(imobj,show_slices)
 if nargin<2, show_slices = true; end
 
-[V,S,N] = get_V(imdir);
+[V,S,N] = get_V(imobj);
 
 fname  = {};
 cnt = 1;

@@ -27,7 +27,7 @@ for s=1:S
         V{s}(n) = spm_vol(fullfile(folder,files(n).name));
     end        
 end 
-fprintf('Loading data from %d subjects having %d channels each\n',S,N); 
+fprintf('Loaded data from %d subjects having %d channels each\n',S,N); 
 %==========================================================================
 
 %==========================================================================

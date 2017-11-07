@@ -33,16 +33,17 @@ elseif ~obj.use_tpm && iter==4 && obj.dotpm
     obj.niter_stop = 1;          % Allow algorithm to stop earlier, if converged
 end         
 
-if isfield(obj,'pthTwarp')
+if isfield(obj,'pth_Twarp')
     % To save memory, load deformation from file
-    load(obj.pthTwarp,'Twarp')
+    load(obj.pth_Twarp,'Twarp')
     obj.Twarp = Twarp;
 end
 
 % Run segmentation algorithm
 try
     [obj,munum1,muden1] = spm_preprocx(obj,logtpm);
-catch
+catch ME
+    fprintf(ME)
     warning('spm_preprocx')
 
     obj.ll = 0;
@@ -51,9 +52,9 @@ catch
     muden1 = single(0);    
 end
 
-if isfield(obj,'pthTwarp')
+if isfield(obj,'pth_Twarp')
     % To save memory, delete deformation from result structure
     Twarp = obj.Twarp;
-    save(obj.pthTwarp,'Twarp')
+    save(obj.pth_Twarp,'Twarp')
     obj   = rmfield(obj,'Twarp');
 end

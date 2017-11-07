@@ -393,17 +393,6 @@ for iter=1:niter
                 
                 mg  = ones(Kb,1); % Within tissue mixture weights
                 
-                if use_vbmog
-                    % Initial Gaussian-Wishart priors
-                    pr.m = zeros(N,Kb);
-                    pr.b = ones(1,Kb);
-                    pr.W = zeros(N,N,Kb);
-                    for k=1:Kb
-                        pr.W(:,:,k) = eye(N,N);
-                    end
-                    pr.n = (N + 1)*ones(1,Kb);
-                end
-                    
                 if ~logtpm.uniform
                     % Use data and tpm to estimate parameters
 
@@ -430,6 +419,16 @@ for iter=1:niter
                         % posteriors
                         [mm1,mm2] = mom_John2Bishop(mm0,mm1,mm2);
 
+                        % Gaussian-Wishart priors
+                        pr.m = mm1;
+                        pr.b = 0.01*ones(1,Kb);
+                        pr.n = N*ones(1,Kb)-0.99;
+                        pr.W = zeros(N,N,Kb);
+                        for k=1:Kb
+                            pr.W(:,:,k) = inv(mm2(:,:,k))/pr.n(k)/1e+1;
+                        end
+
+                        % Gaussian-Wishart posteriors
                         po.b = pr.b + mm0';
                         po.n = pr.n + mm0';
                         po.m = zeros(N,Kb);
@@ -468,6 +467,16 @@ for iter=1:niter
                         mm1 = mn2;
                         mm2 = vr2;
 
+                        % Gaussian-Wishart priors
+                        pr.m = mm1;
+                        pr.b = 0.01*ones(1,Kb);
+                        pr.n = N*ones(1,Kb)-0.99;
+                        pr.W = zeros(N,N,Kb);
+                        for k=1:Kb
+                            pr.W(:,:,k) = inv(mm2(:,:,k))/pr.n(k)/1e+1;
+                        end
+
+                        % Gaussian-Wishart posteriors
                         po.b = pr.b + mm0;
                         po.n = pr.n + mm0;
                         po.m = zeros(N,Kb);
