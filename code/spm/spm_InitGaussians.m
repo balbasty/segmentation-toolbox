@@ -1,8 +1,8 @@
-function [wp,mn,vr,Q] = spm_InitGaussians(buf,K,verbose)
+function [wp,mn,vr] = spm_InitGaussians(buf,K,verbose)
 % Generate initial estimates for the parameters of a Gaussian mixture model
 % using the k-means algorithm
 %
-% FORMAT [wp,mn,vr,Q] = spm_InitGaussians(buf,K,verbose)
+% FORMAT [wp,mn,vr] = spm_InitGaussians(buf,K,verbose)
 %     
 if nargin<3, verbose = false; end
 
@@ -56,9 +56,6 @@ wp         = wp/sum(wp);
 mn = mn(:,ix);
 vr = vr(:,:,ix);
 wp = wp(:,ix);   
-
-% Q  = uint8(255*Q(:,ix));
-% Q  = reshape(Q,[d K]);
 %==========================================================================
 
 %==========================================================================

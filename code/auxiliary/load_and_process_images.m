@@ -10,33 +10,15 @@ if ~preproc.do_preproc
     for m=1:M
         [V{m},S(m),N(m)]  = get_V(imobj{m});
 
-        if preproc.clean_up_CT && strcmp(imobj{m}{3},'CT')
-            v = zeros(1,S(m));
-            for s=1:S(m)
-                v(s) = calc_var_of_grad(V{m}{s}.fname);
-            end
-
-            mv   = mean(v);
-            sigv = sqrt(var(v));
-            tolv = mv + 5*sigv;
-            ix   = [];
-            for s=1:S(m)
-                if v(s)>tolv
-                    disp(['Removed CT image: ' V{m}{s}.fname])
-                    ix = [ix,s];
-                end
-            end
-            V{m}(ix) = [];
-            S(m)     = S(m) - numel(ix);
-
-            fprintf('%d subjects remaining\n',S(m))
+        if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
+            [V{m},S(m)] = rem_corrupted_ims(V{m});
         end
     end
 else   
     for m=1:M
         if preproc.is_DICOM
             error('is_DICOM: work in progress')
-            % imdhir points to a folder structure of DICOMS, which is converted
+            % imobj points to a folder structure of DICOMS, which is converted
             % to NIFTIs
     %         if N>1
     %            error('N>1'); 
@@ -183,26 +165,8 @@ else
         end
         V{m} = V_m;
 
-        if preproc.clean_up_CT && strcmp(imobj{m}{3},'CT')
-            v = zeros(1,S(m));
-            for s=1:S(m)
-                v(s) = calc_var_of_grad(V{m}{s}.fname);
-            end
-
-            mv   = mean(v);
-            sigv = sqrt(var(v));
-            tolv = mv + 5*sigv;
-            ix   = [];
-            for s=1:S(m)
-                if v(s)>tolv
-                    disp(['Removed CT image: ' V{m}{s}.fname])
-                    ix = [ix,s];
-                end
-            end
-            V{m}(ix) = [];
-            S(m)     = S(m) - numel(ix);
-
-            fprintf('%d subjects remaining\n',S(m))
+        if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
+            [V{m},S(m)] = rem_corrupted_ims(V{m});
         end
     end
 end
