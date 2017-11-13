@@ -1,5 +1,5 @@
-function [V,S] = rem_corrupted_ims(V,verbose)
-if nargin<2, verbose = 0; end
+function [V,S,labels] = rem_corrupted_ims(V,labels,runpar,verbose)
+if nargin<4, verbose = 0; end
 
 % Calculate some image statistics that will be used as indicators if images
 % are corrupted or not
@@ -7,7 +7,7 @@ S  = numel(V);
 N  = numel(V{1});
 sc = zeros(1,S*N);
 v  = zeros(1,S*N);
-for s=1:S
+parfor (s=1:S,runpar)
     for n=1:N
         [~,sc(s),~,v(s)] = compute_img_stats(V{s}(n).fname);
     end
@@ -47,8 +47,9 @@ for s=1:S
         cnt = cnt +1;
     end
 end
-V(ix) = [];
-S     = S - numel(ix);
+V(ix)      = [];
+labels(ix) = [];
+S          = S - numel(ix);
 
 if numel(ix)>0
     if verbose, spm_check_registration(char(f)); end

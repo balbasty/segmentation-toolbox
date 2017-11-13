@@ -1,30 +1,28 @@
-function [V,M,S,N] = load_and_process_images(imobj,preproc,dir_data,runpar)
+function [V,M,S,N,labels] = load_and_process_images(imobj,preproc,dir_data,runpar)
 
-M = numel(imobj);
-V = cell(1,M);
-S = zeros(1,M);
-N = zeros(1,M);
+M      = numel(imobj);
+V      = cell(1,M);
+S      = zeros(1,M);
+N      = zeros(1,M);
+labels = cell(1,M);
 
 if ~preproc.do_preproc
     % Load S images, of N channels, into a cell array object (V)  
     for m=1:M
-        [V{m},S(m),N(m)]  = get_V(imobj{m});
-
+        [V{m},S(m),N(m),labels{m}]  = get_V(imobj{m});
+        
         if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
-            [V{m},S(m)] = rem_corrupted_ims(V{m});
+            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},runpar);
         end
     end
 else   
     for m=1:M
         if preproc.is_DICOM
-            error('is_DICOM: work in progress')
             % imobj points to a folder structure of DICOMS, which is converted
             % to NIFTIs
-    %         if N>1
-    %            error('N>1'); 
-    %         end
-
-            dirNII = './DICOM2NII';
+            warning('DICOM conversion started, assumes single-channel data..')
+            
+            dirNII = fullfile(dir_Data,'DICOM2NII');
             if m>1
                 dirNII = [dirNII '_m' num2str(m)];
             end
@@ -47,7 +45,7 @@ else
         end
 
         % Read image data into a cell array object        
-        [V{m},S(m),N(m)] = get_V(imobj{m});   
+        [V{m},S(m),N(m),labels{m}] = get_V(imobj{m},labels{m});   
 
         % Copy input images to temporary directory
         imdir = fullfile(dir_data,'ims');
@@ -166,7 +164,7 @@ else
         V{m} = V_m;
 
         if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
-            [V{m},S(m)] = rem_corrupted_ims(V{m});
+            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},runpar);
         end
     end
 end

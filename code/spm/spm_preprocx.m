@@ -78,6 +78,7 @@ wp_reg    = 1; % Bias wp towards 1
 tol1      = 1e-4; % Stopping criterion.  For more accuracy, use a smaller value
 
 V         = obj.image;
+N         = numel(V);
 Affine    = obj.Affine;
 M         = logtpm.M\Affine*V(1).mat;
 d0        = V(1).dim(1:3);
@@ -113,11 +114,11 @@ niter1     = obj.niter1;
 nsubitmog  = obj.nsubitmog;
 nsubitbf   = obj.nsubitbf;
 nitdef     = obj.nitdef;
-niter_stop = obj.niter_stop;
 
 dobias = obj.dobias;
 dodef  = obj.dodef;
 dotpm  = obj.dotpm;
+domiss = obj.domiss && N>1;
 
 % Some random numbers are used, so initialise random number generators to
 % give the same results each time.
@@ -174,7 +175,6 @@ llr = -0.5*sum(sum(sum(sum(Twarp.*bsxfun(@times,spm_diffeo('vel2mom',bsxfun(@tim
 
 % Initialise bias correction
 %-----------------------------------------------------------------------
-N    = numel(V);
 cl   = cell(N,1);
 args = {'C',cl,'B1',cl,'B2',cl,'B3',cl,'T',cl,'ll',cl};
 if use_mog || use_vbmog
@@ -232,8 +232,10 @@ mom0 = zeros(1,N);
 mom1 = zeros(1,N);
 mom2 = zeros(1,N);
 
-cl   = cell(length(z0),1);
-buf  = struct('msk',cl,'nm',cl,'f',cl,'dat',cl,'bf',cl);
+cl      = cell(length(z0),1);
+buf     = struct('f',cl,'dat',cl,'bf',cl);
+buf.msk = cell(length(z0),N);
+buf.nm  = cell(length(z0),N);
 for z=1:length(z0)
     if ~dotpm && d(3)>1
         % Load only those voxels that are more than 5mm up
@@ -245,11 +247,15 @@ for z=1:length(z0)
         z1  = M(3,1)*x0 + M(3,2)*y0 + (M(3,3)*z0(z) + M(3,4));
         e   = sqrt(sum(logtpm.M(1:3,1:3).^2));
         e   = 5./e; % mm from edge of TPM
-        buf(z).msk = z1>e(3);
+        for n=1:N
+            buf(z).msk{n} = z1>e(3);        
+        end
     else
-        buf(z).msk = ones(d(1:2),'logical');
+        for n=1:N
+            buf(z).msk{n} = ones(d(1:2),'logical');        
+        end
     end
-    
+        
     % Initially load all the data, but prepare to exclude
     % locations where any of the images is not finite, or
     % is zero.  We want this to work for skull-stripped
@@ -266,12 +272,13 @@ for z=1:length(z0)
         buf(z).msk = buf(z).msk & msk;
     end
     
-    % Sum up intensities of all voxels
-    buf(z).nm  = sum(buf(z).msk(:));
-    nm         = nm + buf(z).nm;
+    % Sum up intensities of all voxels, used for later normalising image
+    % intensities
+    buf(z).nm    = sum(buf(z).msk(:));        
     for n=1:N
         sumnm(n) = sumnm(n) + sum(fz{n}(buf(z).msk));
     end
+    nm           = nm + buf(z).nm;
 end
 
 a = zeros(1,N);
@@ -1198,7 +1205,7 @@ for iter=1:niter
         end
     end
 
-    if ~((ll-ooll)>2*tol1*nm) && iter>niter_stop
+    if ~((ll-ooll)>2*tol1*nm) && iter>9
         % Finished
         break
     end
@@ -1209,7 +1216,7 @@ if 0
     fprintf('Convergence (deformation): %s\n', sprintf('%d ', conv_def))
 end
 
-if dotpm            
+if nargout>1 && dotpm           
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Estimate template
     %------------------------------------------------------------
@@ -1648,7 +1655,7 @@ clear mom0 mom1 mom2
 
 %=======================================================================
 function count = my_fprintf(varargin)
-if 0
+if 1
     count = fprintf(varargin{:});
 else
     count = 0;
