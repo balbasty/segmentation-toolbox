@@ -1,7 +1,7 @@
-function [po,pr,lb] = spm_VBGaussiansFromSuffStats(mom,po,pr)
+function [lout,po,pr] = spm_VBGaussiansFromSuffStats(mom,po,pr)
 % Compute estimates of VB-MoG posteriors from sufficient statistics
 %
-% FORMAT [po,pr,lb] = spm_VBGaussiansFromSuffStats(mom,po,pr)
+% FORMAT [lout,po,pr] = spm_VBGaussiansFromSuffStats(mom,po,pr)
 %
 if nargin<2, po = []; end
 if nargin<3, pr = []; end
@@ -95,8 +95,7 @@ for k=1:K,
                 lq = lq - mom(i).s0(k)*sum(log(diag(chol(C(ind,ind)*2*pi))));  
             end
         end
-        
-
+                
         %----------------------------------------------------------------------
         % Prepare moments, priors and posteriors for further computations
         nmom.s0 = s0(k);
@@ -112,21 +111,16 @@ for k=1:K,
         npo.b = b;
         npo.W = W;
         npo.n = n;
-
+        
         %----------------------------------------------------------------------
         % Compute lower bound
-        lb  = lowerbound(nmom,npo,npr);        
-        L   = lb + lq + ll;        
-%         lb = lb + lq;        
-%         fprintf('%d\t%g\n', iter,L);
-        if abs((L-oL)/L) < 1e-6, 
-            break; 
-        end
-
-        if nargout<3
+        lb   = lowerbound(nmom,npo,npr);        
+        lout = lb + lq;        
+        
+        if nargout>1
             %----------------------------------------------------------------------
             % Update prior and posterior
-            if nargout==2
+            if nargout==3
                 [npo,npr] = vmstep(nmom);
                 W0        = npr.W;
                 m0        = npr.m;
@@ -138,6 +132,12 @@ for k=1:K,
             n = npo.n;
             W = npo.W;
             b = npo.b;
+        end
+        
+        L = lq + ll;        
+%         fprintf('%d\t%g\n', iter,L);
+        if abs((L-oL)/L) < 1e-6, 
+            break; 
         end
     end    
 

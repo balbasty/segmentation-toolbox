@@ -402,7 +402,7 @@ for iter=1:niter
                 % Use moments to compute initial Gaussian-Wishart
                 % posteriors and priors
                 %--------------------------------------------------
-                [po,pr] = spm_VBGaussiansFromSuffStats(mom);
+                [lq,po,pr] = spm_VBGaussiansFromSuffStats(mom);
 
                 if logtpm.uniform
                     % Sort according to m values of first channel
@@ -421,7 +421,7 @@ for iter=1:niter
                 % to initialise the Gaussians
                 %--------------------------------------------------
 
-                [mn,~,vr] = spm_GaussiansFromSuffStats(mom,vr0);
+                [lq,mn,~,vr] = spm_GaussiansFromSuffStats(mom,vr0);
 
                 if logtpm.uniform
                     % Sort according to m values of first channel
@@ -437,9 +437,13 @@ for iter=1:niter
                 if vb
                     po = obj.po;
                     pr = obj.pr;
+                    
+                    lq = spm_VBGaussiansFromSuffStats(mom,po,pr);
                 else
                     mn = obj.mn;
                     vr = obj.vr;
+                    
+                    lq = spm_GaussiansFromSuffStats(mom,vr0,mn,vr);
                 end
             end
         else
@@ -476,17 +480,20 @@ for iter=1:niter
             % Estimate cluster parameters
             %------------------------------------------------------------            
            
-            for subitmog=1:nsubitmog
-                                                        
+            for subitmog=1:nsubitmog                                       
                 oll = ll;
-                ll  = llr + llrb;                                
-                if vb
-                    % Calculate lower bound
-                    [~,~,lb] = spm_VBGaussiansFromSuffStats(mom,po,pr);                                               
-                else
-                    lb = 0;
-                end      
-                ll  = ll + lb;
+                
+%                 ll  = llr + llrb;                                
+                
+                ll  = llr + llrb + lq; 
+                
+%                 if vb
+%                     % Calculate lower bound
+%                     [lb,~,~] = spm_VBGaussiansFromSuffStats(mom,po,pr);                                               
+%                 else
+%                     lb = 0;
+%                 end      
+%                 ll  = ll + lb;
                 
                 mgm  = 0;    
                 mom  = mom_struct(K,N); 
@@ -536,10 +543,10 @@ for iter=1:niter
                 % Update Gaussian parameters
                 if vb
                     % Posteriors from moments
-                    po = spm_VBGaussiansFromSuffStats(mom,po,pr);
+                    [lq,po] = spm_VBGaussiansFromSuffStats(mom,po,pr);
                 else
                     % Means and Variances from moments
-                    [mn,vr] = spm_GaussiansFromSuffStats(mom,vr0,mn,vr);
+                    [lq,mn,vr] = spm_GaussiansFromSuffStats(mom,vr0,mn,vr);
                 end
 
                 if subitmog>1 && abs(ll-oll)<tol1*nm
@@ -755,10 +762,8 @@ for iter=1:niter
                                     % Calculate responsibilities
                                     [q,dll] = latent(buf(z).f,buf(z).bf,mg,mn,vr,po,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,vb);
                     
-                                    if vb
-                                        % Calculate moments
-                                        mom = moments(mom,buf(z),q);
-                                    end
+                                    % Calculate moments
+                                    mom = moments(mom,buf(z),q);
                                     clear q                                    
                                 else
                                     [~,dll] = latent_nonpar(buf(z).f,buf(z).bf,chan,double(buf(z).dat),wp);                                                                    
@@ -766,10 +771,14 @@ for iter=1:niter
                                 ll = ll + dll;
                             end                                                        
 
-                            if vb
-                                [~,~,lb] = spm_VBGaussiansFromSuffStats(mom,po,pr);                           
-                                ll       = ll + lb;
-                            end  
+                            if use_mog
+                                if vb
+                                    lq = spm_VBGaussiansFromSuffStats(mom,po,pr);                                                           
+                                else
+                                    lq = spm_GaussiansFromSuffStats(mom,vr0,mn,vr);
+                                end  
+                                ll = ll + lq;
+                            end
                             
                             if ll>=oll
                                 spm_plot_convergence('Set',ll); 

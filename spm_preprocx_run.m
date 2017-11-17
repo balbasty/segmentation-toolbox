@@ -64,7 +64,7 @@ vb   = 0; % Use a variational Bayesian mixture model
 % What estimates to perform
 dobias = 1; % Bias field
 doaff  = 1; % Affine registration
-dodef  = 1; % Non-linear registration
+dodef  = 0; % Non-linear registration
 dopr   = 1; % Intensity priors
 dotpm  = 1; % Template
 
@@ -90,8 +90,8 @@ biasreg  = 1e-4;
 
 %--------------------------------------------------------------------------
 % Template options
-pth_logTPM = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
-% pth_logTPM = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+% pth_logTPM = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+pth_logTPM = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
 vx_TPM     = 1.5;  % Voxel size of template to be estimated
 deg        = 2;    % Degree of interpolation when sampling template
 tiny       = 1e-4; % Strength of Dirichlet prior used in template construction

@@ -1,7 +1,7 @@
-function [mn,vr,vr1] = spm_GaussiansFromSuffStats(mom,vr0,mn,vr)
+function [lout,mn,vr,vr1] = spm_GaussiansFromSuffStats(mom,vr0,mn,vr)
 % Compute ML estimates of Gaussians from sufficient statistics
 %
-% FORMAT [mn,vr,vr1] = spm_GaussiansFromSuffStats(mom)
+% FORMAT [lout,mn,vr,vr1] = spm_GaussiansFromSuffStats(mom)
 %
 if nargin<3, mn = []; end
 if nargin<4, vr = []; end
@@ -72,10 +72,13 @@ for k=1:K
                 lq = lq - mom(i).s0(k)*sum(log(diag(chol(C(ind,ind)*2*pi))));                
             end
         end
-        mu = s1/s0(k);        
-        C  = (S2 - s1*s1'/s0(k) + N*vr0)/(s0(k) + N);        
+        if nargout>1
+            mu = s1/s0(k);        
+            C  = (S2 - s1*s1'/s0(k) + N*vr0)/(s0(k) + N);        
+        end
         
-        L  = ll + lq;        
+        L    = ll + lq;  
+        lout = lq;
 %         fprintf('%d\t%g\n', iter,L);
         if abs((L-oL)/L) < 1e-6, 
             break; 
