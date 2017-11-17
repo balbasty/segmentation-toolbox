@@ -7,6 +7,7 @@ function [obj,munum,muden] = spm_preprocx(obj,logtpm)
 % Copyright (C) 2017 Wellcome Trust Centre for Neuroimaging
 
 V         = obj.image;
+descrip   = obj.descrip;
 N         = numel(V);
 Affine    = obj.Affine;
 M         = logtpm.M\Affine*V(1).mat;
@@ -191,9 +192,9 @@ for z=1:length(z0)
     for n=1:N
         fz{n} = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
         if domiss
-            buf(z).msk{n} = get_msk(fz{n});
+            buf(z).msk{n} = get_msk(fz{n},descrip);
         else
-            buf(z).msk{1} = buf(z).msk{1} & get_msk(fz{n});
+            buf(z).msk{1} = buf(z).msk{1} & get_msk(fz{n},descrip);
         end
     end
     if ~domiss
@@ -235,7 +236,7 @@ for z=1:length(z0)
         fz = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
         
         % Normalise image intensities (not if CT)            
-        if strcmp(obj.descrip,'CT')
+        if strcmp(descrip,'CT')
             a(n) = 1.0;
         else
             a(n) = 512/(im(n)/nm);

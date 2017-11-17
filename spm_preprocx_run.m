@@ -28,7 +28,7 @@ addpath(genpath('./code'))
 % IXI 2D
 S        = 1;
 K        = 6;
-imobj{1} = {'/home/smajjk/Dropbox/PhD/Data/2D-Data/IXI-2D/',S,'MRI','healthy',''};
+imobj{1} = {'/home/mbrud/Data/2D-Data/IXI-2D/',S,'MRI','healthy',''};
 
 % %-----------------
 % % CT 2D
@@ -58,13 +58,13 @@ samp = 2;
 %--------------------------------------------------------------------------
 % Segmentation parameters
 nlkp = 1; % Number of gaussians per tissue
-vb   = 1; % Use a variational Bayesian mixture model
+vb   = 0; % Use a variational Bayesian mixture model
 
 %--------------------------------------------------------------------------
 % What estimates to perform
 dobias = 1; % Bias field
 doaff  = 1; % Affine registration
-dodef  = 0; % Non-linear registration
+dodef  = 1; % Non-linear registration
 dopr   = 1; % Intensity priors
 dotpm  = 1; % Template
 
@@ -90,8 +90,8 @@ biasreg  = 1e-4;
 
 %--------------------------------------------------------------------------
 % Template options
-% pth_logTPM = '/home/smajjk/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
-pth_logTPM = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+pth_logTPM = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+% pth_logTPM = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
 vx_TPM     = 1.5;  % Voxel size of template to be estimated
 deg        = 2;    % Degree of interpolation when sampling template
 tiny       = 1e-4; % Strength of Dirichlet prior used in template construction
@@ -383,8 +383,8 @@ function [obj,munum1,muden1] = update_subject_pars(obj,logtpm,iter)
 
 if obj.doaff && ((obj.use_tpm && iter==1) || (~obj.use_tpm && iter==3))
     % Affinely register template to 1st image (n=1)
-    obj.Affine = spm_logmaff8(obj.image(1),obj.samp,(obj.fwhm+1)*16,logtpm,obj.Affine,'mni');            
-    obj.Affine = spm_logmaff8(obj.image(1),obj.samp, obj.fwhm,      logtpm,obj.Affine,'mni');                                    
+    obj.Affine = spm_logmaff8(obj.image(1),obj.samp,(obj.fwhm+1)*16,obj.descrip,logtpm,obj.Affine,'mni');            
+    obj.Affine = spm_logmaff8(obj.image(1),obj.samp, obj.fwhm,      obj.descrip,logtpm,obj.Affine,'mni');                                    
     obj.doaff  = 0;
 end                 
 

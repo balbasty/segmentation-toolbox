@@ -22,16 +22,16 @@ function [M,ll,h] = spm_logmaff8(varargin)
 % John Ashburner
 % $Id: spm_maff8.m 6421 2015-04-23 16:54:25Z john $
 
-[buf,MG,x,ff] = loadbuf(varargin{1:3});
-[M,ll,h]      = affreg(buf, MG, x, ff, varargin{4:end});
+[buf,MG,x,ff] = loadbuf(varargin{1:4});
+[M,ll,h]      = affreg(buf, MG, x, ff, varargin{5:end});
 
 return;
 
 
 %==========================================================================
-% function [buf,MG,x,ff] = loadbuf(V,samp,fwhm)
+% function [buf,MG,x,ff] = loadbuf(V,samp,fwhm,descrip)
 %==========================================================================
-function [buf,MG,x,ff] = loadbuf(V,samp,fwhm)
+function [buf,MG,x,ff] = loadbuf(V,samp,fwhm,descrip)
 if ischar(V), V = spm_vol(V); end;
 d       = V(1).dim(1:3);
 vx      = sqrt(sum(V(1).mat(1:3,1:3).^2));  % Voxel sizes
@@ -65,7 +65,7 @@ sf = [mn 1;mx 1]\[1;4000];
 h  = zeros(4000,1);
 for i=1:d(3)
     p   = g(:,:,i);
-    msk = get_msk(p);
+    msk = get_msk(p,descrip);
     p   = p(msk);
     p   = round(p*sf(1)+sf(2));
     h   = h + accumarray(p(:),1,[4000,1]);
