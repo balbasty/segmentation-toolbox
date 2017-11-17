@@ -1,4 +1,4 @@
-function [V,S,labels] = rem_corrupted_ims(V,labels,runpar,verbose)
+function [V,S,labels] = rem_corrupted_ims(V,labels,num_workers,verbose)
 if nargin<4, verbose = 0; end
 
 % Calculate some image statistics that will be used as indicators if images
@@ -7,19 +7,19 @@ S  = numel(V);
 N  = numel(V{1});
 sc = zeros(1,S*N);
 v  = zeros(1,S*N);
-parfor (s=1:S,runpar)
+parfor (s=1:S,num_workers)
     for n=1:N
         [~,sc(s),~,v(s)] = compute_img_stats(V{s}(n).fname);
     end
 end
 
-% Make data have zero mean and unit variance
+% Standardise the data (zero mean and unit variance)
 X = [sc', v'];
-X = bsxfun(@minus,X,mean(X,1));
-X = bsxfun(@rdivide,X,var(X));
+X = bsxfun(@minus,X,mean(X));
+X = bsxfun(@rdivide,X,sqrt(var(X)));
 clear sc v
 
-% Fit a Gaussian to the image statistics
+% Fit a Gaussian to the data
 mu = mean(X)';
 C  = cov(X);
 
@@ -28,6 +28,7 @@ C  = cov(X);
 %     x     = [X(s,1),X(s,2)]';
 %     dm(s) = sqrt((x - mu)'*(C\(x - mu))); % Mahalanobis distance
 % end
+% figure;
 % scatter3(X(:,1)',X(:,2)',dm)
 
 % Remove images based on Mahalanobis distance

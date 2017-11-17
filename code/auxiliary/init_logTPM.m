@@ -1,4 +1,4 @@
-function pth_logTPM = init_logTPM(V,Kb,vxtpm,dir_res)
+function pth_logTPM = init_logTPM(V,K,vxtpm,dir_res)
 pth_logTPM = fullfile(dir_res,'logTPM.nii');
        
 % Create a uniform TPM that covers all images    
@@ -27,8 +27,8 @@ end
 [mat,dm] = compute_avg_mat(mat,dm,vxtpm);
 
 img  = zeros(dm);
-vols = cell(Kb,1);
-for k=1:Kb
+vols = cell(K,1);
+for k=1:K
     [pth,nam,ext] = fileparts(pth_logTPM);
     vols{k}       = fullfile(pth,[nam num2str(k) ext]);
     create_nii(vols{k},img,mat,16,'logTPM');
@@ -43,6 +43,6 @@ spm_jobman('run',matlabbatch);
 [pth,nam] = fileparts(pth_logTPM);
 delete(fullfile(pth,[nam '.mat']));
 
-for k=1:Kb
+for k=1:K
     delete(vols{k});
 end

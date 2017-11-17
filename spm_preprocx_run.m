@@ -4,8 +4,6 @@ close all;
 
 addpath(genpath('./code'))
 
-% -148243
-
 %--------------------------------------------------------------------------
 % Define data cell array, which should contain the following:
 % {'pth_to_images',num_subjects,'CT'/'MRI','healthy'/'non-healthy','pth_to_labels'}
@@ -16,27 +14,27 @@ addpath(genpath('./code'))
 % %-----------------
 % % Russel Sq. House
 % S        = Inf;
-% Kb       = 16;
+% K        = 16;
 % imobj{1} = {'./tmp/',S,'CT','healthy',''};
 
 %-----------------
 % % Aged 2D MRI+CT
 % S        = 256; % Number of subjects
-% Kb       = 16; % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
+% K        = 16; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
 % imobj{1} = {'/home/mbrud/Data/2D-Data/OASIS-Longitudinal-2D/',S,'MRI','healthy',''};
 % imobj{2} = {'/home/mbrud/Data/2D-Data/CT-aged-2D/',S,'CT','healthy',''};
 
 %-----------------
 % IXI 2D
 S        = 1;
-Kb       = 6;
-imobj{1} = {'/home/brudfors/Dropbox/PhD/Data/2D-Data/IXI-2D/',S,'MRI','healthy',''};
+K        = 6;
+imobj{1} = {'/home/smajjk/Dropbox/PhD/Data/2D-Data/IXI-2D/',S,'MRI','healthy',''};
 
 % %-----------------
 % % CT 2D
 % S        = Inf; % Number of subjects
-% Kb       = 16; % Number of classes (if a template is used, then Kb will be set to the number of classes in that template)
-% imobj{1} = {'/home/brudfors/Dropbox/PhD/Data/2D-Data/CT-hemorrhage-2D/',S,'CT','healthy',''};
+% K        = 16; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
+% imobj{1} = {'/home/mbrud/Data/2D-Data/CT-hemorrhage-2D/',S,'CT','healthy',''};
 % % imobj{1} = {'/home/mbrud/Data/2D-Data/CT-aged-2D/',S,'CT','healthy',''};
 
 %--------------------------------------------------------------------------
@@ -50,8 +48,8 @@ preproc.crop_neck     = 0; % Remove neck (the spine, etc.)
 preproc.denoise       = 1; % Denoise (only done if data is CT)
 
 %--------------------------------------------------------------------------
-% Run the algorithm in parallel
-runpar = Inf;
+% Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
+num_workers = 0;
 
 %--------------------------------------------------------------------------
 % The distance (mm) between samples (for sub-sampling input data--improves speed)
@@ -59,15 +57,14 @@ samp = 2;
 
 %--------------------------------------------------------------------------
 % Segmentation parameters
-nlkp      = 1; % Number of gaussians per tissue
-use_vbmog = 0; % Use a variational Bayesian mixture model
+nlkp = 1; % Number of gaussians per tissue
+vb   = 1; % Use a variational Bayesian mixture model
 
 %--------------------------------------------------------------------------
 % What estimates to perform
-domiss = 0; % Handle missing data
 dobias = 1; % Bias field
 doaff  = 1; % Affine registration
-dodef  = 1; % Non-linear registration
+dodef  = 0; % Non-linear registration
 dopr   = 1; % Intensity priors
 dotpm  = 1; % Template
 
@@ -87,17 +84,23 @@ nitdef    = 1;
 rparam = [0 0.001 0.5 0.05 0.2]*0.1;
 
 %--------------------------------------------------------------------------
+% Bias field options
+biasfwhm = 75;
+biasreg  = 1e-4;       
+
+%--------------------------------------------------------------------------
 % Template options
-pth_logTPM = '';   % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+% pth_logTPM = '/home/smajjk/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+pth_logTPM = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
 vx_TPM     = 1.5;  % Voxel size of template to be estimated
 deg        = 2;    % Degree of interpolation when sampling template
 tiny       = 1e-4; % Strength of Dirichlet prior used in template construction
-fwhm_TPM   = 0.1;  % Ad hoc smoothing of template
+fwhm_TPM   = 0.01; % Ad hoc smoothing of template (improves convergence)
 mrf        = 0;    % Use a MRF cleanup procedure
 
 %--------------------------------------------------------------------------
 % For debugging
-verbose = 1;
+verbose = 2;
 figix   = 1;
 
 %--------------------------------------------------------------------------
@@ -108,61 +111,70 @@ dir_res = fullfile(dir_data,'results'); % for algorithm results
 if exist(dir_res,'dir'), rmdir(dir_res,'s'); end; mkdir(dir_res);
 
 %--------------------------------------------------------------------------
-if ~isempty(pth_logTPM) || S==1   
-    runpar    = 0;
-    dopr      = 0;
-    dotpm     = 0;
-    nitermain = 1;
-    niter     = 30;
-    niter1    = 8;
-    nsubitmog = 20;
-    nsubitbf  = 1;
-    nitdef    = 3;
+if ~isempty(pth_logTPM) || S==1      
+    num_workers = 0;
+    dopr        = 0;
+    dotpm       = 0;
+    nitermain   = 1;
+    niter       = 30;
+    niter1      = 8;
+    nsubitmog   = 20;
+    nsubitbf    = 1;
+    nitdef      = 3;
 end
 
 %==========================================================================
-%% Load and process image data
-[V,M,S,N,labels] = load_and_process_images(imobj,preproc,dir_data,runpar);
+% Load and process image data
+[V,M,S,N,labels] = load_and_process_images(imobj,preproc,dir_data,num_workers);
 
 %==========================================================================
-%% Initialise template
+% Initialise template
 if isempty(pth_logTPM)
-    pth_logTPM = init_logTPM(V,Kb,vx_TPM,dir_res);
-    use_tpm    = false;    
-    uniform    = true;
+    pth_logTPM = init_logTPM(V,K,vx_TPM,dir_res);
+    use_tpm    = 0;    
+    uniform    = 1;
 else    
     Nii     = nifti(pth_logTPM);
-    Kb      = size(Nii.dat(:,:,:,:),4);
-    use_tpm = true;    
-    uniform = false;    
+    K       = size(Nii.dat(:,:,:,:),4);
+    use_tpm = 1;    
+    uniform = 0;    
     clear Nii
 end
 
 %==========================================================================
-%% Initialise algorithm i/o   
+% Initialise debugging output
 fig = cell(4,1);
-if verbose    
-    if ~runpar
-        spm_figure('Create','Interactive');
-        figure(figix)
-    
-        for i=1:size(fig,1)              
-            fig{i} = figure(figix + i);
-            clf(fig{i})
-        end 
-    end
 
-    fig_TPM = figure(figix + 5);
-    fig_L   = figure(figix + 6);
-    
-    try
-        distFig; 
-    catch
-        warning('distFig not available')
-    end
-    drawnow;
+if verbose==2 && ~num_workers
+    spm_figure('Create','Interactive');
+    figure(figix)
+
+    for i=1:size(fig,1)              
+        fig{i} = figure(figix + i);
+        clf(fig{i})
+    end 
 end  
-    
+
+if verbose && dotpm
+    fig_L   = figure(figix + 5); 
+    fig_TPM = figure(figix + 6);    
+    if num_workers
+        verbose = 0;
+    end
+else
+    fig_TPM = [];
+    fig_L   = [];
+end
+
+try
+    distFig; 
+catch
+    warning('distFig not available')
+end
+drawnow
+
+%==========================================================================
+% Initialise algorithm i/o 
 dir_Twarp = fullfile(dir_data,'Twarp');
 if exist(dir_Twarp,'dir'), rmdir(dir_Twarp,'s'); end; mkdir(dir_Twarp);
 
@@ -171,13 +183,13 @@ for m=1:M
     obj{m} = cell(1,S(m));
     for s=1:S(m)
         obj{m}{s}.image    = V{m}{s};
-        obj{m}{s}.biasfwhm = 60*ones(1,N(m));
-        obj{m}{s}.biasreg  = 1e-3*ones(1,N(m));       
+        obj{m}{s}.biasfwhm = biasfwhm*ones(1,N(m));
+        obj{m}{s}.biasreg  = biasreg*ones(1,N(m));       
 
-        obj{m}{s}.use_vbmog = use_vbmog;
-        obj{m}{s}.use_tpm   = use_tpm;
+        obj{m}{s}.vb      = vb;
+        obj{m}{s}.use_tpm = use_tpm;
 
-        obj{m}{s}.lkp  = repelem(1:Kb,nlkp);
+        obj{m}{s}.lkp  = repelem(1:K,nlkp);
         obj{m}{s}.nlkp = nlkp;
 
         obj{m}{s}.Affine  = eye(4);
@@ -186,7 +198,6 @@ for m=1:M
         obj{m}{s}.fwhm    = 0;
         obj{m}{s}.verbose = verbose;
 
-        obj{m}{s}.domiss         = domiss;
         obj{m}{s}.dobias         = dobias;
         obj{m}{s}.dodef0         = dodef; 
         obj{m}{s}.dotpm          = dotpm;         
@@ -213,15 +224,16 @@ for m=1:M
 end
 
 %==========================================================================
-%% Run algorithm
+% Run algorithm
 fprintf('==============================================\n')   
 fprintf('Algorithm started (')
 fprintf(datestr(now,'mmmm dd, yyyy HH:MM:SS'))
 fprintf(')\n')
 fprintf('==============================================\n')   
 
-Nm = 0;    % Total number of voxels in all images
-L  = -Inf; % Lower bound of complete model
+Nm      = 0;    % Total number of voxels in all images
+L       = -Inf; % Lower bound of complete model
+use_mog = isempty(obj{1}{1}.lkp);
 for iter=1:nitermain
     fprintf('iter=%d======================\n',iter);  
 
@@ -240,7 +252,7 @@ for iter=1:nitermain
 
         % Update template
         logmu            = log(munum./muden + tiny);
-        logmu            = reshape(logmu',[dm Kb]);                                          
+        logmu            = reshape(logmu',[dm K]);                                          
         Nii.dat(:,:,:,:) = logmu;        
         clear munum muden
         
@@ -252,16 +264,16 @@ for iter=1:nitermain
             b   = spm_sample_logpriors8(logtpm,phi(:,:,:,1),phi(:,:,:,2),phi(:,:,:,3));
             clear phi
         
-            Q = zeros([logtpm.d(1:3),Kb],'single');
-            for k=1:Kb
+            Q = zeros([logtpm.d(1:3),K],'single');
+            for k=1:K
                Q(:,:,:,k) = b{k};
             end
             clear b
             
-            P        = zeros([logtpm.d(1:3),Kb],'uint8');
+            P        = zeros([logtpm.d(1:3),K],'uint8');
             nmrf_its = 1;           
             T        = 1;
-            G        = ones([Kb,1],'single')*T;
+            G        = ones([K,1],'single')*T;
             vx2      = 1./single(sqrt(sum(logtpm.M(1:3,1:3).^2)));
             for i=1:nmrf_its
                 spm_mrf(P,Q,G,vx2);
@@ -279,14 +291,14 @@ for iter=1:nitermain
     logtpm = spm_load_logpriors8(pth_logTPM,tiny,deg,uniform);
     
     % Visualise template---------------------------------------------------
-    if dotpm && iter>1 && verbose        
+    if dotpm && iter>1 && ~isempty(fig_TPM)       
         phi = double(identity(logtpm.d));
         b   = spm_sample_logpriors8(logtpm,phi(:,:,:,1),phi(:,:,:,2),phi(:,:,:,3));
         clear phi
 
-        K1 = floor(sqrt(Kb)); K2 = ceil(Kb/K1); 
+        K1 = floor(sqrt(K)); K2 = ceil(K/K1); 
         set(0,'CurrentFigure',fig_TPM);                                        
-        for i=1:Kb    
+        for i=1:K    
             subplot(K1,K2,i);
             imagesc(b{i}(:,:,floor(logtpm.d(3)/2) + 1)'); axis image xy off; colormap(gray);
         end 
@@ -294,14 +306,14 @@ for iter=1:nitermain
         drawnow
     end     
     
-    % Update subject specific parameters-----------------------------------
+    % Update subject specific parameters (post template update)------------
     munum = single(0); 
     muden = single(0);  
     ll    = 0;
     for m=1:M
         obj_m = obj{m};
         for s=1:S
-%         parfor (s=1:S(m),runpar)    
+%         parfor (s=1:S(m),num_workers) % <================== PARFOR
             fprintf('iter=%d, m=%d, s=%d\n',iter,m,s);  
             
             [obj_m{s},munum1,muden1] = update_subject_pars(obj_m{s},logtpm,iter);
@@ -318,14 +330,14 @@ for iter=1:nitermain
     L = [L,ll];
 
     % Plot lower bound-----------------------------------------------------
-    if verbose        
+    if ~isempty(fig_L)  
         set(0,'CurrentFigure',fig_L);                
         plot(0:numel(L) - 1,L,'b-','LineWidth',1);   hold on            
-        plot(0:numel(L) - 1,L,'b.','markersize',10); hold off                        
+        plot(0:numel(L) - 1,L,'b.','markersize',10); hold off    
     end
-       
+    
     % Update intensity prior-----------------------------------------------
-    if dopr && use_vbmog && iter>1
+    if dopr && use_mog && vb && iter>1
         for m=1:M
             pr = update_intensity_prior(obj{m});
             for s=1:S(m)
@@ -334,14 +346,14 @@ for iter=1:nitermain
             save(fullfile(dir_res,['pr_m' num2str(m) '.mat']),'pr'); 
         end
               
-        % Update subject specific parameters-----------------------------------        
+        % Update subject specific parameters (post prior update)-----------
         ll = 0;
         for m=1:M
             obj_m = obj{m};
-    %         for s=1:S
-            parfor (s=1:S(m),runpar)    
+%             for s=1:S
+            parfor (s=1:S(m),num_workers) % <================== PARFOR 
                 obj_m{s} = update_subject_pars(obj_m{s},logtpm,iter);
-                ll       = ll + obj_m{s}.ll; % Sum up likelihoods over all subjects                        
+                ll       = ll + obj_m{s}.ll;                      
             end
             obj{m} = obj_m;
             clear obj_m
@@ -349,15 +361,14 @@ for iter=1:nitermain
         L = [L,ll];
 
         % Plot lower bound-----------------------------------------------------
-        if verbose        
+        if ~isempty(fig_L)  
             set(0,'CurrentFigure',fig_L);                
             plot(0:numel(L) - 1,L,'b-','LineWidth',1);   hold on            
-            plot(0:numel(L) - 1,L,'b.','markersize',10); hold off                        
+            plot(0:numel(L) - 1,L,'b.','markersize',10); hold off   
         end
     end
         
     % Check convergence----------------------------------------------------
-%     [abs(L(end)-L(end - 1)) 2*1e-4*Nm 2*1e-5*Nm]
     if ~(abs(L(end)-L(end - 1))>2*tolmain*Nm)        
         fprintf('==============================================\n')                        
         fprintf('Algorithm converged in %d iterations.\n',iter)                        
@@ -420,7 +431,6 @@ end
 
 % Run segmentation algorithm
 [obj,munum1,muden1] = spm_preprocx(obj,logtpm);
-
 % try
 %     [obj,munum1,muden1] = spm_preprocx(obj,logtpm);
 % catch ME

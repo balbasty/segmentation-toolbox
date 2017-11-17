@@ -1,4 +1,4 @@
-function mom = spm_SuffStats(X,Q,mom)
+function mom = spm_SuffStats(X,Q,code,mom)
 % Generate sufficient statistics (handling missing data)
 %
 % FORMAT mom = spm_SuffStats(X,Q,mom)
@@ -18,54 +18,30 @@ function mom = spm_SuffStats(X,Q,mom)
 % John Ashburner
 % $Id$
 
-if nargin<2 || isempty(Q),
-    Q = ones(size(X,1),1);
-end
+if nargin<4, mom = []; end
+
+tiny = eps*eps;
 
 K = size(Q,2);
-M = size(X,2);
-if M<=8,
-    cast = @uint8;
-    typ  = 'uint8';
-elseif M<=16,
-    cast = @uint16;
-    typ  = 'uint16';
-elseif M<=32,
-    cast = @uint32;
-    typ  = 'uint32';
-elseif M<=64,
-    cast = @uint64;
-    typ  = 'uint64';
-else,
-    error('Too many dimensions.');
-end
+N = size(X,2);
 
-if nargin<3,
+if isempty(mom)
     % Create empty data structure
-    mom = struct('ind',[],'s0',0,'s1',[],'S2',[]);
-    for i=1:2^M,
-        mom(i).ind = dec2bin(i-1,M)=='1';  % Inh/sum(h)/mddices
-        Mi         = sum(mom(i).ind);
-        mom(i).s0  = zeros(1,K) + eps*eps; % Zeroeth moments
-        mom(i).s1  = zeros(Mi,K);          % First moments
-        mom(i).S2  = zeros(Mi,Mi,K);       % Second moments
-    end
+    mom = mom_struct(K,N,tiny);
 else
     % Check compatibility of data structure
-    if (numel(mom)~=2^M) || (size(mom(1).s0,2)~=K),
+    if (numel(mom)~=2^N) || (size(mom(1).s0,2)~=K),
         error('Incorrect moment dimensions');
     end
 end
+
 Q(isnan(Q))=0;
-code = zeros([size(X,1),1],typ);
-for i=1:M,
-    code = bitor(code,bitshift(feval(cast,isfinite(X(:,i)) & (X(:,i)~=0)),(i-1)));
-end
-for i=2:numel(mom),
-    msk0      = mom(i).ind;
-    ind       = find(code==msk0*(2.^(0:(M-1))'));
+
+for i=1:numel(mom),
+    msk0  = mom(i).ind;
+    ind   = find(code==msk0*(2.^(0:(N-1))'));
     if ~isempty(ind),
-        x         = X(ind,msk0);
+        x = X(ind,msk0);
         for k=1:K,
             q                = Q(ind,k);
             mom(i).s0(1,k)   = mom(i).s0(1,k)   + sum(q);
@@ -74,4 +50,3 @@ for i=2:numel(mom),
         end
     end
 end
-

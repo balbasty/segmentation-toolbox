@@ -1,35 +1,35 @@
-function [wp,mn,vr] = spm_InitGaussians(buf,K,verbose)
+function mom = spm_kmeans2mom(buf,K,verbose)
 % Generate initial estimates for the parameters of a Gaussian mixture model
 % using the k-means algorithm
 %
-% FORMAT [wp,mn,vr] = spm_InitGaussians(buf,K,verbose)
+% FORMAT mom = spm_kmeans2mom(buf,K,verbose)
 %     
-if nargin<3, verbose = false; end
+if nargin<3, verbose = 0; end
 
 N = numel(buf(1).f);
-d = [size(buf(1).msk) numel(buf)];
+d = [size(buf(1).msk{1}) numel(buf)];
 
-f = NaN([prod(d(1:2)) d(3) N],'single');
+F = NaN([prod(d(1:2)) d(3) N],'single');
 for z=1:numel(buf)
     for n=1:N
-        f(buf(z).msk,z,n) = buf(z).f{n};
+        F(buf(z).msk{n},z,n) = buf(z).f{n};
     end
 end
-f = reshape(f,[d N]);    
+F = reshape(F,[d N]);    
 
 if verbose
     % Display input image(s)    
    figure(666);
    for n=1:N
       subplot(1,N,n);
-      imagesc(f(:,:,floor(d(3)/2) + 1,n)'); axis image xy off; colormap(gray);
+      imagesc(F(:,:,floor(d(3)/2) + 1,n)'); axis image xy off; colormap(gray);
    end
    drawnow
 end
 
 % Label images using k-means
-f = reshape(f,[prod(d) N]);
-Q = label_data(f,K,d);
+F = reshape(F,[prod(d) N]);
+Q = label_data(F,K,d);
 
 if verbose
     % Display estimated labels    
@@ -46,16 +46,14 @@ if verbose
 end
 
 % Generate estimates of MoG parameters
-mom        = spm_SuffStats(f,Q);
-[wp,mn,vr] = spm_GaussiansFromSuffStats(mom);
-wp         = wp/sum(wp); 
-
-% Sort estimates according to mean values of first image
-[~,ix] = sort(mn(1,:),2);
-
-mn = mn(:,ix);
-vr = vr(:,:,ix);
-wp = wp(:,ix);   
+F   = reshape(F,[d N]);
+Q   = reshape(Q,[d K]);
+mom = mom_struct(K,N);  
+for z=1:d(3)    
+    f   = reshape(double(F(:,:,z,:)),[prod(d(1:2)) N]);
+    q   = reshape(double(Q(:,:,z,:)),[prod(d(1:2)) K]);
+    mom = spm_SuffStats(f,q,buf(z).code,mom);
+end
 %==========================================================================
 
 %==========================================================================
@@ -84,7 +82,7 @@ clear labels
 
 idx = nlabels(:,K + 1) == 1;    
 for k=1:K
-   nlabels(idx,k) = NaN;
+   nlabels(idx,k) = 1/K;
 end
 nlabels(:,K + 1) = [];
 

@@ -1,4 +1,4 @@
-function [V,M,S,N,labels] = load_and_process_images(imobj,preproc,dir_data,runpar)
+function [V,M,S,N,labels] = load_and_process_images(imobj,preproc,dir_data,num_workers)
 
 M      = numel(imobj);
 V      = cell(1,M);
@@ -12,7 +12,7 @@ if ~preproc.do_preproc
         [V{m},S(m),N(m),labels{m}]  = get_V(imobj{m});
         
         if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
-            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},runpar);
+            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},num_workers);
         end
     end
 else   
@@ -45,7 +45,7 @@ else
         end
 
         % Read image data into a cell array object        
-        [V{m},S(m),N(m),labels{m}] = get_V(imobj{m},labels{m});   
+        [V{m},S(m),N(m),labels{m}] = get_V(imobj{m});   
 
         % Copy input images to temporary directory
         imdir = fullfile(dir_data,'ims');
@@ -56,7 +56,7 @@ else
         
         % Process the input images in parallel
         V_m = V{m};
-        parfor (s=1:S(m),runpar)
+        parfor (s=1:S(m),num_workers)
             fprintf('s=%d\n',s); 
 
             if N(m)>1
@@ -164,7 +164,7 @@ else
         V{m} = V_m;
 
         if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
-            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},runpar);
+            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},num_workers);
         end
     end
 end
