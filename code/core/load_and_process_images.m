@@ -1,22 +1,23 @@
-function [V,M,S,N,labels] = load_and_process_images(imobj,preproc,dir_data,num_workers)
+function [V,labels] = load_and_process_images(obj,im)
+preproc     = obj.preproc;
+dir_data    = obj.dir_data;
+num_workers = obj.num_workers;
 
-M      = numel(imobj);
+M      = numel(im);
 V      = cell(1,M);
-S      = zeros(1,M);
-N      = zeros(1,M);
 labels = cell(1,M);
-
-if ~preproc.do_preproc
+for m=1:M
+    pth     = im{m}{1};
+    descrip = im{m}{3};    
+    
+    if ~preproc.do_preproc
     % Load S images, of N channels, into a cell array object (V)  
-    for m=1:M
-        [V{m},S(m),N(m),labels{m}]  = get_V(imobj{m});
+        [V{m},labels{m}] = get_V(im{m});
         
-        if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
-            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},num_workers);
+        if preproc.rem_corrupted && strcmp(descrip,'CT')
+            [V{m},labels{m}] = rem_corrupted_ims(V{m},labels{m},num_workers,descrip);
         end
-    end
-else   
-    for m=1:M
+    else   
         if preproc.is_DICOM
             % imobj points to a folder structure of DICOMS, which is converted
             % to NIFTIs
@@ -31,7 +32,7 @@ else
             end
             mkdir(dirNII);
 
-            search_and_convert_dcm(imobj{m}{1},dirNII);
+            search_and_convert_dcm(pth,dirNII);
 
             niis = dir(fullfile(dirNII,'*.nii'));
             for s=1:numel(niis)
@@ -41,11 +42,11 @@ else
                 movefile(fullfile(dirNII,niis(s).name),dirs);
             end
 
-            imobj{m}{1} = dirNII;
+            im{m}{1} = dirNII;
         end
 
         % Read image data into a cell array object        
-        [V{m},S(m),N(m),labels{m}] = get_V(imobj{m});   
+        [V{m},labels{m}] = get_V(im{m});   
 
         % Copy input images to temporary directory
         imdir = fullfile(dir_data,'ims');
@@ -56,17 +57,20 @@ else
         
         % Process the input images in parallel
         V_m = V{m};
-        parfor (s=1:S(m),num_workers)
+        S   = numel(V_m);
+        parfor (s=1:S,num_workers)
             fprintf('s=%d\n',s); 
 
-            if N(m)>1
+            N = numel(V_m{s});
+            
+            if N>1
                 % If multi-channel data, register and reslice to image with
                 % largest volume
                 V_m{s} = reg_and_reslice(V_m{s});
             end
 
             Affine = [];
-            for n=1:N(m)            
+            for n=1:N           
                 if preproc.realign
                     % Reset origin and align to MNI space
                     vx = sqrt(sum(V_m{s}(n).mat(1:3,1:3).^2));
@@ -119,7 +123,7 @@ else
                     end 
                 end
 
-                if preproc.denoise && strcmp(imobj{m}{3},'CT')
+                if preproc.denoise && strcmp(descrip,'CT')
                     % Denoise using L2-TV (ADMM)
                     try
                         denoise_img(V_m{s}(n).fname);                
@@ -163,8 +167,8 @@ else
         end
         V{m} = V_m;
 
-        if preproc.rem_corrupted && strcmp(imobj{m}{3},'CT')
-            [V{m},S(m),labels{m}] = rem_corrupted_ims(V{m},labels{m},num_workers);
+        if preproc.rem_corrupted && strcmp(descrip,'CT')
+            [V{m},labels{m}] = rem_corrupted_ims(V{m},labels{m},num_workers,descrip);
         end
     end
 end

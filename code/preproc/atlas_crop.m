@@ -16,7 +16,9 @@ mattpm = Vtpm.mat;
 
 if isempty(Affine)
     tpm    = spm_load_priors8(Vtpm);
-    Affine = spm_maff8(P,3,16,tpm,eye(4),'mni');
+    samp   = 2;
+    Affine = spm_maff8(P,samp,16,tpm,eye(4),'mni');
+    Affine = spm_maff8(P,samp,16,tpm,Affine,'mni');
 end
 
 % Voxel locations in TPM.nii

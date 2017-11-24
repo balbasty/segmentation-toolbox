@@ -1,97 +1,100 @@
-function [V,S,labels] = rem_corrupted_ims(V,labels,num_workers,verbose)
-if nargin<4, verbose = 0; end
+function [V,labels] = rem_corrupted_ims(V,labels,num_workers,descrip,verbose)
+if nargin<5, verbose = 0; end
 
 % Calculate some image statistics that will be used as indicators if images
 % are corrupted or not
-S  = numel(V);
-N  = numel(V{1});
-sc = zeros(1,S*N);
-v  = zeros(1,S*N);
+S    = numel(V);
+N    = numel(V{1});
+sc   = zeros(1,S*N);
+sd   = zeros(1,S*N);
+v    = zeros(1,S*N);
+sint = zeros(1,S*N);
 parfor (s=1:S,num_workers)
     for n=1:N
-        [~,sc(s),~,v(s)] = compute_img_stats(V{s}(n).fname);
+        [~,sc(s),sd(s),v(s),sint(s)] = compute_img_stats(V{s}(n).fname,descrip);
     end
 end
 
 % Standardise the data (zero mean and unit variance)
-X = [sc', v'];
+X = [sc',sd',v',sint'];
 X = bsxfun(@minus,X,mean(X));
 X = bsxfun(@rdivide,X,sqrt(var(X)));
-clear sc v
+clear sc sd v sint
 
-% Fit a Gaussian to the data
-mu = mean(X)';
-C  = cov(X);
+if strcmp(descrip,'CT')
+    tol = 4; % Seems, empirically, to be a descent value
+elseif strcmp(descrip,'MRI')
+    tol = 5; % Seems, empirically, to be a descent value
+end
+ix  = zeros(1,S);
+f   = cell(1,S);
+for i=1:size(X,2)
 
-% dm  = zeros(1,S);
-% for s=1:S
-%     x     = [X(s,1),X(s,2)]';
-%     dm(s) = sqrt((x - mu)'*(C\(x - mu))); % Mahalanobis distance
-% end
-% figure;
-% scatter3(X(:,1)',X(:,2)',dm)
+    % Fit a Gaussian to the data
+    mu = mean(X(:,i))';
+    C  = cov(X(:,i));
 
-% Remove images based on Mahalanobis distance
-tol = 4; % Seems, empirically, to be a descent value
-ix  = [];
-f   = {};
-cnt = 1;
-for s=1:S
-    for n=1:N
-        x  = [X(cnt,1),X(cnt,2)]';
-        DM = sqrt((x - mu)'*(C\(x - mu))); % Mahalanobis distance
-        if DM>tol
-            disp(['Removed CT image: ' V{s}(n).fname])
-            f{end + 1} = V{s}(n).fname;
-            ix         = [ix,s];
+    if verbose==2
+        dm  = zeros(1,size(X,1));
+        for s=1:size(X,1)
+            x     = X(s,i)';
+            dm(s) = dist_Mahalanobis(x,mu,C);
         end
-        cnt = cnt +1;
+        figure;
+        scatter(X(:,i)',dm)
+        drawnow
+    end
+        
+    cnt = 1;
+    for s=1:S
+        for n=1:N
+            x  = X(cnt,i)';
+            DM = dist_Mahalanobis(x,mu,C);
+            if DM>tol                                
+                ix(s) = s;
+                f{s}  = V{s}(n).fname;
+            end
+            cnt = cnt + 1;
+        end
     end
 end
+
+% Remove 'outliers'
+ix(ix==0)  = [];
 V(ix)      = [];
 labels(ix) = [];
 S          = S - numel(ix);
 
 if numel(ix)>0
-    if verbose, spm_check_registration(char(f)); end
+    f = f(~cellfun('isempty',f));
+    
+    if verbose, spm_check_registration(char(f')); end
 
+    for s=1:numel(f)
+       disp(['Removing image ' f{s}]) ;
+    end
     fprintf('%d subjects remaining\n',S)
 end
-
-% % Fit Gaussians to each image statistic
-% msc   = mean(sc);
-% sigsc = sqrt(var(sc));
-% 
-% mv   = mean(v);
-% sigv = sqrt(var(v));
-% 
-% % Define thresholds based on the distance from the mean (measured in SDs)
-% sds   = 3; % This seems empirically to be a good value..
-% tolsc = msc + sds*sigsc;
-% tolv  = mv  + sds*sigv;
-% 
-% % Remove images based on the above thresholds
-% ix   = [];
-% f    = {};
-% for s=1:S
-%     if sc(s)>tolsc && v(s)>tolv
-%         disp(['Removed CT image: ' V{s}.fname])
-%         f{end + 1} = V{s}.fname;
-%         ix         = [ix,s];
-%     end
-% end
-% V(ix) = [];
-% S     = S - numel(ix);
 %==========================================================================
 
 %==========================================================================
-function [fwhm,sc,sd,v] = compute_img_stats(pth)
+function val = dist_Mahalanobis(x,mu,C)
+val = sqrt((x - mu)'*(C\(x - mu))); % Mahalanobis distance
+%==========================================================================
 
-% Calculate image gradients
+%==========================================================================
+function [fwhm,sc,sd,v,sint] = compute_img_stats(pth,descrip)
+
+% Get image and mask
 Nii        = nifti(pth);
 f          = Nii.dat(:,:,:);
-msk        = get_msk(f);
+msk        = get_msk(f,descrip);
 f(~msk)    = NaN;
+
+% Calculate sum of image intensities
+sint = nansum(abs(f(:)));
+
+% Calculate image gradients
 vx         = sqrt(sum(Nii.mat(1:3,1:3).^2));
 [gx,gy,gz] = grad(f,vx);
 

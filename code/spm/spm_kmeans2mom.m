@@ -1,10 +1,10 @@
-function mom = spm_kmeans2mom(buf,K,verbose)
+function mom = spm_kmeans2mom(buf,K,nomiss,vr0,verbose)
 % Generate initial estimates for the parameters of a Gaussian mixture model
 % using the k-means algorithm
 %
 % FORMAT mom = spm_kmeans2mom(buf,K,verbose)
 %     
-if nargin<3, verbose = 0; end
+if nargin<5, verbose = 0; end
 
 N = numel(buf(1).f);
 d = [size(buf(1).msk{1}) numel(buf)];
@@ -12,7 +12,7 @@ d = [size(buf(1).msk{1}) numel(buf)];
 F = NaN([prod(d(1:2)) d(3) N],'single');
 for z=1:numel(buf)
     for n=1:N
-        F(buf(z).msk{n},z,n) = buf(z).f{n};
+        F(buf(z).msk{n},z,n) = buf(z).f{n}.* buf(z).bf{n};
     end
 end
 F = reshape(F,[d N]);    
@@ -48,11 +48,35 @@ end
 % Generate estimates of MoG parameters
 F   = reshape(F,[d N]);
 Q   = reshape(Q,[d K]);
-mom = mom_struct(K,N);  
+mom = mom_struct(K,N,nomiss);  
 for z=1:d(3)    
     f   = reshape(double(F(:,:,z,:)),[prod(d(1:2)) N]);
     q   = reshape(double(Q(:,:,z,:)),[prod(d(1:2)) K]);
     mom = spm_SuffStats(f,q,buf(z).code,mom);
+end
+
+if nomiss
+    mom = mom_John2Bishop(mom);
+    
+    i = numel(mom);
+    
+    ss0 = sum(mom(i).s0);
+    for k=1:K
+        mom(i).s0(k) = ss0/K;
+    end
+    
+    C1 = 0;
+    for k=1:K
+        C1 = C1 + (mom(i).S2(:,:,k) - mom(i).s1(:,k)*mom(i).s1(:,k)'/mom(i).s0(k));
+    end
+    
+    for k=1:K,
+        mom(i).S2(:,:,k) = (C1 + K*N*vr0)/(sum(mom(i).s0) + K*N);
+    end
+    
+    mom = mom_Bishop2John(mom);
+else
+    error('~nomiss')
 end
 %==========================================================================
 

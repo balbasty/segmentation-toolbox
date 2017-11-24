@@ -1,7 +1,11 @@
-function show_imobj(imobj,show_slices)
-if nargin<2, show_slices = true; end
+function show_im(im,m,show_slices)
+if nargin<2, m           = 1; end
+if nargin<3, show_slices = 0; end
 
-[V,S,N] = get_V(imobj);
+im = im{m};
+V  = get_V(im);
+S  = numel(V);
+N  = numel(V{1});
 
 fname  = {};
 cnt = 1;

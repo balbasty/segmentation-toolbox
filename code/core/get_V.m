@@ -1,11 +1,11 @@
-function [V,S,N,labels] = get_V(imobj)
+function [V,labels] = get_V(im)
 
-sanity_check_imobj(imobj);
+sanity_check_imobj(im);
 
-S_requested = imobj{2};
+S_requested = im{2};
 
-[V,S,N] = read_ims_from_dir(imobj{1},S_requested);
-labels  = read_ims_from_dir(imobj{5},S,N);
+[V,S,N] = read_ims_from_dir(im{1},S_requested);
+labels  = read_ims_from_dir(im{5},S,N);
 
 fprintf('Loaded data from %d subject(s) having %d channel(s) each\n',S,N); 
 %==========================================================================
@@ -48,12 +48,12 @@ end
 %==========================================================================
 
 %==========================================================================
-function sanity_check_imobj(imobj)
-if numel(imobj)~=5
+function sanity_check_imobj(im)
+if numel(im)~=5
     error('numel(imobj)~=5')
 end
 
-folder    = dir(imobj{1}); 
+folder    = dir(im{1}); 
 folder    = folder(3:end);
 dirflag   = [folder.isdir];
 
@@ -63,10 +63,10 @@ if S==0
     error('S==0')
 end
 
-files = dir(fullfile(imobj{1},subfolder(1).name,'*.nii'));
+files = dir(fullfile(im{1},subfolder(1).name,'*.nii'));
 N0    = numel(files);
 for s=2:S
-    files = dir(fullfile(imobj{1},subfolder(s).name,'*.nii'));
+    files = dir(fullfile(im{1},subfolder(s).name,'*.nii'));
     N1    = numel(files);
     if N0~=N1
         error('N0~=N1')

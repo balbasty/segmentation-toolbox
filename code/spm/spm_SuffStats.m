@@ -11,36 +11,27 @@ function mom = spm_SuffStats(X,Q,code,mom)
 %           where each element accounts for different missing data.
 %_______________________________________________________________________
 %
-% See spm_VBGaussiansFromSuffStats.m
+% See spm_GaussiansFromSuffStats.m
 %_______________________________________________________________________
 % Copyright (C) 2013 Wellcome Trust Centre for Neuroimaging
 
 % John Ashburner
 % $Id$
 
-if nargin<4, mom = []; end
-
-tiny = eps*eps;
-
 K = size(Q,2);
 N = size(X,2);
 
-if isempty(mom)
-    % Create empty data structure
-    mom = mom_struct(K,N,tiny);
-else
-    % Check compatibility of data structure
-    if (numel(mom)~=2^N) || (size(mom(1).s0,2)~=K),
-        error('Incorrect moment dimensions');
-    end
+% Check compatibility of data structure
+if (numel(mom)~=2^N) || (size(mom(1).s0,2)~=K),
+    error('Incorrect moment dimensions');
 end
 
-Q(isnan(Q))=0;
+Q(isnan(Q)) = 0;
 
-for i=1:numel(mom),
+for i=2:numel(mom)
     msk0  = mom(i).ind;
     ind   = find(code==msk0*(2.^(0:(N-1))'));
-    if ~isempty(ind),
+    if ~isempty(ind)
         x = X(ind,msk0);
         for k=1:K,
             q                = Q(ind,k);

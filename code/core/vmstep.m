@@ -43,10 +43,7 @@ for k=1:K
     W(:,:,k) = inv(W0inv + s0(k)*S2(:,:,k) + mlt1*(diff1*diff1'));
     
     % Protect against eigenvalues becoming too "small"
-    [V,D1]   = eig(W(:,:,k));
-    tol      = max(diag(D1))*eps('single');
-    D1       = diag(max(diag(D1),tol));
-    W(:,:,k) = real(V*D1*V');
+    W(:,:,k) = threshold_eig(W(:,:,k));
 end  
 
 po.m = m;

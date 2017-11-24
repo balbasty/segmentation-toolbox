@@ -1,11 +1,13 @@
-function show_V(V,show_slices)
-if nargin<2, show_slices = true; end
+function show_V(V,m,show_slices)
+if nargin<2, m           = 1; end
+if nargin<3, show_slices = 0; end
 
+V = V{m};
 S = numel(V);
 N = numel(V{1});
 
-fname  = {};
-cnt = 1;
+fname = {};
+cnt   = 1;
 for s=1:S
     for n=1:N
         fname{cnt} = V{s}(n).fname;
