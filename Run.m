@@ -7,6 +7,14 @@ S = 151; % Number of subjects
 K = 16; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
 
 %--------------------------------------------------------------------------
+% Options for running algorithm on the FIL cluster (Holly)
+obj.run_on_holly     = 1;
+obj.holly.jnam       = 'segment';
+obj.holly.jnam_dummy = 'dummy';
+obj.holly.RAM        = 6;
+obj.holly.split      = 4;
+
+%--------------------------------------------------------------------------
 % Define data cell array, which should contain the following:
 % {'pth_to_images',num_subjects,'CT'/'MRI','healthy'/'non-healthy','pth_to_labels'}
 %
@@ -14,23 +22,23 @@ K = 16; % Number of classes (if a template is used, then K will be set to the nu
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
 im = {};
 
-% im{end + 1} = {'/data-scratch/mbrud/NIIs/preprocessed-niis/IXI-neck/',S,'MRI','healthy',''};
-% im{end + 1} = {'/home/mbrud/Data/Parashkev-CT-aged/',S,'CT','healthy',''};
-% im{end + 1} = {'/home/mbrud/Data/IXI-subjects/',S,'MRI','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/IXI-2D',S,'MRI','healthy',''};
 
-% im{end + 1} = {'/home/mbrud/Data/2D-Data/IXI-2D/',S,'MRI','healthy',''};
-% im{end + 1} = {'/home/mbrud/Data/2D-Data/CT-hemorrhage-2D/',S,'CT','healthy',''};
-% im{end + 1} = {'/home/mbrud/Data/2D-Data/CT-aged-2D/',S,'CT','healthy',''};
-% im{end + 1} = {'/home/mbrud/Data/2D-Data/OASIS-Longitudinal-2D/',S,'MRI','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-aged-2D',S,'CT','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/OASIS-Longitudinal-2D',S,'MRI','healthy',''};
 
-im{end + 1} = {'/home/mbrud/Data/Parashkev-CT-aged/',S,'CT','healthy',''};
-im{end + 1} = {'/home/mbrud/Data/OASIS-subjects/Longitudinal-MRI/',S,'MRI','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-aged-noneck',S,'CT','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/OASIS-noneck',S,'MRI','healthy',''};
+
+% im{end + 1} = {'/data-scratch/mbrud/images/Parashkev-CT-CHROMIS/',S,'CT','healthy',''};
 
 %--------------------------------------------------------------------------
 % Path to initial template
-% obj.pth_logTPM = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
-% obj.pth_logTPM = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_3D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
 obj.pth_logTPM = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+
+%--------------------------------------------------------------------------
+% Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
+obj.num_workers = Inf;
 
 %--------------------------------------------------------------------------
 % Preprocessing options
@@ -40,12 +48,7 @@ obj.preproc.rem_corrupted = 1; % Try to remove CT images that are corrupted (e.g
 obj.preproc.realign       = 1; % Realign to MNI space
 obj.preproc.crop          = 1; % Remove data outside of head
 obj.preproc.crop_neck     = 1; % Remove neck (the spine, etc.)
-obj.preproc.denoise       = 1; % Denoise (only done if data is CT)
-
-%--------------------------------------------------------------------------
-% Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
-obj.num_workers  = Inf;
-obj.run_on_holly = 0;
+obj.preproc.denoise       = 1; % Denoise CT images
 
 %--------------------------------------------------------------------------
 % The distance (mm) between samples (for sub-sampling input data--improves speed)
@@ -53,9 +56,9 @@ obj.samp = 2;
 
 %--------------------------------------------------------------------------
 % Segmentation parameters
-obj.lkp     = 1; % Number of gaussians per tissue
-obj.vb      = 1; % Use a variational Bayesian mixture model
-obj.wp_reg  = 1e3; % Bias weight updates towards 1
+obj.lkp    = 1; % Number of gaussians per tissue
+obj.vb     = 1; % Use a variational Bayesian mixture model
+obj.wp_reg = 1e3; % Bias weight updates towards 1
 
 %--------------------------------------------------------------------------
 % What estimates to perform
@@ -66,7 +69,7 @@ obj.dopr   = 1; % Intensity priors
 obj.dotpm  = 1; % Template
 
 %--------------------------------------------------------------------------
-% Different number of iterations and stopping tolerance of algorithm
+% Iterations and stopping tolerances for algorithm
 obj.nitermain = 200;
 obj.tolmain   = 1e-4;
 obj.tolseg    = 1e-4;
@@ -88,11 +91,11 @@ obj.biasreg  = 1e-4;
 
 %--------------------------------------------------------------------------
 % Template options
-obj.vx_TPM     = 1.5;  % Voxel size of template to be estimated
-obj.deg        = 2;    % Degree of interpolation when sampling template
-obj.tiny       = 1e-4; % Strength of Dirichlet prior used in template construction
-obj.fwhm_TPM   = 0.01; % Ad hoc smoothing of template (improves convergence)
-obj.mrf        = 0;    % Use a MRF cleanup procedure
+obj.vx_TPM   = 1.5;  % Voxel size of template to be estimated
+obj.deg      = 2;    % Degree of interpolation when sampling template
+obj.tiny     = 1e-4; % Strength of Dirichlet prior used in template construction
+obj.fwhm_TPM = 0.01; % Ad hoc smoothing of template (improves convergence)
+obj.mrf      = 0;    % Use a MRF cleanup procedure
 
 %--------------------------------------------------------------------------
 % For debugging
@@ -101,7 +104,7 @@ obj.figix   = 1;
 
 %--------------------------------------------------------------------------
 % Make some folders
-obj.dir_data = './data';  % for all algorithm data
+obj.dir_data = '/data-scratch/mbrud/data/segmentation-toolbox-parfor';  % for all algorithm data
 obj.dir_res  = 'results'; % for algorithm results (subfolder of dir_data)
 
 %==========================================================================

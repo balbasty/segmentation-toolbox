@@ -1,7 +1,7 @@
-function [obj,munum,muden] = spm_preprocx(obj,logtpm)
+function obj = spm_preprocx(obj,logtpm)
 % New and improved (?) unified segmentation routine
 %
-% FORMAT [obj,munum,muden] = spm_preprocx(obj,logtpm)
+% FORMAT obj = spm_preprocx(obj,logtpm)
 %
 %_______________________________________________________________________
 % Copyright (C) 2017 Wellcome Trust Centre for Neuroimaging
@@ -42,9 +42,10 @@ nsubitmog  = obj.nsubitmog;
 nsubitbf   = obj.nsubitbf;
 nitdef     = obj.nitdef;
 
-dobias = obj.dobias;
-dodef  = obj.dodef;
-dotpm  = obj.dotpm;
+dobias   = obj.dobias;
+dodef    = obj.dodef;
+
+diff_TPM = obj.diff_TPM;
 
 % TODO: remove once missing data part works...
 nomiss = 1;
@@ -164,7 +165,7 @@ cl  = cell(length(z0),1);
 buf = struct('f',cl,'mu',cl,'bf',cl,'code',cl);
 for z=1:length(z0)        
     buf(z).msk = cell(1,N);
-    if ~dotpm && d(3)>1
+    if ~diff_TPM && d(3)>1
         % Load only those voxels that are more than 5mm up
         % from the bottom of the tissue probability map.  This
         % assumes that the affine transformation is pretty close.
@@ -376,106 +377,10 @@ for iter=1:niter
         clear mu
     end
            
-    % Starting estimates for intensity distribution parameters
-    %------------------------------------------------------------
     if iter==1                  
-        if use_mog
-            % Starting estimates for Gaussian parameters
-            %--------------------------------------------------------------
-            mn = 0; vr = 0; po = 0;
-                                
-            K   = Kb;
-            lkp = 1:Kb;                                                            
-            mg  = ones(1,K);            
-            if ~logtpm.uniform
-                % Use data and template to estimate moments
-                %------------------------------------------------------    
-                mom = mom_struct(K,N,nomiss);  
-                for z=1:length(z0)
-                    mom = suffstats(mom,buf(z),buf(z).mu);
-                end
-            else
-                % Use a k-means algorithm to estimate moments
-                %------------------------------------------------------
-                mom = spm_kmeans2mom(buf,K,nomiss,vr0);
-            end
-
-            if vb                                                
-                % Use moments to compute initial Gaussian-Wishart
-                % posteriors and priors
-                %--------------------------------------------------
-                [lq,~,po,pr] = spm_GaussiansFromSuffStats(vb,mom);
-                
-                if logtpm.uniform
-                    % Sort according to m values of first channel
-                    [~,ix] = sort(po.m(1,:),2);
-                    po.m   = po.m(:,ix);
-                    pr.m   = pr.m(:,ix);
-                    po.b   = po.b(1,ix);
-                    pr.b   = pr.b(1,ix);
-                    po.n   = po.n(1,ix);
-                    pr.n   = pr.n(1,ix);
-                    po.W   = po.W(:,:,ix);
-                    pr.W   = pr.W(:,:,ix);
-                end
-            else       
-                % Use moments to compute means and variances, and then use these
-                % to initialise the Gaussians
-                %--------------------------------------------------
-
-                [lq,~,mn,~,vr] = spm_GaussiansFromSuffStats(vb,mom,vr0);
-                
-                if logtpm.uniform
-                    % Sort according to m values of first channel
-                    [~,ix] = sort(mn(1,:),2);
-                    mn     = mn(:,ix);
-                end
-            end 
-            
-            if isfield(obj,'mg') && (isfield(obj,'po') && isfield(obj,'pr') || isfield(obj,'mn') && isfield(obj,'vr'))
-                % Parameters known
-                %----------------------------------------------------------
-                mg = obj.mg;
-                if vb
-                    po = obj.po;
-                    pr = obj.pr;
-                    
-                    lq = spm_GaussiansFromSuffStats(vb,mom,po,pr);  
-                else
-                    mn = obj.mn;
-                    vr = obj.vr;
-                    
-                    lq = spm_GaussiansFromSuffStats(vb,mom,vr0,mn,vr);
-                end
-            end
-        else
-            % Starting estimates for histograms
-            %-----------------------------------------------------------------------
-            lq = 0;
-            
-            for n=1:N
-                maxval = -Inf;
-                minval =  Inf;
-                for z=1:length(z0)
-                    if ~buf(z).nm, continue; end
-                    maxval = max(max(buf(z).f{n}),maxval);
-                    minval = min(min(buf(z).f{n}),minval);
-                end
-                maxval = max(maxval*1.5,-minval*0.05); % Account for bias correction effects
-                minval = min(minval*1.5,-maxval*0.05);
-                chan(n).interscal = [1 minval; 1 maxval]\[1;K];
-                h0     = zeros(K,Kb);
-                for z=1:length(z0)
-                    if ~buf(z).nm, continue; end
-                    cr       = round(buf(z).f{n}.*buf(z).bf{n}*chan(n).interscal(2) + chan(n).interscal(1));
-                    cr       = min(max(cr,1),K);
-                    for k1=1:Kb
-                        h0(:,k1) = h0(:,k1) + accumarray(cr,buf(z).mu(:,k1),[K,1]);
-                    end
-                end
-                chan(n).hist = h0;
-            end
-        end
+        % Starting estimates for cluster parameters
+        %------------------------------------------------------------
+        [lq,K,lkp,mg,mn,vr,po,pr,chan] = init_clusters(obj,buf,chan,Kb,K,N,nomiss,logtpm.uniform,vr0,use_mog,vb);                
     end
 
     for iter1=1:niter1
@@ -1093,7 +998,7 @@ for iter=1:niter
     end
 end
 
-if nargout>=2 && dotpm && use_mog         
+if diff_TPM && use_mog         
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % For estimating a template using maximum likelihood
     %------------------------------------------------------------
@@ -1203,6 +1108,8 @@ elseif use_mog
     obj.mn = mn;
     obj.vr = vr;
 end
+obj.munum = munum;
+obj.muden = muden;
     
 return;
 %=======================================================================
@@ -1497,6 +1404,116 @@ else
     varargout{5} = mn;
     varargout{6} = vr;
 end
+%=======================================================================
+
+%=======================================================================
+function varargout = init_clusters(obj,buf,chan,Kb,K,N,nomiss,uniform,vr0,use_mog,vb)
+z0 = numel(buf);
+mn = 0; vr = 0; po = 0; pr = 0;
+if use_mog
+    % Starting estimates for Gaussian parameters
+    %--------------------------------------------------------------    
+    K   = Kb;
+    lkp = 1:Kb;                                                            
+    mg  = ones(1,K);            
+    if ~uniform
+        % Use data and template to estimate moments
+        %------------------------------------------------------    
+        mom = mom_struct(K,N,nomiss);  
+        for z=1:length(z0)
+            mom = suffstats(mom,buf(z),buf(z).mu);
+        end
+    else
+        % Use a k-means algorithm to estimate moments
+        %------------------------------------------------------
+        mom = spm_kmeans2mom(buf,K,nomiss,vr0);
+    end
+
+    if vb                                                
+        % Use moments to compute initial Gaussian-Wishart
+        % posteriors and priors
+        %--------------------------------------------------
+        [lq,~,po,pr] = spm_GaussiansFromSuffStats(vb,mom);
+
+        if uniform
+            % Sort according to m values of first channel
+            [~,ix] = sort(po.m(1,:),2);
+            po.m   = po.m(:,ix);
+            pr.m   = pr.m(:,ix);
+            po.b   = po.b(1,ix);
+            pr.b   = pr.b(1,ix);
+            po.n   = po.n(1,ix);
+            pr.n   = pr.n(1,ix);
+            po.W   = po.W(:,:,ix);
+            pr.W   = pr.W(:,:,ix);
+        end
+    else       
+        % Use moments to compute means and variances, and then use these
+        % to initialise the Gaussians
+        %--------------------------------------------------
+
+        [lq,~,mn,~,vr] = spm_GaussiansFromSuffStats(vb,mom,vr0);
+
+        if uniform
+            % Sort according to m values of first channel
+            [~,ix] = sort(mn(1,:),2);
+            mn     = mn(:,ix);
+        end
+    end 
+
+    if isfield(obj,'mg') && (isfield(obj,'po') && isfield(obj,'pr') || isfield(obj,'mn') && isfield(obj,'vr'))
+        % Parameters known
+        %----------------------------------------------------------
+        mg = obj.mg;
+        if vb
+            po = obj.po;
+            pr = obj.pr;
+
+            lq = spm_GaussiansFromSuffStats(vb,mom,po,pr);  
+        else
+            mn = obj.mn;
+            vr = obj.vr;
+
+            lq = spm_GaussiansFromSuffStats(vb,mom,vr0,mn,vr);
+        end
+    end   
+else
+    % Starting estimates for histograms
+    %-----------------------------------------------------------------------    
+    lq = 0;
+    for n=1:N
+        maxval = -Inf;
+        minval =  Inf;
+        for z=1:length(z0)
+            if ~buf(z).nm, continue; end
+            maxval = max(max(buf(z).f{n}),maxval);
+            minval = min(min(buf(z).f{n}),minval);
+        end
+        maxval = max(maxval*1.5,-minval*0.05); % Account for bias correction effects
+        minval = min(minval*1.5,-maxval*0.05);
+        chan(n).interscal = [1 minval; 1 maxval]\[1;K];
+        h0     = zeros(K,Kb);
+        for z=1:length(z0)
+            if ~buf(z).nm, continue; end
+            cr       = round(buf(z).f{n}.*buf(z).bf{n}*chan(n).interscal(2) + chan(n).interscal(1));
+            cr       = min(max(cr,1),K);
+            for k1=1:Kb
+                h0(:,k1) = h0(:,k1) + accumarray(cr,buf(z).mu(:,k1),[K,1]);
+            end
+        end
+        chan(n).hist = h0;
+    end
+end
+
+varargout{1} = lq;
+varargout{2} = K;
+varargout{3} = lkp;    
+varargout{4} = mg;    
+varargout{5} = mn;
+varargout{6} = vr;
+varargout{7} = po;
+varargout{8} = pr;    
+varargout{9} = chan;
 %=======================================================================
 
 %=======================================================================

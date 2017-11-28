@@ -1,4 +1,4 @@
-function denoise_img(fname)
+function denoise_img(fname,descrip)
 
 % Get input data
 Nii = nifti(fname);
@@ -33,7 +33,7 @@ opts.reltol   = 1e-4;
 opts.lstol    = 1e-4;
 
 % Get mask values
-msk  = get_msk(Y);
+msk  = get_msk(Y,descrip);
 vals = single(Y(~msk));
 
 Xhat = ADMM_img_solver(pm,{Y},lambda,opts);

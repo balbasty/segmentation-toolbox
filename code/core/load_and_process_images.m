@@ -58,6 +58,7 @@ for m=1:M
         % Process the input images in parallel
         V_m = V{m};
         S   = numel(V_m);
+%         for s=1:S
         parfor (s=1:S,num_workers)
             fprintf('s=%d\n',s); 
 
@@ -124,9 +125,9 @@ for m=1:M
                 end
 
                 if preproc.denoise && strcmp(descrip,'CT')
-                    % Denoise using L2-TV (ADMM)
+%                     Denoise using L2-TV (ADMM)
                     try
-                        denoise_img(V_m{s}(n).fname);                
+                        denoise_img(V_m{s}(n).fname,descrip);                
 
                         [pth,nam,ext] = fileparts(V_m{s}(n).fname);
                         delete(V_m{s}(n).fname);

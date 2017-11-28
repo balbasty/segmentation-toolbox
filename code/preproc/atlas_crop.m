@@ -16,7 +16,7 @@ mattpm = Vtpm.mat;
 
 if isempty(Affine)
     tpm    = spm_load_priors8(Vtpm);
-    samp   = 2;
+    samp   = 3;
     Affine = spm_maff8(P,samp,16,tpm,eye(4),'mni');
     Affine = spm_maff8(P,samp,16,tpm,Affine,'mni');
 end
