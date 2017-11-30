@@ -11,12 +11,11 @@ N = size(s1,1);
 
 if isempty(pr)
     m0 = s1;
-    b0 = 0.01*ones(1,K);
-    n0 = N*ones(1,K)-0.99;
-
+    b0 = s0*ones(1,K);
+    n0 = s0*ones(1,K);
     W0 = zeros(N,N,K);
     for k1=1:K
-        W0(:,:,k1) = inv(S2(:,:,k1))/n0(k1)/1e+1;
+        W0(:,:,k1) = inv(S2(:,:,k1))/n0(k1);
     end
     
     pr.m = m0;

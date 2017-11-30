@@ -1,6 +1,7 @@
-function segment_holly(t)
+function segment_holly(t,jnam)
 
-pth0 = read_directory_details('directory_details.txt');    
+pth0 = read_directory_details('directory_details.txt',jnam);    
+pth0 = fullfile(pth0,'mat');
 
 pth     = fullfile(pth0,'pth_obj.mat');
 tmp     = load(pth,'-mat');

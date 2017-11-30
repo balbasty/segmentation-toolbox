@@ -44,6 +44,7 @@ nitdef     = obj.nitdef;
 
 dobias   = obj.dobias;
 dodef    = obj.dodef;
+dowp     = obj.dowp;
 
 diff_TPM = obj.diff_TPM;
 
@@ -400,10 +401,12 @@ for iter=1:niter
                     % Get template
                     mu  = double(buf(z).mu);
                     
-                    % Denominator part of weight (wp) update
-                    s   = 1./(mu*wp');                                        
-                    mgm = mgm + s'*mu; 
-                                        
+                    if dowp
+                        % Denominator part of weight (wp) update
+                        s   = 1./(mu*wp');                                        
+                        mgm = mgm + s'*mu; 
+                    end
+                    
                     % Evaluate the responsibilities using the current
                     % parameters values
                     [q,dll] = latent(buf(z).f,buf(z).bf,mg,mn,vr,po,mu,lkp,wp,buf(z).msk,buf(z).code,vb);                    
@@ -435,12 +438,14 @@ for iter=1:niter
                     mg(k) = s0(k)/sum(tmp);  % US eq. 27 (partly)
                 end
                 
-                % Update tissue weights
-                for k1=1:Kb
-                    wp(k1) = (sum(s0(lkp==k1)) + wp_reg*1)/(mgm(k1) + wp_reg*Kb); % bias the solution towards 1
+                if dowp
+                    % Update tissue weights
+                    for k1=1:Kb
+                        wp(k1) = (sum(s0(lkp==k1)) + wp_reg*1)/(mgm(k1) + wp_reg*Kb); % bias the solution towards 1
+                    end
+                    wp = wp/sum(wp); 
                 end
-                wp = wp/sum(wp); 
-
+                
                 if subitmog>1 && abs(ll-oll)<tol1*nm
                     % Improvement is small, so go to next step
                     break;

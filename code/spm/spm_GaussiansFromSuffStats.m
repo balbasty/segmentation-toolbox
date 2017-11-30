@@ -60,12 +60,9 @@ if vb
     % Variational Bayes
     %----------------------------------------------------------------------
     if isempty(po)
-        ib = 0.01*ones(1,K);
-        in = N*ones(1,K) - 0.99;
+        ib = zeros(1,K);
+        in = zeros(1,K);
         iW = zeros(N,N,K);
-        for k=1:K
-            iW(:,:,k) = eye(N);
-        end
         im = zeros(N,K);
     else
         ib = po.b;
@@ -75,12 +72,9 @@ if vb
     end
 
     if isempty(pr)
-        ib0 = 0.01*ones(1,K);
-        in0 = N*ones(1,K) - 0.99;
+        ib0 = zeros(1,K);
+        in0 = zeros(1,K);
         iW0 = zeros(N,N,K);
-        for k=1:K
-            iW0(:,:,k) = eye(N);
-        end
         im0 = zeros(N,K);
     else
         ib0 = pr.b;
@@ -219,6 +213,8 @@ for k=1:K,
                     [npo,npr] = vmstep(nmom);
                     W0        = npr.W;
                     m0        = npr.m;
+                    b0        = npr.b;
+                    n0        = npr.n;
                 else
                     npo = vmstep(nmom,npr);
                 end

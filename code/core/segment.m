@@ -41,7 +41,8 @@ end
 if ~obj.use_tpm && obj.iter==1 && obj.dotpm   
     % 1st iteration
     %----------------------------------------------------------------------    
-    obj.dodef = 0;              % No deformation update for 1st iteration
+    obj.dodef = 0; % No deformation update for iteration 1, 2 and 3
+    obj.dowp  = 0; % No tissue mixing weight update for iteration 1 and 2
 elseif ~obj.use_tpm && obj.iter==2 && obj.dotpm                      
     % 2nd iteration    
     %----------------------------------------------------------------------
@@ -58,6 +59,8 @@ elseif ~obj.use_tpm && obj.iter==3 && obj.dotpm
         
         obj.clear_pars = 0;
     end    
+    
+    obj.dowp = obj.dowp0;
 elseif ~obj.use_tpm && obj.iter==4 && obj.dotpm       
     % 4th iteration: start estimating deformations
     %----------------------------------------------------------------------
@@ -65,15 +68,16 @@ elseif ~obj.use_tpm && obj.iter==4 && obj.dotpm
 end         
 
 % Run segmentation algorithm (spm_preprocx)
-obj.munum  = 0;
-obj.muden  = 0;
-obj.status = 0; % All OK   
-try       
-    obj = spm_preprocx(obj,logtpm);
-catch ME
-    % Error!
-    obj.status = 1;
-    str_output = ['Error in: ' obj.image(1).fname '\n' ME.message '\n'];
-    fprintf(str_output)
-end
+obj = spm_preprocx(obj,logtpm);
+% obj.munum  = 0;
+% obj.muden  = 0;
+% obj.status = 0; % All OK   
+% try       
+%     obj = spm_preprocx(obj,logtpm);
+% catch ME
+%     % Error!
+%     obj.status = 1;
+%     str_output = ['Error in: ' obj.image(1).fname '\n' ME.message '\n'];
+%     fprintf(str_output)
+% end
 %==========================================================================

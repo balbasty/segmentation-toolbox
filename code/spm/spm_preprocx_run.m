@@ -1,11 +1,17 @@
 function spm_preprocx_run(obj,im,K)
 
 %==========================================================================
+% Prepare or disable parallel processing
+%==========================================================================
+
+manage_parpool(obj.num_workers);
+
+%==========================================================================
 % Make some directories
 %==========================================================================
 
 if obj.run_on_holly
-    [~,obj.dir_data,~] = read_directory_details('directory_details.txt');    
+    [~,obj.dir_data,~] = read_directory_details('directory_details.txt',obj.holly.jnam);    
 end
 
 if ~exist(obj.dir_data,'dir'), mkdir(obj.dir_data); end
@@ -108,8 +114,11 @@ end
 
 %==========================================================================
 function [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly)
-M = numel(pth_obj);
 
+% Set flag deciding if template calculations should be performed in
+% spm_preproc or not
+%--------------------------------------------------------------------------
+M     = numel(pth_obj);
 dotpm = nargout>=2;
 for m=1:M
     S         = numel(pth_obj{m});
@@ -120,83 +129,57 @@ for m=1:M
     end
 end
 
-munum = 0; muden = 0; ll = 0; Nm = 0;
+
 if run_on_holly
     % Run subject specific jobs on the FIL cluster (Holly)
-    %----------------------------------------------------------------------        
-    
-    pause(1);    
-    tic;
-
-    % Submit subject specific jobs
-    cmd             = ['sshpass -p "' holly.password '" ssh -o StrictHostKeyChecking=no ' holly.username '@holly "source /etc/profile;/opt/gridengine/bin/linux-x64/qsub -l vf=' num2str(holly.RAM) 'G -l h_vmem=' num2str(holly.RAM) 'G ' holly.pth_script_parfor '"'];        
-    [status,result] = system(cmd);    
-    if status
-        fprintf([result '\n'])
-        error('status~=0 on Holly!') 
-    end
-    fprintf(result)
-
-    % Submit dummy job
-    cmd             = ['sshpass -p "' holly.password '" ssh -o StrictHostKeyChecking=no ' holly.username '@holly "source /etc/profile;/opt/gridengine/bin/linux-x64/qsub -l vf=0.1G -l h_vmem=0.1G -hold_jid ' holly.jnam_h ' -cwd ' holly.pth_script_dummy '"'];
-    [status,result] = system(cmd);
-    if status
-        fprintf([result '\n'])
-        error('status~=0 for dummy job on Holly!') 
-    end
-    fprintf(result)
-
-    while 1, 
-        % Check if dummy job has finished
-        pause(1);
-
-        cmd             = ['sshpass -p "' holly.password '" ssh -o StrictHostKeyChecking=no ' holly.username '@holly "source /etc/profile;/opt/gridengine/bin/linux-x64/qstat | grep ' holly.jnam_dummy '"'];        
-        [status,result] = system(cmd);   
-        if isempty(result)
-            fprintf('Elapsed time (holly): %d s\n',round(toc))
-
-            for m=1:M
-                S         = numel(pth_obj{m});
-                pth_obj_m = pth_obj{m};                
-%                 for s=1:S
-                parfor (s=1:S,num_workers)
-                    obj = load(pth_obj_m{s},'-mat','munum','muden','ll','nm');
-                    
-                    munum = munum + obj.munum;
-                    muden = muden + obj.muden;
-                    ll    = ll    + obj.ll;
-                    Nm    = Nm    + obj.nm;
-                end
-            end
-
-            break
-        end
-    end  
+    %----------------------------------------------------------------------            
+    [ll,munum,muden,Nm] = parfor_holly(pth_obj,holly,num_workers);
 else 
     % Run subject specific jobs using MATLAB parfor
     %----------------------------------------------------------------------
-    
-    for m=1:M                    
-        pth_obj_m = pth_obj{m};
-        S         = numel(pth_obj_m);
-%         for s=1:S                                       
-        parfor (s=1:S,num_workers)    
-            % Run segmentation routine                               
-            obj = load(pth_obj_m{s});            
-            obj = segment(obj);                                       
-            
-            if obj.status==0
-                munum = munum + double(obj.munum);
-                muden = muden + double(obj.muden);            
-                ll    = ll + obj.ll;
-                Nm    = Nm + obj.nm;
-            end
-            
-            save_in_parfor(pth_obj_m{s},obj,'-struct');
-        end        
-    end    
+    [ll,munum,muden,Nm] =  parfor_matlab(pth_obj,num_workers);
 end
 L = [L,ll];
+
+% Display how many segmentations have errored
+%--------------------------------------------------------------------------
+tot_status = 0;
+for m=1:M
+    S         = numel(pth_obj{m});
+    pth_obj_m = pth_obj{m};  
+    parfor (s=1:S,num_workers)
+        tmp        = load(pth_obj_m{s},'-mat','status');       
+        tot_status = tot_status + tmp.status;
+    end
+end
+if tot_status
+    fprintf('%d number of job(s) failed.\n',tot_status);
+end
+%==========================================================================
+
+%==========================================================================
+function [ll,munum,muden,Nm] =  parfor_matlab(pth_obj,num_workers)
+M     = numel(pth_obj);
+munum = 0; muden = 0; ll = 0; Nm = 0;
+for m=1:M                    
+    pth_obj_m = pth_obj{m};
+    S         = numel(pth_obj_m);
+%         for s=1:S                                       
+    parfor (s=1:S,num_workers)    
+        % Run segmentation routine                               
+        obj = load(pth_obj_m{s});            
+        obj = segment(obj);                                       
+
+        if obj.status==0
+            munum = munum + double(obj.munum);
+            muden = muden + double(obj.muden);            
+            ll    = ll + obj.ll;
+            Nm    = Nm + obj.nm;
+        end
+
+        save_in_parfor(pth_obj_m{s},obj,'-struct');
+    end        
+end  
 %==========================================================================
 
 %==========================================================================
@@ -380,6 +363,8 @@ for m=1:M
         obj.diff_TPM = obj0.dotpm;  
         obj.doaff    = obj0.doaff;
         obj.dopr     = obj0.dopr;
+        obj.dowp     = obj0.dowp;
+        obj.dowp0    = obj0.dowp;
                 
         obj.nitermain = obj0.nitermain;
         obj.tolmain   = obj0.tolmain;       
@@ -519,6 +504,19 @@ for k=1:K
 end
 munum = reshape(munum,[prod(d) K])';
 muden = reshape(muden,[prod(d) K])';
+%==========================================================================
+
+%==========================================================================
+function manage_parpool(num_workers)
+poolobj = gcp('nocreate');
+if ~isempty(poolobj)    
+    if num_workers==0
+        delete(poolobj);
+    elseif poolobj.NumWorkers~=num_workers
+        delete(poolobj);
+        parpool('local',num_workers);
+    end
+end
 %==========================================================================
 
 %==========================================================================

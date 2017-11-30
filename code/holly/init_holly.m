@@ -7,9 +7,10 @@ split      = holly.split;
 holly       = struct;
 pth_pth_obj = '';
 if run_on_holly
-    [holly.dir_root_h,holly.dir_root_l,holly.dir_pwd_h] = read_directory_details('directory_details.txt');
-    holly.dir_matlab_h                                  = '/share/apps/MATLAB/R2016a/bin/matlab';
-    [holly.username,holly.password]                     = read_user_details('user_details.txt');   
+    [holly.dir_root_h,holly.dir_root_l,holly.dir_pwd_h] = read_directory_details('directory_details.txt',jnam);    
+     
+    holly.dir_matlab_h              = '/share/apps/MATLAB/R2016a/bin/matlab';
+    [holly.username,holly.password] = read_user_details('user_details.txt');   
 
     holly.RAM = RAM;
 
@@ -53,10 +54,13 @@ if run_on_holly
         end
     end
 
-    pth_pth_obj = fullfile(dir_data,'pth_obj.mat');
+    dir_holly_mat = fullfile(dir_data,'mat');
+    if exist(dir_holly_mat,'dir'), rmdir(dir_holly_mat,'s'); end; mkdir(dir_holly_mat);
+    
+    pth_pth_obj = fullfile(dir_holly_mat,'pth_obj.mat');
     save(pth_pth_obj,'pth_obj1') ;
     
-    pth_split = fullfile(dir_data,'split.mat');
+    pth_split = fullfile(dir_holly_mat,'split.mat');
     save(pth_split,'split') ;
 end
 %==========================================================================

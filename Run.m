@@ -9,8 +9,8 @@ K = 16; % Number of classes (if a template is used, then K will be set to the nu
 %--------------------------------------------------------------------------
 % Options for running algorithm on the FIL cluster (Holly)
 obj.run_on_holly     = 1;
-obj.holly.jnam       = 'segment';
-obj.holly.jnam_dummy = 'dummy';
+obj.holly.jnam       = 'seg-a';
+obj.holly.jnam_dummy = 'dummy-a';
 obj.holly.RAM        = 6;
 obj.holly.split      = 4;
 
@@ -30,7 +30,7 @@ im = {};
 im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-aged-noneck',S,'CT','healthy',''};
 im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/OASIS-noneck',S,'MRI','healthy',''};
 
-% im{end + 1} = {'/data-scratch/mbrud/images/Parashkev-CT-CHROMIS/',S,'CT','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck',S,'CT','healthy',''};
 
 %--------------------------------------------------------------------------
 % Path to initial template
@@ -38,7 +38,7 @@ obj.pth_logTPM = ''; % Path to existing template (set to '' for estimating a tem
 
 %--------------------------------------------------------------------------
 % Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
-obj.num_workers = Inf;
+obj.num_workers = 6;
 
 %--------------------------------------------------------------------------
 % Preprocessing options
@@ -67,6 +67,7 @@ obj.doaff  = 1; % Affine registration
 obj.dodef  = 1; % Non-linear registration
 obj.dopr   = 1; % Intensity priors
 obj.dotpm  = 1; % Template
+obj.dowp   = 1; % Tissue mixing weights
 
 %--------------------------------------------------------------------------
 % Iterations and stopping tolerances for algorithm
@@ -86,7 +87,7 @@ obj.rparam = [0 0.001 0.5 0.05 0.2]*0.1;
 
 %--------------------------------------------------------------------------
 % Bias field options
-obj.biasfwhm = 75;
+obj.biasfwhm = 60;
 obj.biasreg  = 1e-4;       
 
 %--------------------------------------------------------------------------
@@ -99,7 +100,7 @@ obj.mrf      = 0;    % Use a MRF cleanup procedure
 
 %--------------------------------------------------------------------------
 % For debugging
-obj.verbose = 2;
+obj.verbose = 1;
 obj.figix   = 1;
 
 %--------------------------------------------------------------------------

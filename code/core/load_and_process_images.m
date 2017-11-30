@@ -53,7 +53,7 @@ for m=1:M
         if m>1
             imdir = [imdir '_m' num2str(m)];
         end
-        [V{m},imdir_2D] = cpy2imdir(V{m},imdir);            
+        [V{m},imdir_2D] = cpy2imdir(V{m},imdir,num_workers);            
         
         % Process the input images in parallel
         V_m = V{m};
@@ -176,7 +176,7 @@ end
 %==========================================================================
 
 %=======================================================================
-function [V,imdir_2D] = cpy2imdir(V,imdir)
+function [V,imdir_2D] = cpy2imdir(V,imdir,num_workers)
 S = numel(V);
 N = numel(V{1});
 
@@ -192,7 +192,7 @@ end
 mkdir(imdir_2D);
     
 nV = cell(1,S);
-for s=1:S
+parfor (s=1:S,num_workers)
     fname = V{s}.fname;
     odir   = fileparts(fname);
     
