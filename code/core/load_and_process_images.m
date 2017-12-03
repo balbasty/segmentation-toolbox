@@ -59,6 +59,7 @@ for m=1:M
         V_m = V{m};
         S   = numel(V_m);
 %         for s=1:S
+        manage_parpool(num_workers);
         parfor (s=1:S,num_workers)
             fprintf('s=%d\n',s); 
 
@@ -71,7 +72,7 @@ for m=1:M
             end
 
             Affine = [];
-            for n=1:N           
+            for n=1:N 
                 if preproc.realign
                     % Reset origin and align to MNI space
                     vx = sqrt(sum(V_m{s}(n).mat(1:3,1:3).^2));
@@ -192,6 +193,7 @@ end
 mkdir(imdir_2D);
     
 nV = cell(1,S);
+manage_parpool(num_workers);
 parfor (s=1:S,num_workers)
     fname = V{s}.fname;
     odir   = fileparts(fname);

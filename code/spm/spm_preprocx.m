@@ -1,10 +1,11 @@
-function obj = spm_preprocx(obj,logtpm)
+function obj = spm_preprocx(obj,logtpm,fig)
 % New and improved (?) unified segmentation routine
 %
 % FORMAT obj = spm_preprocx(obj,logtpm)
 %
 %_______________________________________________________________________
 % Copyright (C) 2017 Wellcome Trust Centre for Neuroimaging
+if nargin<3, fig = cell(4,1); end
 
 V         = obj.image;
 descrip   = obj.descrip;
@@ -284,7 +285,7 @@ for z=1:length(z0)
         else
             buf(z).f{n}  = single(a(n)*fz(buf(z).msk{n}));
         end    
-        
+
         % Create moments to be used for constructing a variance prior
         s0(n) = s0(n) + buf(z).nmn{n};
         s1(n) = s1(n) + sum(buf(z).f{n});
@@ -338,7 +339,6 @@ end
 % For debugging
 %-----------------------------------------------------------------------
 zix     = floor(d(3)/2 + 1);
-fig     = obj.fig;
 verbose = obj.verbose;
 slice   = zeros(d(1:2),'single');
 
@@ -372,6 +372,7 @@ for iter=1:niter
                 subplot(K1,K2,i);
                 slice(buf(z).msk{1}) = mu{i};
                 imagesc(slice'); axis image xy off; colormap(gray);
+                title(['wmu, k=' num2str(i)]);
             end 
             drawnow
         end
@@ -693,13 +694,18 @@ for iter=1:niter
         if ~isempty(fig{1}) && use_mog   
             % Visualise responsibilities  
             q  = latent(buf(zix).f,buf(zix).bf,mg,mn,vr,po,double(buf(zix).mu),lkp,wp,buf(zix).msk,buf(zix).code,vb);            
-            K1 = floor(sqrt(K));
-            K2 = ceil(K/K1); 
+            K1 = floor(sqrt(K + 1));
+            K2 = ceil((K + 1)/K1); 
             set(0,'CurrentFigure',fig{1});                    
-            for i=1:K      
+            for i=1:K + 1                
                 subplot(K1,K2,i);
-                slice(buf(zix).msk{1}) = q(:,i);
-                imagesc(slice'); axis image xy off; title(['k=' num2str(lkp(i))]); colormap(gray);
+                if i==1
+                    slice(buf(zix).msk{1}) = buf(zix).f{1};
+                    imagesc(slice'); axis image xy off; title('f1'); colormap(gray);
+                else
+                    slice(buf(zix).msk{1}) = q(:,i - 1);
+                    imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp(i - 1))]); colormap(gray);
+                end                
             end 
             clear q
             drawnow
@@ -712,6 +718,7 @@ for iter=1:niter
                 subplot(1,N,i);
                 slice(buf(zix).msk{i}) = buf(zix).bf{i};
                 imagesc(slice'); axis image xy off; colormap(gray);
+                title(['bf, n=' num2str(i)]);
             end  
             drawnow
         end
@@ -732,7 +739,7 @@ for iter=1:niter
         end
     end
 
-    if dodef
+    if dodef && iter<niter
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Estimate deformations
         %------------------------------------------------------------        
@@ -991,6 +998,7 @@ for iter=1:niter
                 subplot(K1,K2,i);
                 slice(buf(zix).msk{1}) = mu{i};
                 imagesc(slice'); axis image xy off; colormap(gray);
+                title(['wmu, k=' num2str(i)]);
             end 
             clear mu
             drawnow
@@ -1034,6 +1042,7 @@ if diff_TPM && use_mog
         for i=1:Kb
             subplot(2,Kb,i);
             imagesc(pf(:,:,zix,i)'); axis image xy off; colormap(gray);
+            title(['pf, k=' num2str(i)]);
         end  
     end
     
@@ -1059,6 +1068,7 @@ if diff_TPM && use_mog
         for i=(Kb + 1):2*Kb
             subplot(2,Kb,i);
             imagesc(pf(:,:,floor(logtpm.d(3)/2 + 1),i - Kb)'); axis image xy off; colormap(gray);
+            title(['push(pf), k=' num2str(i - Kb)]);
         end  
     end
     
@@ -1414,13 +1424,20 @@ end
 %=======================================================================
 function varargout = init_clusters(obj,buf,chan,Kb,K,N,nomiss,uniform,vr0,use_mog,vb)
 z0 = numel(buf);
-mn = 0; vr = 0; po = 0; pr = 0;
+mn = []; vr = []; po = []; pr = [];
 if use_mog
     % Starting estimates for Gaussian parameters
     %--------------------------------------------------------------    
+                 
     K   = Kb;
-    lkp = 1:Kb;                                                            
-    mg  = ones(1,K);            
+    lkp = 1:Kb;    
+    
+    if isfield(obj,'mg')
+        mg = obj.mg;
+    else
+        mg = ones(1,K); 
+    end
+        
     if ~uniform
         % Use data and template to estimate moments
         %------------------------------------------------------    
@@ -1433,12 +1450,26 @@ if use_mog
         %------------------------------------------------------
         mom = spm_kmeans2mom(buf,K,nomiss,vr0);
     end
-
-    if vb                                                
+    
+    if vb      
         % Use moments to compute initial Gaussian-Wishart
         % posteriors and priors
         %--------------------------------------------------
-        [lq,~,po,pr] = spm_GaussiansFromSuffStats(vb,mom);
+        
+        if isfield(obj,'po')
+            po = obj.po;
+        end
+        if isfield(obj,'pr')
+            pr = obj.pr;
+        end
+        
+        if ~isempty(po) && ~isempty(pr)
+            lq = spm_GaussiansFromSuffStats(vb,mom,po,pr);  
+        elseif ~isempty(pr)
+            [lq,~,po] = spm_GaussiansFromSuffStats(vb,mom,[],pr);
+        else
+            [lq,~,po,pr] = spm_GaussiansFromSuffStats(vb,mom);
+        end
 
         if uniform
             % Sort according to m values of first channel
@@ -1456,32 +1487,26 @@ if use_mog
         % Use moments to compute means and variances, and then use these
         % to initialise the Gaussians
         %--------------------------------------------------
-
-        [lq,~,mn,~,vr] = spm_GaussiansFromSuffStats(vb,mom,vr0);
+        
+        if isfield(obj,'mn')
+            mn = obj.mn;
+        end
+        if isfield(obj,'vr')
+            vr = obj.vr;
+        end
+        
+        if ~isempty(mn) && ~isempty(vr)
+            lq = spm_GaussiansFromSuffStats(vb,mom,vr0,mn,vr);
+        else
+            [lq,~,mn,~,vr] = spm_GaussiansFromSuffStats(vb,mom,vr0);
+        end                        
 
         if uniform
             % Sort according to m values of first channel
             [~,ix] = sort(mn(1,:),2);
             mn     = mn(:,ix);
         end
-    end 
-
-    if isfield(obj,'mg') && (isfield(obj,'po') && isfield(obj,'pr') || isfield(obj,'mn') && isfield(obj,'vr'))
-        % Parameters known
-        %----------------------------------------------------------
-        mg = obj.mg;
-        if vb
-            po = obj.po;
-            pr = obj.pr;
-
-            lq = spm_GaussiansFromSuffStats(vb,mom,po,pr);  
-        else
-            mn = obj.mn;
-            vr = obj.vr;
-
-            lq = spm_GaussiansFromSuffStats(vb,mom,vr0,mn,vr);
-        end
-    end   
+    end        
 else
     % Starting estimates for histograms
     %-----------------------------------------------------------------------    

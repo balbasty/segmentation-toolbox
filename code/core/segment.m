@@ -1,4 +1,5 @@
-function obj = segment(obj)
+function obj = segment(obj,fig)
+if nargin<2, fig = cell(4,1); end
 
 if obj.status~=0
     fprintf('s=%d --> obj.status~=0',obj.s)
@@ -51,33 +52,36 @@ elseif ~obj.use_tpm && obj.iter==2 && obj.dotpm
         obj = clear_pars(obj);
     end
 elseif ~obj.use_tpm && obj.iter==3 && obj.dotpm                      
-    % 3rd iteration
+    % 3rd iteration, after affine registration of estimted TPM
     %----------------------------------------------------------------------    
     if obj.clear_pars
         % Re-estimate cluster and bias field parameters based on template constructed after 2nd iteration
-        obj = clear_pars(obj);    
-        
+        obj            = clear_pars(obj);            
         obj.clear_pars = 0;
     end    
     
-    obj.dowp = obj.dowp0;
-elseif ~obj.use_tpm && obj.iter==4 && obj.dotpm       
-    % 4th iteration: start estimating deformations
-    %----------------------------------------------------------------------
+    obj.dowp  = obj.dowp0;
     obj.dodef = obj.dodef0; 
+% elseif ~obj.use_tpm && obj.iter==4 && obj.dotpm       
+%     % 4th iteration: start estimating deformations
+%     %----------------------------------------------------------------------
+%     obj.dodef = obj.dodef0; 
 end         
 
 % Run segmentation algorithm (spm_preprocx)
-obj = spm_preprocx(obj,logtpm);
-% obj.munum  = 0;
-% obj.muden  = 0;
-% obj.status = 0; % All OK   
-% try       
-%     obj = spm_preprocx(obj,logtpm);
-% catch ME
-%     % Error!
-%     obj.status = 1;
-%     str_output = ['Error in: ' obj.image(1).fname '\n' ME.message '\n'];
-%     fprintf(str_output)
-% end
+if ~isempty(fig{1})
+    obj = spm_preprocx(obj,logtpm,fig);
+else
+    obj.munum  = 0;
+    obj.muden  = 0;
+    obj.status = 0; % All OK   
+    try       
+        obj = spm_preprocx(obj,logtpm,fig);
+    catch ME
+        % Error!
+        obj.status = 1;
+        str_output = ['Error in: ' obj.image(1).fname '\n' ME.message '\n'];
+        fprintf(str_output)
+    end
+end
 %==========================================================================

@@ -47,10 +47,7 @@ clear msk vals
 [pth,nam,ext] = fileparts(fname);
 nfname        = fullfile(pth,['den_' nam ext]);
                 
-V.fname    = nfname;
-V.dim(1:3) = dm;
-V.mat      = mat;
-V.dt       = [4 0];
-V          = spm_create_vol(V);
+V       = spm_vol(fname);
+V.fname = nfname;
 spm_write_vol(V,Xhat{1});
 %==========================================================================

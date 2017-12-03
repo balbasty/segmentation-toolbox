@@ -1,12 +1,6 @@
 function spm_preprocx_run(obj,im,K)
 
 %==========================================================================
-% Prepare or disable parallel processing
-%==========================================================================
-
-manage_parpool(obj.num_workers);
-
-%==========================================================================
 % Make some directories
 %==========================================================================
 
@@ -34,7 +28,7 @@ obj = init_TPM(obj,V,K);
 % Initialise some debugging output
 %==========================================================================
 
-[obj.fig,fig_TPM,fig_L,obj.verbose] = create_fig(obj);
+[fig_seg,fig_TPM,fig_L,obj.verbose] = create_fig(obj);
 
 %==========================================================================
 % Initialise algorithm i/o 
@@ -42,10 +36,10 @@ obj = init_TPM(obj,V,K);
 
 nitermain    = obj.nitermain;
 tolmain      = obj.tolmain;
-dopr         = obj.dopr;
 dotpm        = obj.dotpm;
 vb           = obj.vb;
 use_mog      = ~isempty(obj.lkp);
+dopr         = obj.dopr && use_mog && vb;
 pth_logTPM   = obj.pth_logTPM;
 tiny         = obj.tiny;
 deg          = obj.deg;
@@ -53,11 +47,11 @@ fwhm_TPM     = obj.fwhm_TPM;
 mrf          = obj.mrf;
 dir_data     = obj.dir_data;
 dir_res      = obj.dir_res;
-num_workers  = obj.num_workers;
 run_on_holly = obj.run_on_holly;
 holly        = obj.holly; 
+num_workers  = obj.num_workers;
 
-pth_obj = get_pth_obj(obj,V,K,im,labels,num_workers,run_on_holly);
+pth_obj = get_pth_obj(obj,V,K,im,labels,run_on_holly);
 clear V obj
 
 %==========================================================================
@@ -78,31 +72,26 @@ for iter=1:nitermain
     fprintf('iter=%d======================\n',iter);  
                    
     % Update subject specific parameters (clusters, bias, affine, deformations, template derivatives)
-    [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly); 
+    [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly,fig_seg); 
      
+    % Plot objective value
     plot_objval(L,fig_L); 
         
     if dotpm
-        % Update the template 
+        % Update template 
         update_global_TPM(munum,muden,pth_logTPM,tiny,deg,fwhm_TPM,mrf,dir_res);                
               
         show_TPM(fig_TPM,pth_logTPM,tiny,deg);
     end  
     
-    if dopr && use_mog && vb && iter>=3                                      
-        % Update subject specific parameters (clusters, bias, deformations)
-        L = update_subjects(pth_obj,L,num_workers,run_on_holly,holly); 
-              
+    if dopr
         % Update intensity prior
         update_global_prior(pth_obj,dir_res,num_workers);
-        
-        plot_objval(L,fig_L);
     end
         
-    % Check convergence----------------------------------------------------
-    fprintf('L=%d\n',L(end));
-    
-    if ~(abs(L(end)-L(end - 1))>2*tolmain*Nm)        
+    % Check convergence
+    fprintf('L=%d\n',L(end));    
+    if ~(abs(L(end)-L(end - 1))>2*tolmain*Nm) && iter>9
         fprintf('==============================================\n')                        
         fprintf('Algorithm converged in %d iterations.\n',iter)                        
         fprintf('==============================================\n')                        
@@ -113,7 +102,7 @@ end
 %==========================================================================
 
 %==========================================================================
-function [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly)
+function [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly,fig)
 
 % Set flag deciding if template calculations should be performed in
 % spm_preproc or not
@@ -123,6 +112,8 @@ dotpm = nargout>=2;
 for m=1:M
     S         = numel(pth_obj{m});
     pth_obj_m = pth_obj{m};  
+%     for s=1:S
+    manage_parpool(num_workers);
     parfor (s=1:S,num_workers)
         obj          = matfile(pth_obj_m{s},'Writable',true);
         obj.diff_TPM = dotpm;  
@@ -137,7 +128,7 @@ if run_on_holly
 else 
     % Run subject specific jobs using MATLAB parfor
     %----------------------------------------------------------------------
-    [ll,munum,muden,Nm] =  parfor_matlab(pth_obj,num_workers);
+    [ll,munum,muden,Nm] = parfor_matlab(pth_obj,num_workers,fig);
 end
 L = [L,ll];
 
@@ -147,6 +138,7 @@ tot_status = 0;
 for m=1:M
     S         = numel(pth_obj{m});
     pth_obj_m = pth_obj{m};  
+    manage_parpool(num_workers);
     parfor (s=1:S,num_workers)
         tmp        = load(pth_obj_m{s},'-mat','status');       
         tot_status = tot_status + tmp.status;
@@ -158,17 +150,18 @@ end
 %==========================================================================
 
 %==========================================================================
-function [ll,munum,muden,Nm] =  parfor_matlab(pth_obj,num_workers)
+function [ll,munum,muden,Nm] =  parfor_matlab(pth_obj,num_workers,fig)
 M     = numel(pth_obj);
 munum = 0; muden = 0; ll = 0; Nm = 0;
 for m=1:M                    
     pth_obj_m = pth_obj{m};
     S         = numel(pth_obj_m);
-%         for s=1:S                                       
+%         for s=1:S            
+    manage_parpool(num_workers);
     parfor (s=1:S,num_workers)    
         % Run segmentation routine                               
         obj = load(pth_obj_m{s});            
-        obj = segment(obj);                                       
+        obj = segment(obj,fig);                                       
 
         if obj.status==0
             munum = munum + double(obj.munum);
@@ -189,30 +182,34 @@ obj = cell(1,M);
 
 % Load posteriors and priors from all subjects and store in struct
 for m=1:M
-    S         = numel(pth_obj{m});
-    pth_obj_m = pth_obj{m};
-    obj{m}    = cell(1,S);
-    obj_m     = obj{m};
-%     for s=1:S
-    parfor (s=1:S,num_workers)
-        tmp         = load(pth_obj_m{s},'-mat','po','pr');        
-        obj_m{s}.po = tmp.po;
-        obj_m{s}.pr = tmp.pr;
+    S      = numel(pth_obj{m});
+    obj{m} = {};
+    cnt    = 1;
+    for s=1:S
+        tmp = load(pth_obj{m}{s},'-mat','po','pr','status');        
+        if tmp.status==0
+            obj{m}{cnt}.po = tmp.po;
+            obj{m}{cnt}.pr = tmp.pr;
+            cnt            = cnt + 1;
+        end
     end
-    obj{m} = obj_m;
 end
 
 % Update prior based on posteriors and previous priors, then save new prior
 for m=1:M
-    pr  = update_intensity_prior(obj{m});
-    save(fullfile(dir_res,['pr_m' num2str(m) '.mat']),'pr'); 
-    
-    S         = numel(obj{m});
-    pth_obj_m = pth_obj{m};
-    parfor (s=1:S,num_workers)
-        obj1    = matfile(pth_obj_m{s},'Writable',true);
-        obj1.pr = pr;   
-    end          
+    if ~isempty(obj{m})
+        pr  = update_intensity_prior(obj{m});
+        save(fullfile(dir_res,['pr_m' num2str(m) '.mat']),'pr'); 
+
+        S         = numel(obj{m});
+        pth_obj_m = pth_obj{m};
+%         for s=1:S
+        manage_parpool(num_workers);
+        parfor (s=1:S,num_workers)
+            obj1    = matfile(pth_obj_m{s},'Writable',true);
+            obj1.pr = pr;   
+        end          
+    end
 end
 %==========================================================================        
 
@@ -285,6 +282,7 @@ if ~isempty(fig_TPM)
     for i=1:K    
         subplot(K1,K2,i);
         imagesc(b{i}(:,:,floor(logtpm.d(3)/2) + 1)'); axis image xy off; colormap(gray);
+        title(['mu, k=' num2str(i)]);
     end 
     clear b
     drawnow
@@ -297,11 +295,12 @@ if ~isempty(fig_L) && numel(L)>=3
     set(0,'CurrentFigure',fig_L);                
     plot(0:numel(L(3:end)) - 1,L(3:end),'b-','LineWidth',1);   hold on            
     plot(0:numel(L(3:end)) - 1,L(3:end),'b.','markersize',10); hold off  
+    title('Lower bound')
 end
 %==========================================================================
 
 %==========================================================================
-function pth_obj = get_pth_obj(obj0,V,K,im,labels,num_workers,run_on_holly)
+function pth_obj = get_pth_obj(obj0,V,K,im,labels,run_on_holly)
 dir_data = obj0.dir_data;
 dir_obj  = fullfile(dir_data,'obj');
 if exist(dir_obj,'dir'), rmdir(dir_obj,'s'); end; mkdir(dir_obj);
@@ -312,8 +311,7 @@ for m=1:M
     S          = numel(V{m});
     pth_obj{m} = cell(1,S);  
     pth_obj_m  = pth_obj{m};
-%     for s=1:S
-    parfor (s=1:S,num_workers)
+    for s=1:S
         obj = struct;
         
         obj.s      = s;
@@ -362,7 +360,6 @@ for m=1:M
         obj.dotpm    = obj0.dotpm;  
         obj.diff_TPM = obj0.dotpm;  
         obj.doaff    = obj0.doaff;
-        obj.dopr     = obj0.dopr;
         obj.dowp     = obj0.dowp;
         obj.dowp0    = obj0.dowp;
                 
@@ -383,8 +380,6 @@ for m=1:M
         obj.muden = 0;
         obj.ll    = 0;
         obj.nm    = 0;
-                    
-        obj.fig = obj0.fig; 
               
         obj.pth_logTPM = obj0.pth_logTPM;
         if run_on_holly
@@ -412,21 +407,21 @@ end
 %==========================================================================
 
 %==========================================================================
-function [fig,fig_TPM,fig_L,verbose] = create_fig(obj)
+function [fig_seg,fig_TPM,fig_L,verbose] = create_fig(obj)
 verbose     = obj.verbose;
 num_workers = obj.num_workers;
 figix       = obj.figix;
 dotpm       = obj.dotpm;
 
-fig = cell(4,1);
+fig_seg = cell(4,1);
 
 if verbose==2 && ~num_workers
     spm_figure('Create','Interactive');
     figure(figix)
 
-    for i=1:size(fig,1)              
-        fig{i} = figure(figix + i);
-        clf(fig{i})
+    for i=1:size(fig_seg,1)              
+        fig_seg{i} = figure(figix + i);
+        clf(fig_seg{i})
     end 
 end  
 
@@ -504,19 +499,6 @@ for k=1:K
 end
 munum = reshape(munum,[prod(d) K])';
 muden = reshape(muden,[prod(d) K])';
-%==========================================================================
-
-%==========================================================================
-function manage_parpool(num_workers)
-poolobj = gcp('nocreate');
-if ~isempty(poolobj)    
-    if num_workers==0
-        delete(poolobj);
-    elseif poolobj.NumWorkers~=num_workers
-        delete(poolobj);
-        parpool('local',num_workers);
-    end
-end
 %==========================================================================
 
 %==========================================================================

@@ -9,6 +9,7 @@ sc   = zeros(1,S*N);
 sd   = zeros(1,S*N);
 v    = zeros(1,S*N);
 sint = zeros(1,S*N);
+manage_parpool(num_workers);
 parfor (s=1:S,num_workers)
     for n=1:N
         [~,sc(s),sd(s),v(s),sint(s)] = compute_img_stats(V{s}(n).fname,descrip);

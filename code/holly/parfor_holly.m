@@ -33,6 +33,7 @@ while 1,
             S         = numel(pth_obj{m});
             pth_obj_m = pth_obj{m};                
 %                 for s=1:S
+            manage_parpool(num_workers);
             parfor (s=1:S,num_workers)
                 obj = load(pth_obj_m{s},'-mat','munum','muden','ll','nm');
 

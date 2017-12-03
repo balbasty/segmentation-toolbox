@@ -11,8 +11,8 @@ N = size(s1,1);
 
 if isempty(pr)
     m0 = s1;
-    b0 = s0*ones(1,K);
-    n0 = s0*ones(1,K);
+    b0 = 0.1*s0*ones(1,K);
+    n0 = 0.1*s0*ones(1,K);
     W0 = zeros(N,N,K);
     for k1=1:K
         W0(:,:,k1) = inv(S2(:,:,k1))/n0(k1);
