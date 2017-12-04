@@ -196,6 +196,7 @@ for m=1:M1
     end
 end
 save(fullfile(dir_res,'pr.mat'),'pr'); 
+clear obj
 
 for m=1:M  
     m1        = img_mod(m);
@@ -205,8 +206,11 @@ for m=1:M
 %     for s=1:S    
     manage_parpool(num_workers);
     parfor (s=1:S,num_workers)
-        obj1    = matfile(pth_obj_m{s},'Writable',true);
-        obj1.pr = prm;   
+            obj    = load(pth_obj_m{s},'-mat');   
+            obj.pr = prm;   
+            save_in_parfor(pth_obj_m{s},obj,'-struct');                    
+%         obj1    = matfile(pth_obj_m{s},'Writable',true);
+%         obj1.pr = prm;   
     end              
 end
 %==========================================================================        
