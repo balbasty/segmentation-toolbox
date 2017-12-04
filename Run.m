@@ -12,7 +12,7 @@ obj.run_on_holly     = 1;
 obj.holly.jnam       = 'seg-ACHI';
 obj.holly.jnam_dummy = 'dummy-ACHI';
 obj.holly.RAM        = 6;
-obj.holly.split      = 4;
+obj.holly.split      = 8;
 
 %--------------------------------------------------------------------------
 % Define data cell array, which should contain the following:

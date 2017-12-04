@@ -22,7 +22,7 @@ if run_on_holly
     end
     
     if split>holly.t
-        split = min(holly.t,4);
+        split = min(holly.t,8);
     end
     
     holly.t = ceil(holly.t/split);
