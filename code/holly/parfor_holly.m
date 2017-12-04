@@ -1,4 +1,6 @@
 function [ll,munum,muden,Nm] = parfor_holly(pth_obj,holly,num_workers)
+pause(4);
+
 % Submit subject specific jobs
 tic;
 cmd             = ['sshpass -p "' holly.password '" ssh -o StrictHostKeyChecking=no ' holly.username '@holly "source /etc/profile;/opt/gridengine/bin/linux-x64/qsub -l vf=' num2str(holly.RAM) 'G -l h_vmem=' num2str(holly.RAM) 'G ' holly.pth_script_parfor '"'];        
@@ -20,7 +22,7 @@ fprintf(result)
 
 while 1, 
     % Check if dummy job has finished
-    pause(1);
+    pause(4);
 
     cmd             = ['sshpass -p "' holly.password '" ssh -o StrictHostKeyChecking=no ' holly.username '@holly "source /etc/profile;/opt/gridengine/bin/linux-x64/qstat | grep ' holly.jnam_dummy '"'];        
     [status,result] = system(cmd);   

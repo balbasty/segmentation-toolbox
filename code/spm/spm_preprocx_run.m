@@ -145,7 +145,9 @@ for m=1:M
     end
 end
 if tot_status
-    fprintf('%d number of job(s) failed.\n',tot_status);
+    fprintf(2,'==============================================\n');
+    fprintf(2,'%d job(s) with status~=0\n',tot_status);
+    fprintf(2,'==============================================\n\n');
 end
 %==========================================================================
 
