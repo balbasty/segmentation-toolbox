@@ -6,12 +6,12 @@ if num_workers>nw
 end
     
 poolobj = gcp('nocreate');
-if ~isempty(poolobj)    
-    if num_workers==0
-        delete(poolobj);
-    elseif poolobj.NumWorkers~=num_workers
-        delete(poolobj);
-        parpool('local',num_workers);
-    end
+if ~isempty(poolobj) && num_workers==0
+    delete(poolobj);
+elseif ~isempty(poolobj) && poolobj.NumWorkers~=num_workers
+    delete(poolobj);
+    parpool('local',num_workers);
+elseif isempty(poolobj) && num_workers
+    parpool('local',num_workers);
 end
 %==========================================================================

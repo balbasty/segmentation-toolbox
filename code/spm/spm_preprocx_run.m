@@ -86,7 +86,7 @@ for iter=1:nitermain
     
     if dopr
         % Update intensity prior
-        update_global_prior(pth_obj,dir_res,num_workers);
+        update_global_prior(pth_obj,im,dir_res,num_workers);
     end
         
     % Check convergence
@@ -176,40 +176,53 @@ end
 %==========================================================================
 
 %==========================================================================
-function update_global_prior(pth_obj,dir_res,num_workers)
-M   = numel(pth_obj);
-obj = cell(1,M);
+function update_global_prior(pth_obj,im,dir_res,num_workers)
+M = numel(im);
+
+% Map modalities
+img_mod = cell(1,M);
+for m=1:M
+    img_mod{m} = im{m}{3};
+end
+[~,M1,img_mod] = unique(img_mod);
+M1             = numel(M1);
 
 % Load posteriors and priors from all subjects and store in struct
+obj = cell(1,M1);
 for m=1:M
-    S      = numel(pth_obj{m});
-    obj{m} = {};
-    cnt    = 1;
+    m1     = img_mod(m);
+    S      = numel(pth_obj{m});    
+    cnt    = numel(obj{m1});
     for s=1:S
         tmp = load(pth_obj{m}{s},'-mat','po','pr','status');        
         if tmp.status==0
-            obj{m}{cnt}.po = tmp.po;
-            obj{m}{cnt}.pr = tmp.pr;
             cnt            = cnt + 1;
+            obj{m1}{cnt}.po = tmp.po;
+            obj{m1}{cnt}.pr = tmp.pr;            
         end
     end
 end
 
 % Update prior based on posteriors and previous priors, then save new prior
-for m=1:M
+pr = cell(1,M1);
+for m=1:M1
     if ~isempty(obj{m})
-        pr  = update_intensity_prior(obj{m});
-        save(fullfile(dir_res,['pr_m' num2str(m) '.mat']),'pr'); 
-
-        S         = numel(obj{m});
-        pth_obj_m = pth_obj{m};
-%         for s=1:S
-        manage_parpool(num_workers);
-        parfor (s=1:S,num_workers)
-            obj1    = matfile(pth_obj_m{s},'Writable',true);
-            obj1.pr = pr;   
-        end          
+        pr{m} = update_intensity_prior(obj{m});        
     end
+end
+save(fullfile(dir_res,'pr.mat'),'pr'); 
+
+for m=1:M  
+    m1        = img_mod(m);
+    prm       = pr{m1};
+    S         = numel(pth_obj{m});
+    pth_obj_m = pth_obj{m};
+%     for s=1:S    
+    manage_parpool(num_workers);
+    parfor (s=1:S,num_workers)
+        obj1    = matfile(pth_obj_m{s},'Writable',true);
+        obj1.pr = prm;   
+    end              
 end
 %==========================================================================        
 

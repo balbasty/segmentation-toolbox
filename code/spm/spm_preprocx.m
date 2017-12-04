@@ -275,7 +275,7 @@ for z=1:length(z0)
         end
        
         % Eliminate unwanted voxels
-        if scrand(n)
+        if strcmp(descrip,'MRI') % OBS: Need to be fixed => assumes that CT images are denoised, hence not integer valued...
             % The variances used in a GMM may not be ideal because of the
             % discretisation of image intensities (Data is an integer
             % type), so to prevent aliasing in the histogram, small random
