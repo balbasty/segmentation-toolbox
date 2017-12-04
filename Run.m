@@ -45,7 +45,7 @@ obj.pth_logTPM = ''; % Path to existing template (set to '' for estimating a tem
 
 %--------------------------------------------------------------------------
 % Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
-obj.num_workers = 4;
+obj.num_workers = 2;
 
 %--------------------------------------------------------------------------
 % Preprocessing options

@@ -5,7 +5,10 @@ function spm_preprocx_run(obj,im,K)
 %==========================================================================
 
 if obj.run_on_holly
-    [~,obj.dir_data,~] = read_directory_details('directory_details.txt',obj.holly.jnam);    
+    [~,obj.dir_data,~] = read_directory_details('directory_details.txt',obj.holly.jnam);  
+    if obj.num_workers
+        obj.num_workers = 2;
+    end
 end
 
 if ~exist(obj.dir_data,'dir'), mkdir(obj.dir_data); end
