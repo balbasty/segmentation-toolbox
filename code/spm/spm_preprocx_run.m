@@ -104,23 +104,6 @@ end
 %==========================================================================
 function [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly,fig)
 
-% Set flag deciding if template calculations should be performed in
-% spm_preproc or not
-%--------------------------------------------------------------------------
-M     = numel(pth_obj);
-dotpm = nargout>=2;
-for m=1:M
-    S         = numel(pth_obj{m});
-    pth_obj_m = pth_obj{m};  
-%     for s=1:S
-    manage_parpool(num_workers);
-    parfor (s=1:S,num_workers)
-        obj          = matfile(pth_obj_m{s},'Writable',true);
-        obj.diff_TPM = dotpm;  
-    end
-end
-
-
 if run_on_holly
     % Run subject specific jobs on the FIL cluster (Holly)
     %----------------------------------------------------------------------            
