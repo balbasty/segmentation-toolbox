@@ -8,7 +8,7 @@ K = 16; % Number of classes (if a template is used, then K will be set to the nu
 
 %--------------------------------------------------------------------------
 % Options for running algorithm on the FIL cluster (Holly)
-obj.run_on_holly     = 0;
+obj.run_on_holly     = 1;
 obj.holly.jnam       = 'seg-ACHI';
 obj.holly.jnam_dummy = 'dummy-ACHI';
 obj.holly.RAM        = 6;
@@ -24,16 +24,16 @@ im = {};
 
 % 2D
 % im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-aged-2D-den',S(1),'CT','healthy',''};
-im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-CHROMIS-2D-den',S(1),'CT','healthy',''};
-im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-healthy-2D-den',S(2),'CT','healthy',''};
-im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/IXI-2D',S(3),'MRI','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-CHROMIS-2D-den',S(1),'CT','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-healthy-2D-den',S(2),'CT','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/IXI-2D',S(3),'MRI','healthy',''};
 % im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/OASIS-long-2D',S,'MRI','healthy',''};
 
 % 3D
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-aged-noneck-den',S,'CT','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck-den',S,'CT','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-noneck-den',S,'CT','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck',S,'MRI','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck-den',S(1),'CT','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-noneck-den',S(2),'CT','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck',S(3),'MRI','healthy',''};
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/OASIS-long-noneck',S,'MRI','healthy',''};
 
 % browse_subjects(im{1}{1});

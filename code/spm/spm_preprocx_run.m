@@ -86,7 +86,7 @@ for iter=1:nitermain
     
     if dopr
         % Update intensity prior
-        update_global_prior(pth_obj,im,dir_res);
+        update_global_prior(pth_obj,im);
     end
         
     % Check convergence
@@ -109,36 +109,26 @@ function [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly
 if run_on_holly
     % Run subject specific jobs on the FIL cluster (Holly)
     %----------------------------------------------------------------------            
-    [ll,munum,muden,Nm] = parfor_holly(pth_obj,holly);
+    [ll,munum,muden,Nm,status] = parfor_holly(pth_obj,holly);
 else 
     % Run subject specific jobs using MATLAB parfor
     %----------------------------------------------------------------------
-    [ll,munum,muden,Nm] = parfor_matlab(pth_obj,num_workers,fig);
+    [ll,munum,muden,Nm,status] = parfor_matlab(pth_obj,num_workers,fig);
 end
 L = [L,ll];
 
-% Display how many segmentations have errored
-%--------------------------------------------------------------------------
-M          = numel(pth_obj);
-tot_status = 0;
-for m=1:M
-    S = numel(pth_obj{m});
-    for s=1:S
-        tmp        = matfile(pth_obj{m}{s});
-        tot_status = tot_status + tmp.status;
-    end
-end
-if tot_status
+if status
+    % Display how many segmentations have errored
     fprintf(2,'==============================================\n');
-    fprintf(2,'%d job(s) with status~=0\n',tot_status);
+    fprintf(2,'%d job(s) with status~=0\n',status);
     fprintf(2,'==============================================\n\n');
 end
 %==========================================================================
 
 %==========================================================================
-function [ll,munum,muden,Nm] =  parfor_matlab(pth_obj,num_workers,fig)
+function [ll,munum,muden,Nm,tot_status] =  parfor_matlab(pth_obj,num_workers,fig)
 M     = numel(pth_obj);
-munum = 0; muden = 0; ll = 0; Nm = 0;
+munum = 0; muden = 0; ll = 0; Nm = 0; tot_status = 0;
 for m=1:M                    
     pth_obj_m = pth_obj{m};
     S         = numel(pth_obj_m);
@@ -149,18 +139,15 @@ for m=1:M
         % Run segmentation routine         
         obj = segment(obj,fig);                                       
 
+        tot_status = tot_status + obj.status;
         if obj.status==0
             Nii    = nifti(obj.pth_munum);
-            munum1 = Nii.dat(:,:); 
-            Nii    = [];
+            munum1 = Nii.dat(:,:,:,:); 
             munum  = munum + double(munum1);
-            munum1 = [];
             
             Nii    = nifti(obj.pth_muden);
-            muden1 = Nii.dat(:,:); 
-            Nii    = [];
+            muden1 = Nii.dat(:,:,:,:); 
             muden  = muden + double(muden1);
-            muden1 = [];
                    
             ll = ll + obj.ll;
             Nm = Nm + obj.nm;
@@ -172,7 +159,8 @@ end
 %==========================================================================
 
 %==========================================================================
-function update_global_prior(pth_obj,im,dir_res)
+function update_global_prior(pth_obj,im)
+tic
 M = numel(im);
 
 % Map modalities
@@ -182,6 +170,8 @@ for m=1:M
 end
 [~,M1,img_mod] = unique(img_mod);
 M1             = numel(M1);
+% img_mod = 1:M;
+% M1      = M;
 
 % Load posteriors and priors from all subjects and store in struct
 obj = cell(1,M1);
@@ -190,7 +180,7 @@ for m=1:M
     S      = numel(pth_obj{m});    
     cnt    = numel(obj{m1});
     for s=1:S
-        tmp = matfile(pth_obj{m}{s});
+        tmp = load(pth_obj{m}{s},'-mat','po','pr','status');
         if tmp.status==0
             cnt             = cnt + 1;
             obj{m1}{cnt}.po = tmp.po;
@@ -206,7 +196,6 @@ for m=1:M1
         pr{m} = update_intensity_prior(obj{m});        
     end
 end
-save(fullfile(dir_res,'pr.mat'),'pr'); 
 clear obj
 
 for m=1:M  
@@ -217,6 +206,7 @@ for m=1:M
         obj1.pr = pr{m1};   
     end              
 end
+toc
 %==========================================================================        
 
 %==========================================================================
@@ -229,11 +219,10 @@ dm  = d(1:3);
 K   = d(4);
 
 % Smooth template
-[munum,muden] = smooth_template(munum,muden,dm,fwhm_TPM);
+[munum,muden] = smooth_template(munum,muden,fwhm_TPM);
 
 % Update template
 logmu            = log(munum./muden + tiny);
-logmu            = reshape(logmu',[dm K]);                                          
 Nii.dat(:,:,:,:) = logmu;        
 clear munum muden
 
@@ -329,6 +318,7 @@ for m=1:M
     S          = numel(V{m});
     pth_obj{m} = cell(1,S);  
     for s=1:S
+        fprintf('.')
         obj = struct;
         
         obj.s      = s;
@@ -414,22 +404,42 @@ for m=1:M
         [x0,~,~] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
         z0       = 1:sk(3):d0(3);
         dm       = [size(x0) length(z0) 3];
-        clear x0 z0 sk vx d0
+        x0 = []; z0 = []; sk = []; vx = []; d0 = [];
         
         pth_def     = fullfile(dir_def,['def-m' num2str(m) '-s' num2str(s) '.nii']);               
-        create_nii(pth_def,zeros(dm),eye(4),'float32','def')
+        create_nii(pth_def,zeros(dm,'single'),eye(4),'float32','def')
         obj.pth_def = pth_def;
         
+        if run_on_holly        
+            fname       = pth_def;
+            nfname      = ['/' fname(7:end)];
+            obj.pth_def = nfname;                        
+        end    
+        
         % Allocate template updates
-        dm = [K prod(V_tpm(1).dim)];
+        dm = [V_tpm(1).dim K];
         
         pth_munum     = fullfile(dir_munum,['munum-m' num2str(m) '-s' num2str(s) '.nii']);               
         create_nii(pth_munum,zeros(dm,'single'),eye(4),'float32','munum')
-        obj.pth_munum = pth_munum;
+        obj.pth_munum   = pth_munum;        
+        
+        if run_on_holly        
+            obj.pth_munum_l = pth_munum;
+            fname           = pth_munum;
+            nfname          = ['/' fname(7:end)];
+            obj.pth_munum   = nfname;                        
+        end   
         
         pth_muden     = fullfile(dir_muden,['muden-m' num2str(m) '-s' num2str(s) '.nii']);               
         create_nii(pth_muden,zeros(dm,'single'),eye(4),'float32','muden')
-        obj.pth_muden = pth_muden;
+        obj.pth_muden   = pth_muden;        
+        
+        if run_on_holly        
+            obj.pth_muden_l = pth_muden;
+            fname           = pth_muden;
+            nfname          = ['/' fname(7:end)];
+            obj.pth_muden   = nfname;                        
+        end   
         
         % Allocate labels
 %         obj.labels  = labels{m}{s}; 
@@ -437,9 +447,10 @@ for m=1:M
         % Store path to obj        
         pth_obj{m}{s} = fullfile(dir_obj,['obj-m' num2str(m) '-s' num2str(s) '.mat']);
         
-        save(pth_obj{m}{s},'-struct','obj')
+        save(pth_obj{m}{s},'-struct','obj');
     end
 end
+fprintf('\n')
 %==========================================================================
 
 %==========================================================================
@@ -518,12 +529,10 @@ end
 %==========================================================================
 
 %==========================================================================
-function [munum,muden] = smooth_template(munum,muden,d,fwhm)
-if nargin<4, fwhm = 0.5; end
+function [munum,muden] = smooth_template(munum,muden,fwhm)
+if nargin<3, fwhm = 0.5; end
 
-K     = size(munum,1);
-munum = reshape(munum',[d K]);
-muden = reshape(muden',[d K]);
+K = size(munum,4);
 for k=1:K
     img = munum(:,:,:,k);            
     img = smooth_img(img,fwhm);
@@ -533,8 +542,6 @@ for k=1:K
     img = smooth_img(img,fwhm);
     muden(:,:,:,k) = img;
 end
-munum = reshape(munum,[prod(d) K])';
-muden = reshape(muden,[prod(d) K])';
 %==========================================================================
 
 %==========================================================================

@@ -1128,8 +1128,8 @@ if diff_TPM && use_mog
     munum(~isfinite(munum)) = 0;
     clear wmupf
     
-    Nii          = nifti(obj.pth_munum);
-    Nii.dat(:,:) = single(munum); 
+    Nii              = nifti(obj.pth_munum);
+    Nii.dat(:,:,:,:) = reshape(single(munum'),[dtpm Kb]); 
     clear Nii munum
     
     % w/sum(w*mu,k)
@@ -1138,8 +1138,8 @@ if diff_TPM && use_mog
     muden(~isfinite(muden)) = 0; 
     clear wmu
     
-    Nii          = nifti(obj.pth_muden);
-    Nii.dat(:,:) = single(muden); 
+    Nii              = nifti(obj.pth_muden);
+    Nii.dat(:,:,:,:) = reshape(single(muden'),[dtpm Kb]); 
     clear Nii muden
 end
 
