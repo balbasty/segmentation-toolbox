@@ -8,13 +8,13 @@ end
 
 if obj.diff_TPM                
     obj.iter = obj.iter + 1;
-    fprintf('iter=%d, m=%d, s=%d (TPM)\n',obj.iter,obj.m,obj.s);                  
+    fprintf('iter=%d, m=%d, s=%d\n',obj.iter,obj.m,obj.s);                  
 
     if obj.iter==2
         obj.uniform = 0;
     end
 else
-    fprintf('iter=%d, m=%d, s=%d (prior)\n',obj.iter,obj.m,obj.s);  
+    fprintf('iter=%d, m=%d, s=%d (no TPM)\n',obj.iter,obj.m,obj.s);  
 end          
 
 % Load template
@@ -62,10 +62,6 @@ elseif ~obj.use_tpm && obj.iter==3 && obj.dotpm
     
     obj.dowp  = obj.dowp0;
     obj.dodef = obj.dodef0; 
-% elseif ~obj.use_tpm && obj.iter==4 && obj.dotpm       
-%     % 4th iteration: start estimating deformations
-%     %----------------------------------------------------------------------
-%     obj.dodef = obj.dodef0; 
 end         
 
 % Run segmentation algorithm (spm_preprocx)

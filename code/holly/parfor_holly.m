@@ -1,4 +1,4 @@
-function [ll,munum,muden,Nm] = parfor_holly(pth_obj,holly,num_workers)
+function [ll,munum,muden,Nm] = parfor_holly(pth_obj,holly)
 pause(4);
 
 % Submit subject specific jobs
@@ -32,17 +32,26 @@ while 1,
         M     = numel(pth_obj);
         munum = 0; muden = 0; ll = 0; Nm = 0;
         for m=1:M
-            S         = numel(pth_obj{m});
-            pth_obj_m = pth_obj{m};                
-%                 for s=1:S
-            manage_parpool(num_workers);
-            parfor (s=1:S,num_workers)
-                obj = load(pth_obj_m{s},'-mat','munum','muden','ll','nm');
+            S  = numel(pth_obj{m});             
+            for s=1:S
+                obj = matfile(pth_obj{m});
+                
+                if obj.status==0
+                    Nii    = nifti(obj.pth_munum);
+                    munum1 = Nii.dat(:,:); 
+                    Nii    = [];
+                    munum  = munum + double(munum1);
+                    munum1 = [];
 
-                munum = munum + obj.munum;
-                muden = muden + obj.muden;
-                ll    = ll    + obj.ll;
-                Nm    = Nm    + obj.nm;
+                    Nii    = nifti(obj.pth_muden);
+                    muden1 = Nii.dat(:,:); 
+                    Nii    = [];
+                    muden  = muden + double(muden1);
+                    muden1 = [];                
+
+                    ll = ll + obj.ll;
+                    Nm = Nm + obj.nm;
+                end
             end
         end
 

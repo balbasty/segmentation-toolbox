@@ -46,6 +46,10 @@ nitdef     = obj.nitdef;
 dobias   = obj.dobias;
 dodef    = obj.dodef;
 dowp     = obj.dowp;
+dotpm    = obj.dotpm;
+
+def_done0 = obj.def_done;
+def_done  = 0;
 
 diff_TPM = obj.diff_TPM;
 
@@ -98,12 +102,10 @@ sk4    = reshape(sk,[1 1 1 3]);
 % Dimensions of sub-sampled image
 d      = [size(x0) length(z0)];
 
-if isfield(obj,'Twarp')
-    Twarp = obj.Twarp; 
-else
-    Twarp = zeros([d,3],'single');
-end
-llr = -0.5*sum(sum(sum(sum(Twarp.*bsxfun(@times,spm_diffeo('vel2mom',bsxfun(@times,Twarp,1./sk4),param),1./sk4)))));
+Nii   = nifti(obj.pth_def);
+Twarp = single(Nii.dat(:,:,:,:)); 
+clear Nii
+llr   = -0.5*sum(sum(sum(sum(Twarp.*bsxfun(@times,spm_diffeo('vel2mom',bsxfun(@times,Twarp,1./sk4),param),1./sk4)))));
 
 % Initialise bias correction
 %-----------------------------------------------------------------------
@@ -742,7 +744,7 @@ for iter=1:niter
     if dodef && iter<niter
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Estimate deformations
-        %------------------------------------------------------------        
+        %------------------------------------------------------------                        
         
         % Compute likelihoods, and save them in buf.mu
         ll_const = 0;
@@ -878,31 +880,54 @@ for iter=1:niter
             end
 
             % Heavy-to-light regularisation
-            if ~isfield(obj,'Twarp')
-                switch iter
-                case 1
-                    prm = [param(1:3) 256*param(4:8)];
-                case 2
-                    prm = [param(1:3) 128*param(4:8)];
-                case 3
-                    prm = [param(1:3)  64*param(4:8)];
-                case 4
-                    prm = [param(1:3)  32*param(4:8)];
-                case 5
-                    prm = [param(1:3)  16*param(4:8)];
-                case 6
-                    prm = [param(1:3)  8*param(4:8)];
-                case 7
-                    prm = [param(1:3)  4*param(4:8)];
-                case 8
-                    prm = [param(1:3)  2*param(4:8)];
-                otherwise
-                    prm = [param(1:3)    param(4:8)];
-                end
+            if dotpm
+                switch (obj.iter - 2)
+                    case 1
+                        prm = [param(1:3) 256*param(4:8)];
+                    case 2
+                        prm = [param(1:3) 128*param(4:8)];
+                    case 3
+                        prm = [param(1:3)  64*param(4:8)];
+                    case 4
+                        prm = [param(1:3)  32*param(4:8)];
+                    case 5
+                        prm = [param(1:3)  16*param(4:8)];
+                    case 6
+                        prm = [param(1:3)  8*param(4:8)];
+                    case 7
+                        prm = [param(1:3)  4*param(4:8)];
+                    case 8
+                        prm = [param(1:3)  2*param(4:8)];
+                    otherwise
+                        prm = [param(1:3)    param(4:8)];
+                end               
             else
-                prm = [param(1:3)   param(4:8)];
+                if ~def_done0
+                    switch iter
+                        case 1
+                            prm = [param(1:3) 256*param(4:8)];
+                        case 2
+                            prm = [param(1:3) 128*param(4:8)];
+                        case 3
+                            prm = [param(1:3)  64*param(4:8)];
+                        case 4
+                            prm = [param(1:3)  32*param(4:8)];
+                        case 5
+                            prm = [param(1:3)  16*param(4:8)];
+                        case 6
+                            prm = [param(1:3)  8*param(4:8)];
+                        case 7
+                            prm = [param(1:3)  4*param(4:8)];
+                        case 8
+                            prm = [param(1:3)  2*param(4:8)];
+                        otherwise
+                            prm = [param(1:3)    param(4:8)];
+                    end
+                else
+                    prm = [param(1:3)   param(4:8)];
+                end
             end
-
+            
             % Add in the first derivatives of the prior term
             Beta   = Beta  + spm_diffeo('vel2mom',bsxfun(@times,Twarp,1./sk4),prm);
 
@@ -966,13 +991,14 @@ for iter=1:niter
                     my_fprintf('Warp:\t%g\t%g\t%g\t%g :o(\t(%g)\n',ll1,lq,llr1,llrb,armijo,verbose);                    
                     armijo = armijo*0.75;
                 else
-                    % Better. Accept the new solution.
+                    % Better. Accept the new solution.                    
                     spm_plot_convergence('Set',ll1); 
                     my_fprintf('Warp:\t%g\t%g\t%g\t%g :o)\t(%g)\n',ll1,lq,llr1,llrb,armijo,verbose);
-                    ll     = ll1;
-                    lq     = lq1;
-                    llr    = llr1;
-                    Twarp  = Twarp1;
+                    ll       = ll1;
+                    lq       = lq1;
+                    llr      = llr1;
+                    Twarp    = Twarp1;
+                    def_done = 1;
                     break
                 end
             end
@@ -1048,11 +1074,13 @@ if diff_TPM && use_mog
     
     % Push likelihoods (in subject space) to template space 
     %-----------------------------------------------------------
-    t       = identity(d) + bsxfun(@times,Twarp,1./sk4); 
-    MM      = M*MT;
-    t       = affine_transf(MM,t);         
+    t      = identity(d) + bsxfun(@times,Twarp,1./sk4); 
+    MM     = M*MT;
+    t      = affine_transf(MM,t);         
     [pf,c] = spm_diffeo('pushc',pf,t,dtpm);
     clear t                
+    
+    pf = double(pf);
     
     msk       = isfinite(pf);    
     msk       = bsxfun(@and,msk,c>0);
@@ -1078,7 +1106,7 @@ if diff_TPM && use_mog
     nmu = prod(dtpm); % number of template voxels
     
     % log(mu)
-    logmu = zeros([Kb nmu],'single'); 
+    logmu = zeros([Kb nmu]); 
     for k=1:Kb
         logmu(k,:) = reshape(logtpm.dat{k},[1 nmu]);
     end
@@ -1096,26 +1124,36 @@ if diff_TPM && use_mog
     clear pf
 
     % w*mu*P(f|theta)/sum(w*mu*P(f|theta),k)
-    munum = bsxfun(@rdivide,wmupf,sum(double(wmupf),1)); % numerator of update
+    munum = bsxfun(@rdivide,wmupf,sum(wmupf,1)); % numerator of update
     munum(~isfinite(munum)) = 0;
     clear wmupf
     
+    Nii          = nifti(obj.pth_munum);
+    Nii.dat(:,:) = single(munum); 
+    clear Nii munum
+    
     % w/sum(w*mu,k)
-    wmu   = 1./sum(double(wmu),1);     
+    wmu   = 1./sum(wmu,1);     
     muden = bsxfun(@times,wmu,exp(logwp)); % denominator of update
-    muden(~isfinite(muden)) = 0;    
-else
-    munum = 0;
-    muden = 0;
+    muden(~isfinite(muden)) = 0; 
+    clear wmu
+    
+    Nii          = nifti(obj.pth_muden);
+    Nii.dat(:,:) = single(muden); 
+    clear Nii muden
 end
 
 % Save the results
-obj.Twarp = Twarp;
-obj.Tbias = {chan(:).T};
-obj.mg    = mg;
-obj.wp    = wp;
-obj.ll    = ll;
-obj.nm    = nm;
+Nii              = nifti(obj.pth_def);
+Nii.dat(:,:,:,:) = single(Twarp); 
+clear Nii
+
+obj.def_done = def_done;
+obj.Tbias    = {chan(:).T};
+obj.mg       = mg;
+obj.wp       = wp;
+obj.ll       = ll;
+obj.nm       = nm;
 if use_mog && vb
     obj.po = po;
     obj.pr = pr;
@@ -1123,8 +1161,6 @@ elseif use_mog
     obj.mn = mn;
     obj.vr = vr;
 end
-obj.munum = munum;
-obj.muden = muden;
     
 return;
 %=======================================================================

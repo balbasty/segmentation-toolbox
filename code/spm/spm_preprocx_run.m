@@ -7,7 +7,7 @@ function spm_preprocx_run(obj,im,K)
 if obj.run_on_holly
     [~,obj.dir_data,~] = read_directory_details('directory_details.txt',obj.holly.jnam);  
     if obj.num_workers
-        obj.num_workers = 2;
+        obj.num_workers = 0;
     end
 end
 
@@ -89,7 +89,7 @@ for iter=1:nitermain
     
     if dopr
         % Update intensity prior
-        update_global_prior(pth_obj,im,dir_res,num_workers);
+        update_global_prior(pth_obj,im,dir_res);
     end
         
     % Check convergence
@@ -110,7 +110,7 @@ function [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly
 if run_on_holly
     % Run subject specific jobs on the FIL cluster (Holly)
     %----------------------------------------------------------------------            
-    [ll,munum,muden,Nm] = parfor_holly(pth_obj,holly,num_workers);
+    [ll,munum,muden,Nm] = parfor_holly(pth_obj,holly);
 else 
     % Run subject specific jobs using MATLAB parfor
     %----------------------------------------------------------------------
@@ -120,13 +120,12 @@ L = [L,ll];
 
 % Display how many segmentations have errored
 %--------------------------------------------------------------------------
+M          = numel(pth_obj);
 tot_status = 0;
 for m=1:M
-    S         = numel(pth_obj{m});
-    pth_obj_m = pth_obj{m};  
-    manage_parpool(num_workers);
-    parfor (s=1:S,num_workers)
-        tmp        = load(pth_obj_m{s},'-mat','status');       
+    S = numel(pth_obj{m});
+    for s=1:S
+        tmp        = matfile(pth_obj{m}{s});
         tot_status = tot_status + tmp.status;
     end
 end
@@ -144,18 +143,28 @@ munum = 0; muden = 0; ll = 0; Nm = 0;
 for m=1:M                    
     pth_obj_m = pth_obj{m};
     S         = numel(pth_obj_m);
-%         for s=1:S            
     manage_parpool(num_workers);
-    parfor (s=1:S,num_workers)    
-        % Run segmentation routine                               
+    parfor (s=1:S,num_workers)                                  
         obj = load(pth_obj_m{s});            
+        
+        % Run segmentation routine         
         obj = segment(obj,fig);                                       
 
         if obj.status==0
-            munum = munum + double(obj.munum);
-            muden = muden + double(obj.muden);            
-            ll    = ll + obj.ll;
-            Nm    = Nm + obj.nm;
+            Nii    = nifti(obj.pth_munum);
+            munum1 = Nii.dat(:,:); 
+            Nii    = [];
+            munum  = munum + double(munum1);
+            munum1 = [];
+            
+            Nii    = nifti(obj.pth_muden);
+            muden1 = Nii.dat(:,:); 
+            Nii    = [];
+            muden  = muden + double(muden1);
+            muden1 = [];
+                   
+            ll = ll + obj.ll;
+            Nm = Nm + obj.nm;
         end
 
         save_in_parfor(pth_obj_m{s},obj,'-struct');
@@ -164,7 +173,7 @@ end
 %==========================================================================
 
 %==========================================================================
-function update_global_prior(pth_obj,im,dir_res,num_workers)
+function update_global_prior(pth_obj,im,dir_res)
 M = numel(im);
 
 % Map modalities
@@ -182,9 +191,9 @@ for m=1:M
     S      = numel(pth_obj{m});    
     cnt    = numel(obj{m1});
     for s=1:S
-        tmp = load(pth_obj{m}{s},'-mat','po','pr','status');        
+        tmp = matfile(pth_obj{m}{s});
         if tmp.status==0
-            cnt            = cnt + 1;
+            cnt             = cnt + 1;
             obj{m1}{cnt}.po = tmp.po;
             obj{m1}{cnt}.pr = tmp.pr;            
         end
@@ -203,17 +212,10 @@ clear obj
 
 for m=1:M  
     m1        = img_mod(m);
-    prm       = pr{m1};
     S         = numel(pth_obj{m});
-    pth_obj_m = pth_obj{m};
-%     for s=1:S    
-    manage_parpool(num_workers);
-    parfor (s=1:S,num_workers)
-            obj    = load(pth_obj_m{s},'-mat');   
-            obj.pr = prm;   
-            save_in_parfor(pth_obj_m{s},obj,'-struct');                    
-%         obj1    = matfile(pth_obj_m{s},'Writable',true);
-%         obj1.pr = prm;   
+    for s=1:S    
+        obj1    = matfile(pth_obj{m}{s},'Writable',true);
+        obj1.pr = pr{m1};   
     end              
 end
 %==========================================================================        
@@ -307,15 +309,26 @@ end
 %==========================================================================
 function pth_obj = get_pth_obj(obj0,V,K,im,labels,run_on_holly)
 dir_data = obj0.dir_data;
+
 dir_obj  = fullfile(dir_data,'obj');
 if exist(dir_obj,'dir'), rmdir(dir_obj,'s'); end; mkdir(dir_obj);
+
+dir_def  = fullfile(dir_data,'def');
+if exist(dir_def,'dir'), rmdir(dir_def,'s'); end; mkdir(dir_def);
+
+dir_munum  = fullfile(dir_data,'munum');
+if exist(dir_munum,'dir'), rmdir(dir_munum,'s'); end; mkdir(dir_munum);
+
+dir_muden  = fullfile(dir_data,'muden');
+if exist(dir_muden,'dir'), rmdir(dir_muden,'s'); end; mkdir(dir_muden);
+
+V_tpm = spm_vol(obj0.pth_logTPM);
 
 M       = numel(V);
 pth_obj = cell(1,M);
 for m=1:M    
     S          = numel(V{m});
     pth_obj{m} = cell(1,S);  
-    pth_obj_m  = pth_obj{m};
     for s=1:S
         obj = struct;
         
@@ -367,9 +380,7 @@ for m=1:M
         obj.doaff    = obj0.doaff;
         obj.dowp     = obj0.dowp;
         obj.dowp0    = obj0.dowp;
-                
-        obj.nitermain = obj0.nitermain;
-        obj.tolmain   = obj0.tolmain;       
+                   
         obj.tolseg    = obj0.tolseg;
         obj.niter     = obj0.niter;
         obj.niter1    = obj0.niter1;
@@ -378,11 +389,10 @@ for m=1:M
         obj.nitdef    = obj0.nitdef;
 
         obj.descrip = im{m}{3};
-        obj.healthy = im{m}{4}; 
-        obj.labels  = labels{m}{s}; 
+        obj.healthy = im{m}{4};         
         
-        obj.munum = 0;
-        obj.muden = 0;
+        obj.def_done = 0;
+        
         obj.ll    = 0;
         obj.nm    = 0;
               
@@ -393,21 +403,43 @@ for m=1:M
             obj.pth_logTPM = nfname;            
         end
         
-        obj.fwhm_TPM = obj0.fwhm_TPM;
-        obj.tiny     = obj0.tiny;
-        obj.mrf      = obj0.mrf;
-        obj.deg      = obj0.deg;
-        obj.dir_res  = obj0.dir_res;
+        obj.tiny     = obj0.tiny;        
+        obj.deg      = obj0.deg;        
         obj.uniform  = obj0.uniform;
         obj.iter     = 0;
         
-        obj.num_workers  = obj0.num_workers;
-        obj.run_on_holly = obj0.run_on_holly;
+        % Allocate deformation        
+        d0       = obj.image(1).dim(1:3);        
+        vx       = sqrt(sum(obj.image(1).mat(1:3,1:3).^2));
+        sk       = max([1 1 1],round(obj0.samp*[1 1 1]./vx));
+        [x0,~,~] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
+        z0       = 1:sk(3):d0(3);
+        dm       = [size(x0) length(z0) 3];
+        clear x0 z0 sk vx d0
         
-        pth_obj_m{s} = fullfile(dir_obj,['obj-m' num2str(m) '-s' num2str(s) '.mat']);
-        save_in_parfor(pth_obj_m{s},obj,'-struct');
+        pth_def     = fullfile(dir_def,['def-m' num2str(m) '-s' num2str(s) '.nii']);               
+        create_nii(pth_def,zeros(dm),eye(4),'float32','def')
+        obj.pth_def = pth_def;
+        
+        % Allocate template updates
+        dm = [K prod(V_tpm(1).dim)];
+        
+        pth_munum     = fullfile(dir_munum,['munum-m' num2str(m) '-s' num2str(s) '.nii']);               
+        create_nii(pth_munum,zeros(dm,'single'),eye(4),'float32','munum')
+        obj.pth_munum = pth_munum;
+        
+        pth_muden     = fullfile(dir_muden,['muden-m' num2str(m) '-s' num2str(s) '.nii']);               
+        create_nii(pth_muden,zeros(dm,'single'),eye(4),'float32','muden')
+        obj.pth_muden = pth_muden;
+        
+        % Allocate labels
+%         obj.labels  = labels{m}{s}; 
+        
+        % Store path to obj        
+        pth_obj{m}{s} = fullfile(dir_obj,['obj-m' num2str(m) '-s' num2str(s) '.mat']);
+        
+        save(pth_obj{m}{s},'-struct','obj')
     end
-    pth_obj{m} = pth_obj_m;
 end
 %==========================================================================
 
