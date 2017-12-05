@@ -312,6 +312,11 @@ if exist(dir_muden,'dir'), rmdir(dir_muden,'s'); end; mkdir(dir_muden);
 
 V_tpm = spm_vol(obj0.pth_logTPM);
 
+poolobj = gcp('nocreate');
+if ~isempty(poolobj)
+    delete(poolobj);
+end
+
 M       = numel(V);
 pth_obj = cell(1,M);
 for m=1:M    
