@@ -5,10 +5,7 @@ function spm_preprocx_run(obj,im,K)
 %==========================================================================
 
 if obj.run_on_holly
-    [~,obj.dir_data,~] = read_directory_details('directory_details.txt',obj.holly.jnam);  
-    if obj.num_workers
-        obj.num_workers = 0;
-    end
+    [~,obj.dir_data,~] = read_directory_details('directory_details.txt',obj.holly.jnam);      
 end
 
 if ~exist(obj.dir_data,'dir'), mkdir(obj.dir_data); end
@@ -68,7 +65,7 @@ holly = init_holly(pth_obj,dir_data,run_on_holly,holly);
 % Run algorithm
 %==========================================================================
 
-print_algorithm_started;
+print_algorithm_progress('started');
 
 L = -Inf; % Lower bound of complete model
 for iter=1:nitermain
@@ -102,6 +99,8 @@ for iter=1:nitermain
         break;
     end
 end
+
+print_algorithm_progress('finished');
 %==========================================================================
 
 %==========================================================================
@@ -539,9 +538,9 @@ muden = reshape(muden,[prod(d) K])';
 %==========================================================================
 
 %==========================================================================
-function print_algorithm_started
+function print_algorithm_progress(status)
 fprintf('==============================================\n')  
-fprintf('Algorithm started (')
+fprintf(['Algorithm ' status ' ('])
 fprintf(datestr(now,'mmmm dd, yyyy HH:MM:SS'))
 fprintf(')\n')
 fprintf('==============================================\n\n')   

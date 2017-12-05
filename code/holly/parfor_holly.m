@@ -32,9 +32,9 @@ while 1,
         M     = numel(pth_obj);
         munum = 0; muden = 0; ll = 0; Nm = 0;
         for m=1:M
-            S  = numel(pth_obj{m});             
+            S = numel(pth_obj{m});             
             for s=1:S
-                obj = matfile(pth_obj{m});
+                obj = matfile(pth_obj{m}{s});
                 
                 if obj.status==0
                     Nii    = nifti(obj.pth_munum);
