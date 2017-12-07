@@ -8,13 +8,8 @@ K = 16; % Number of classes (if a template is used, then K will be set to the nu
 
 %--------------------------------------------------------------------------
 % Options for running algorithm on the FIL cluster (Holly)
-obj.run_on_holly     = true;
-obj.holly.jnam       = 'seg-CR';
-obj.holly.jnam_dummy = 'dummy-CR';
-
-%--------------------------------------------------------------------------
-% Folder for all algorithm data (not used when running on Holly)
-obj.dir_data = '/data-scratch/mbrud/data/segmentation-toolbox-parfor';  
+obj.run_on_holly = true;
+obj.holly_jnam   = 'CR1'; % OBS: Keep short!
 
 %--------------------------------------------------------------------------
 % Define data cell array, which should contain the following:
@@ -33,7 +28,7 @@ im = {};
 
 % 3D
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-aged-noneck-den',S,'CT','healthy',''};
-im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck-den',S(1),'CT','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck',S(1),'CT','healthy',''};
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-noneck-den',S(2),'CT','healthy',''};
 im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck',S(2),'MRI','healthy',''};
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/OASIS-long-noneck',S,'MRI','healthy',''};
@@ -52,16 +47,11 @@ obj.num_workers = Inf;
 %--------------------------------------------------------------------------
 % Preprocessing options
 obj.preproc.do_preproc    = false; % Do preprocessing on input images
-obj.preproc.is_DICOM      = false; % If input images are DICOM, converts DICOM to Nifti % TODO (work in progress)
 obj.preproc.rem_corrupted = true; % Try to remove CT images that are corrupted (e.g. bone windowed)
-obj.preproc.realign       = true; % Realign to MNI space
-obj.preproc.crop          = true; % Remove data outside of head
-obj.preproc.crop_neck     = true; % Remove neck (the spine, etc.)
-obj.preproc.denoise       = true; % Denoise CT images
 
 %--------------------------------------------------------------------------
 % The distance (mm) between samples (for sub-sampling input data--improves speed)
-obj.samp = 2;
+obj.samp = 1.5;
 
 %--------------------------------------------------------------------------
 % Segmentation parameters

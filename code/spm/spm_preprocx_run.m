@@ -47,7 +47,6 @@ fwhm_TPM     = obj.fwhm_TPM;
 dir_data     = obj.dir_data;
 dir_res      = obj.dir_res;
 run_on_holly = obj.run_on_holly;
-holly        = obj.holly; 
 num_workers  = obj.num_workers;
 
 pth_obj = get_pth_obj(obj,V,K,im,labels,run_on_holly);
@@ -58,7 +57,11 @@ clear V obj
 % OBS! For this to work, this code needs to be located on the Holly server
 %==========================================================================
    
-holly = init_holly(pth_obj,dir_data,holly,run_on_holly);
+if run_on_holly
+    holly = init_holly(pth_obj,dir_data,obj.holly_jnam);
+else
+    holly = [];
+end
 
 %==========================================================================
 % Run algorithm
@@ -247,56 +250,58 @@ Nii = nifti(pth_logTPM);
 Nii.dat(:,:,:,:) = logmu;        
 clear Nii logmu
 
-% Crop template according to subject bounding boxes
-M = numel(pth_obj);
-S = 0;
-for m=1:M, S = S + numel(pth_obj{m}); end
+if 0
+    % Crop template according to subject bounding boxes
+    M = numel(pth_obj);
+    S = 0;
+    for m=1:M, S = S + numel(pth_obj{m}); end
 
-bb  = [];
-cnt = 1;
-for m=1:M
-    S = numel(pth_obj{m});    
-    for s=1:S
-        obj = load(pth_obj{m}{s},'-mat','bb','status');
-        if obj.status==0   
-            bb1  = obj.bb;
-            is3D = numel(bb1)==6;
-            if is3D
-                % 3D
-                bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);bb1(5) bb1(6)];
-            else
-                % 2D
-                bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);1 1];
+    bb  = [];
+    cnt = 1;
+    for m=1:M
+        S = numel(pth_obj{m});    
+        for s=1:S
+            obj = load(pth_obj{m}{s},'-mat','bb','status');
+            if obj.status==0   
+                bb1  = obj.bb;
+                is3D = numel(bb1)==6;
+                if is3D
+                    % 3D
+                    bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);bb1(5) bb1(6)];
+                else
+                    % 2D
+                    bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);1 1];
+                end
+                bb(:,:,cnt) = bb1;
+                cnt         = cnt + 1;
             end
-            bb(:,:,cnt) = bb1;
-            cnt         = cnt + 1;
         end
     end
-end
 
-if is3D
-    mn_bb = min(bb,[],3);
-    mx_bb = max(bb,[],3);
-    nbb   = [mn_bb(:,1) mx_bb(:,2)];
-    nbb   = floor(nbb);
-    nbb(nbb==0) = 1;
+    if is3D
+        mn_bb = min(bb,[],3);
+        mx_bb = max(bb,[],3);
+        nbb   = [mn_bb(:,1) mx_bb(:,2)];
+        nbb   = floor(nbb);
+        nbb(nbb==0) = 1;
 
-    V  = spm_vol(pth_logTPM);
-    od = V(1).dim;
+        V  = spm_vol(pth_logTPM);
+        od = V(1).dim;
 
-    for k=1:numel(V)
-        subvol(V(k),nbb','tmp');        
+        for k=1:numel(V)
+            subvol(V(k),nbb','tmp');        
+        end
+
+        delete(pth_logTPM);
+        [pth,nam,ext] = fileparts(V(1).fname);
+        fname         = fullfile(pth,['tmp' nam ext]);
+        movefile(fname,pth_logTPM);
+
+        V  = spm_vol(pth_logTPM);
+        nd = V(1).dim;
+
+        fprintf('dim(TPM)=[%s], dim(nTPM)=[%s]\n\n',sprintf('%d ',od),sprintf('%d ',nd));
     end
-
-    delete(pth_logTPM);
-    [pth,nam,ext] = fileparts(V(1).fname);
-    fname         = fullfile(pth,['tmp' nam ext]);
-    movefile(fname,pth_logTPM);
-    
-    V  = spm_vol(pth_logTPM);
-    nd = V(1).dim;
-
-    fprintf('dim(TPM)=[%s], dim(nTPM)=[%s]\n\n',sprintf('%d ',od),sprintf('%d ',nd));
 end
 
 if softmax_TPM
@@ -308,8 +313,7 @@ end
 %==========================================================================
 function show_TPM(fig_TPM,pth_logTPM,tiny,deg)
 if ~isempty(fig_TPM) 
-    uniform = 0;
-    logtpm  = spm_load_logpriors8(pth_logTPM,tiny,deg,uniform);
+    logtpm  = spm_load_logpriors8(pth_logTPM,tiny,deg);
 
     phi = double(identity(logtpm.d));
     b   = spm_sample_logpriors8(logtpm,phi(:,:,:,1),phi(:,:,:,2),phi(:,:,:,3));
@@ -435,10 +439,9 @@ for m=1:M
             obj.pth_logTPM = nfname;            
         end
         
-        obj.tiny     = obj0.tiny;        
-        obj.deg      = obj0.deg;        
-        obj.uniform  = obj0.uniform;
-        obj.iter     = 0;
+        obj.tiny = obj0.tiny;        
+        obj.deg  = obj0.deg;        
+        obj.iter = 0;
                
         % Path to deformations
         pth_def     = fullfile(dir_def,['def-m' num2str(m) '-s' num2str(s) '.nii']);                       

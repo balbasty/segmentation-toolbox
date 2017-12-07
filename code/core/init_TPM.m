@@ -19,8 +19,7 @@ if isempty(pth_logTPM)
     % Create a uniform (log) template
     [obj.pth_logTPM] = init_uniform_TPM(obj,V,K);
         
-    obj.use_tpm    = false;    
-    obj.uniform    = true;
+    obj.use_tpm = false;   
 else    
     % Template will be loaded from file
     Nii     = nifti(pth_logTPM);
@@ -32,8 +31,7 @@ else
     end
     
     K           = d(4);    
-    obj.use_tpm = true;    
-    obj.uniform = false;        
+    obj.use_tpm = true;         
 end
 %==========================================================================
 

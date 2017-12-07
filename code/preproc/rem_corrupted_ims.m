@@ -21,11 +21,7 @@ X = bsxfun(@minus,X,mean(X));
 X = bsxfun(@rdivide,X,sqrt(var(X)));
 clear sc sd v sint
 
-if strcmp(descrip,'CT')
-    tol = 4; % Seems, empirically, to be a descent value
-elseif strcmp(descrip,'MRI')
-    tol = 5; % Seems, empirically, to be a descent value
-end
+tol = 4; % Seems, empirically, to be a descent value
 ix  = zeros(1,S);
 f   = cell(1,S);
 for i=1:size(X,2)

@@ -51,6 +51,8 @@ dotpm  = obj.dotpm;
 def_done0 = obj.def_done;
 def_done  = 0;
 
+uniform = dotpm && obj.iter==1 && ~obj.use_tpm; % The TPM given is a uniform distribution (i.e., run k-means)
+
 bb = obj.bb;
 
 % TODO: remove once missing data part works...
@@ -282,7 +284,7 @@ for z=1:length(z0)
         end
        
         % Eliminate unwanted voxels
-        if strcmp(descrip,'MRI') % OBS: Need to be fixed => assumes that CT images are denoised, hence not integer valued...
+        if scrand(n)
             % The variances used in a GMM may not be ideal because of the
             % discretisation of image intensities (Data is an integer
             % type), so to prevent aliasing in the histogram, small random
@@ -389,7 +391,7 @@ for iter=1:niter
     if iter==1                  
         % Starting estimates for cluster parameters
         %------------------------------------------------------------
-        [lq,K,lkp,mg,mn,vr,po,pr,chan] = init_clusters(obj,buf,chan,Kb,K,N,nomiss,logtpm.uniform,vr0,use_mog,vb);                
+        [lq,K,lkp,mg,mn,vr,po,pr,chan] = init_clusters(obj,buf,chan,Kb,K,N,nomiss,uniform,vr0,use_mog,vb);                
     end
 
     for iter1=1:niter1
