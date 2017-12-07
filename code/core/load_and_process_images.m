@@ -1,7 +1,10 @@
 function [V,labels] = load_and_process_images(obj,im)
-preproc     = obj.preproc;
-dir_data    = obj.dir_data;
-num_workers = obj.num_workers;
+preproc      = obj.preproc;
+dir_data     = obj.dir_data;
+num_workers  = obj.num_workers;
+run_on_holly = obj.run_on_holly;
+
+manage_parpool(num_workers);
 
 M      = numel(im);
 V      = cell(1,M);
@@ -58,8 +61,7 @@ for m=1:M
         % Process the input images in parallel
         V_m = V{m};
         S   = numel(V_m);
-%         for s=1:S
-        manage_parpool(num_workers);
+%         for s=1:S        
         parfor (s=1:S,num_workers)
             fprintf('s=%d\n',s); 
 
@@ -174,6 +176,10 @@ for m=1:M
         end
     end
 end
+
+if run_on_holly
+    manage_parpool(0);
+end
 %==========================================================================
 
 %=======================================================================
@@ -193,7 +199,6 @@ end
 mkdir(imdir_2D);
     
 nV = cell(1,S);
-manage_parpool(num_workers);
 parfor (s=1:S,num_workers)
     fname = V{s}.fname;
     odir   = fileparts(fname);

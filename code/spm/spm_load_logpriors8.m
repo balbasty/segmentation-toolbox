@@ -14,11 +14,11 @@ function logtpm = spm_load_logpriors8(V,tiny,deg,uniform)
 % John Ashburner
 % $Id: spm_load_priors8.m 5962 2014-04-17 12:47:43Z spm $
 
-if nargin<2, tiny     = 1e-4;  end
-if nargin<3, deg      = 2;     end
-if nargin<4, uniform  = false; end
+if nargin<2, tiny    = 1e-4;  end
+if nargin<3, deg     = 2;     end
+if nargin<4, uniform = false; end
 
-if ~isstruct(V), V  = spm_vol(V); end
+if ~isstruct(V), V = spm_vol(V); end
 spm_check_orientations(V);
 
 logtpm.V = V;

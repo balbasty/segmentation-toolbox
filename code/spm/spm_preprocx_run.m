@@ -22,13 +22,13 @@ if exist(obj.dir_res,'dir'), rmdir(obj.dir_res,'s'); end; mkdir(obj.dir_res);
 % Initialise template
 %==========================================================================
 
-obj = init_TPM(obj,V,K);
+[obj,K] = init_TPM(obj,V,K);
 
 %==========================================================================
 % Initialise some debugging output
 %==========================================================================
 
-[fig_seg,fig_TPM,fig_L,obj.verbose] = create_fig(obj);
+[fig_seg,fig_TPM,fig_L,obj.verbose] = create_fig(obj,false);
 
 %==========================================================================
 % Initialise algorithm i/o 
@@ -44,7 +44,6 @@ pth_logTPM   = obj.pth_logTPM;
 tiny         = obj.tiny;
 deg          = obj.deg;
 fwhm_TPM     = obj.fwhm_TPM;
-mrf          = obj.mrf;
 dir_data     = obj.dir_data;
 dir_res      = obj.dir_res;
 run_on_holly = obj.run_on_holly;
@@ -59,7 +58,7 @@ clear V obj
 % OBS! For this to work, this code needs to be located on the Holly server
 %==========================================================================
    
-holly = init_holly(pth_obj,dir_data,run_on_holly,holly);
+holly = init_holly(pth_obj,dir_data,holly,run_on_holly);
 
 %==========================================================================
 % Run algorithm
@@ -72,14 +71,14 @@ for iter=1:nitermain
     fprintf('iter=%d======================\n',iter);  
                    
     % Update subject specific parameters (clusters, bias, affine, deformations, template derivatives)
-    [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly,fig_seg); 
+    [L,munum,muden,Nm,holly] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly,fig_seg,pth_logTPM); 
      
     % Plot objective value
     plot_objval(L,fig_L); 
         
     if dotpm
         % Update template 
-        update_global_TPM(munum,muden,pth_logTPM,tiny,deg,fwhm_TPM,mrf,dir_res);                
+        update_global_TPM(munum,muden,pth_logTPM,tiny,fwhm_TPM,pth_obj);                
               
         show_TPM(fig_TPM,pth_logTPM,tiny,deg);
     end  
@@ -96,6 +95,9 @@ for iter=1:nitermain
         fprintf('Algorithm converged in %d iterations.\n',iter)                        
         fprintf('==============================================\n')                        
           
+        % Convert log template to probability template and save to disk
+        logTPM2TPM(pth_logTPM,dir_res);
+    
         break;
     end
 end
@@ -104,21 +106,25 @@ print_algorithm_progress('finished');
 %==========================================================================
 
 %==========================================================================
-function [L,munum,muden,Nm] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly,fig)
+function [L,munum,muden,Nm,holly] = update_subjects(pth_obj,L,num_workers,run_on_holly,holly,fig,pth_logTPM)
+V      = spm_vol(pth_logTPM);
+dm_tpm = V(1).dim;
+K      = numel(V);
+clear V
 
 if run_on_holly
     % Run subject specific jobs on the FIL cluster (Holly)
     %----------------------------------------------------------------------            
-    [ll,munum,muden,Nm,status] = parfor_holly(pth_obj,holly);
+    [ll,munum,muden,Nm,status,holly] = parfor_holly(pth_obj,holly,dm_tpm,K);
 else 
     % Run subject specific jobs using MATLAB parfor
     %----------------------------------------------------------------------
-    [ll,munum,muden,Nm,status] = parfor_matlab(pth_obj,num_workers,fig);
+    [ll,munum,muden,Nm,status] = parfor_matlab(pth_obj,num_workers,fig,dm_tpm,K);
 end
 L = [L,ll];
 
 if status
-    % Display how many segmentations have errored
+    % Display how many segmentations that have errored
     fprintf(2,'==============================================\n');
     fprintf(2,'%d job(s) with status~=0\n',status);
     fprintf(2,'==============================================\n\n');
@@ -126,36 +132,52 @@ end
 %==========================================================================
 
 %==========================================================================
-function [ll,munum,muden,Nm,tot_status] =  parfor_matlab(pth_obj,num_workers,fig)
-M     = numel(pth_obj);
-munum = 0; muden = 0; ll = 0; Nm = 0; tot_status = 0;
+function [ll,munum,muden,Nm,tot_status] =  parfor_matlab(pth_obj,num_workers,fig,dm_tpm,K)
+% Estimate on all subjects
+M = numel(pth_obj);
+manage_parpool(num_workers);
 for m=1:M                    
     pth_obj_m = pth_obj{m};
-    S         = numel(pth_obj_m);
-    manage_parpool(num_workers);
+    S         = numel(pth_obj_m);    
     parfor (s=1:S,num_workers)                                  
+%     for s=1:S
         obj = load(pth_obj_m{s});            
         
         % Run segmentation routine         
         obj = segment(obj,fig);                                       
 
+        save_in_parfor(pth_obj_m{s},obj,'-struct');
+    end     
+end  
+
+% Read results from estimations
+tic;
+munum = zeros([dm_tpm K],'single'); muden = munum; ll = 0; Nm = 0; tot_status = 0;
+for m=1:M                  
+    S = numel(pth_obj{m});
+    for s=1:S 
+        fprintf('.');
+        obj = load(pth_obj{m}{s}); 
+        
         tot_status = tot_status + obj.status;
         if obj.status==0
+            [~,ix_x,ix_y,ix_z] = bb_info(obj.bb);
+
             Nii    = nifti(obj.pth_munum);
             munum1 = Nii.dat(:,:,:,:); 
-            munum  = munum + double(munum1);
-            
+            munum(ix_x,ix_y,ix_z,:) = munum(ix_x,ix_y,ix_z,:) + munum1;
+
             Nii    = nifti(obj.pth_muden);
             muden1 = Nii.dat(:,:,:,:); 
-            muden  = muden + double(muden1);
-                   
+            muden(ix_x,ix_y,ix_z,:) = muden(ix_x,ix_y,ix_z,:) + muden1; 
+
             ll = ll + obj.ll;
             Nm = Nm + obj.nm;
         end
-
-        save_in_parfor(pth_obj_m{s},obj,'-struct');
-    end        
-end  
+    end
+end
+fprintf('\n');
+fprintf('Elapsed time (parfor_matlab): %d s\n',round(toc))      
 %==========================================================================
 
 %==========================================================================
@@ -210,54 +232,77 @@ toc
 %==========================================================================        
 
 %==========================================================================
-function update_global_TPM(munum,muden,pth_logTPM,tiny,deg,fwhm_TPM,mrf,dir_res)
-
-% Load template
-Nii = nifti(pth_logTPM);
-d   = size(Nii.dat(:,:,:,:));
-dm  = d(1:3);
-K   = d(4);
+function update_global_TPM(munum,muden,pth_logTPM,tiny,fwhm_TPM,pth_obj,softmax_TPM,dir_res)
+if nargin<7, softmax_TPM = false; end
 
 % Smooth template
 [munum,muden] = smooth_template(munum,muden,fwhm_TPM);
 
 % Update template
-logmu            = log(munum./muden + tiny);
-Nii.dat(:,:,:,:) = logmu;        
+logmu = log(munum./muden + tiny);
 clear munum muden
 
-if mrf
-    % Use a MRF cleanup procedure
-    logtpm = spm_load_logpriors8(pth_logTPM,tiny,deg,0);
-
-    phi = double(identity(logtpm.d));
-    b   = spm_sample_logpriors8(logtpm,phi(:,:,:,1),phi(:,:,:,2),phi(:,:,:,3));
-    clear phi
-
-    Q = zeros([logtpm.d(1:3),K],'single');
-    for k=1:K
-       Q(:,:,:,k) = b{k};
-    end
-    clear b
-
-    P        = zeros([logtpm.d(1:3),K],'uint8');
-    nmrf_its = 1;           
-    T        = 1;
-    G        = ones([K,1],'single')*T;
-    vx2      = 1./single(sqrt(sum(logtpm.M(1:3,1:3).^2)));
-    for i=1:nmrf_its
-        spm_mrf(P,Q,G,vx2);
-    end             
-    clear Q logtpm
-
-    P                = double(P)/255;
-    Nii.dat(:,:,:,:) = log(P + eps*eps);
-    clear P
-end   
+% Save updated template
+Nii = nifti(pth_logTPM);
+Nii.dat(:,:,:,:) = logmu;        
 clear Nii logmu
 
-% Convert log template to probability template and save to disk
-logTPM2TPM(pth_logTPM,dir_res);
+% Crop template according to subject bounding boxes
+M = numel(pth_obj);
+S = 0;
+for m=1:M, S = S + numel(pth_obj{m}); end
+
+bb  = [];
+cnt = 1;
+for m=1:M
+    S = numel(pth_obj{m});    
+    for s=1:S
+        obj = load(pth_obj{m}{s},'-mat','bb','status');
+        if obj.status==0   
+            bb1  = obj.bb;
+            is3D = numel(bb1)==6;
+            if is3D
+                % 3D
+                bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);bb1(5) bb1(6)];
+            else
+                % 2D
+                bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);1 1];
+            end
+            bb(:,:,cnt) = bb1;
+            cnt         = cnt + 1;
+        end
+    end
+end
+
+if is3D
+    mn_bb = min(bb,[],3);
+    mx_bb = max(bb,[],3);
+    nbb   = [mn_bb(:,1) mx_bb(:,2)];
+    nbb   = floor(nbb);
+    nbb(nbb==0) = 1;
+
+    V  = spm_vol(pth_logTPM);
+    od = V(1).dim;
+
+    for k=1:numel(V)
+        subvol(V(k),nbb','tmp');        
+    end
+
+    delete(pth_logTPM);
+    [pth,nam,ext] = fileparts(V(1).fname);
+    fname         = fullfile(pth,['tmp' nam ext]);
+    movefile(fname,pth_logTPM);
+    
+    V  = spm_vol(pth_logTPM);
+    nd = V(1).dim;
+
+    fprintf('dim(TPM)=[%s], dim(nTPM)=[%s]\n\n',sprintf('%d ',od),sprintf('%d ',nd));
+end
+
+if softmax_TPM
+    % Convert log template to probability template and save to disk
+    logTPM2TPM(pth_logTPM,dir_res);
+end
 %==========================================================================
 
 %==========================================================================
@@ -310,25 +355,17 @@ if exist(dir_munum,'dir'), rmdir(dir_munum,'s'); end; mkdir(dir_munum);
 dir_muden  = fullfile(dir_data,'muden');
 if exist(dir_muden,'dir'), rmdir(dir_muden,'s'); end; mkdir(dir_muden);
 
-V_tpm = spm_vol(obj0.pth_logTPM);
-
-poolobj = gcp('nocreate');
-if ~isempty(poolobj)
-    delete(poolobj);
-end
-
 M       = numel(V);
 pth_obj = cell(1,M);
-for m=1:M    
+for m=1:M       
     S          = numel(V{m});
-    pth_obj{m} = cell(1,S);  
-    for s=1:S
-        fprintf('.')
+    pth_obj{m} = cell(1,S);
+    for s=1:S  
         obj = struct;
         
         obj.s      = s;
         obj.m      = m;
-        obj.status = 0;
+        obj.status = false;
         
         N         = numel(V{m}{s});
         obj.image = V{m}{s};
@@ -347,7 +384,6 @@ for m=1:M
         
         obj.vb         = obj0.vb;        
         obj.wp_reg     = obj0.wp_reg;
-        obj.clear_pars = 1;
         if obj0.dotpm
             % One Gaussian per tissue for template construction
             obj.lkp = 1:K; 
@@ -368,9 +404,9 @@ for m=1:M
         obj.verbose = obj0.verbose;
 
         obj.dobias   = obj0.dobias;
+        obj.dodef    = obj0.dodef; 
         obj.dodef0   = obj0.dodef; 
         obj.dotpm    = obj0.dotpm;  
-        obj.diff_TPM = obj0.dotpm;  
         obj.doaff    = obj0.doaff;
         obj.dowp     = obj0.dowp;
         obj.dowp0    = obj0.dowp;
@@ -385,11 +421,13 @@ for m=1:M
         obj.descrip = im{m}{3};
         obj.healthy = im{m}{4};         
         
-        obj.def_done = 0;
+        obj.def_done = false;
         
-        obj.ll    = 0;
-        obj.nm    = 0;
+        obj.ll = 0;
+        obj.nm = 0;
               
+        obj.bb = [];
+        
         obj.pth_logTPM = obj0.pth_logTPM;
         if run_on_holly
             fname          = obj.pth_logTPM;
@@ -401,33 +439,19 @@ for m=1:M
         obj.deg      = obj0.deg;        
         obj.uniform  = obj0.uniform;
         obj.iter     = 0;
-        
-        % Allocate deformation        
-        d0       = obj.image(1).dim(1:3);        
-        vx       = sqrt(sum(obj.image(1).mat(1:3,1:3).^2));
-        sk       = max([1 1 1],round(obj0.samp*[1 1 1]./vx));
-        [x0,~,~] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
-        z0       = 1:sk(3):d0(3);
-        dm       = [size(x0) length(z0) 3];
-        x0 = []; z0 = []; sk = []; vx = []; d0 = [];
-        
-        pth_def     = fullfile(dir_def,['def-m' num2str(m) '-s' num2str(s) '.nii']);               
-        create_nii(pth_def,zeros(dm,'single'),eye(4),'float32','def')
-        obj.pth_def = pth_def;
-        
+               
+        % Path to deformations
+        pth_def     = fullfile(dir_def,['def-m' num2str(m) '-s' num2str(s) '.nii']);                       
+        obj.pth_def = pth_def;        
         if run_on_holly        
             fname       = pth_def;
             nfname      = ['/' fname(7:end)];
             obj.pth_def = nfname;                        
         end    
         
-        % Allocate template updates
-        dm = [V_tpm(1).dim K];
-        
-        pth_munum     = fullfile(dir_munum,['munum-m' num2str(m) '-s' num2str(s) '.nii']);               
-        create_nii(pth_munum,zeros(dm,'single'),eye(4),'float32','munum')
-        obj.pth_munum   = pth_munum;        
-        
+        % Path to template updates
+        pth_munum     = fullfile(dir_munum,['munum-m' num2str(m) '-s' num2str(s) '.nii']);  
+        obj.pth_munum = pth_munum;                
         if run_on_holly        
             obj.pth_munum_l = pth_munum;
             fname           = pth_munum;
@@ -435,10 +459,8 @@ for m=1:M
             obj.pth_munum   = nfname;                        
         end   
         
-        pth_muden     = fullfile(dir_muden,['muden-m' num2str(m) '-s' num2str(s) '.nii']);               
-        create_nii(pth_muden,zeros(dm,'single'),eye(4),'float32','muden')
-        obj.pth_muden   = pth_muden;        
-        
+        pth_muden     = fullfile(dir_muden,['muden-m' num2str(m) '-s' num2str(s) '.nii']); 
+        obj.pth_muden = pth_muden;                
         if run_on_holly        
             obj.pth_muden_l = pth_muden;
             fname           = pth_muden;
@@ -452,22 +474,24 @@ for m=1:M
         % Store path to obj        
         pth_obj{m}{s} = fullfile(dir_obj,['obj-m' num2str(m) '-s' num2str(s) '.mat']);
         
-        save(pth_obj{m}{s},'-struct','obj');
+        save(pth_obj{m}{s},'-struct','obj')
     end
 end
-fprintf('\n')
 %==========================================================================
 
 %==========================================================================
-function [fig_seg,fig_TPM,fig_L,verbose] = create_fig(obj)
-verbose     = obj.verbose;
-num_workers = obj.num_workers;
-figix       = obj.figix;
-dotpm       = obj.dotpm;
+function [fig_seg,fig_TPM,fig_L,verbose] = create_fig(obj,distf)
+if nargin<2, distf = true; end
+
+verbose      = obj.verbose;
+num_workers  = obj.num_workers;
+figix        = obj.figix;
+dotpm        = obj.dotpm;
+run_on_holly = obj.run_on_holly;
 
 fig_seg = cell(4,1);
 
-if verbose==2 && ~num_workers
+if verbose==2 && ~num_workers && ~run_on_holly
     spm_figure('Create','Interactive');
     figure(figix)
 
@@ -488,10 +512,12 @@ else
     fig_L   = [];
 end
 
-try
-    distFig; 
-catch
-    warning('distFig not available')
+if distf
+    try
+        distFig; 
+    catch
+        warning('distFig not available')
+    end
 end
 drawnow
 %==========================================================================

@@ -1,12 +1,12 @@
-function obj = init_TPM(obj,V,K)
+function [obj,K] = init_TPM(obj,V,K)
 pth_logTPM = obj.pth_logTPM;
 
 if ~isempty(pth_logTPM) || numel(V{1})==1    
     % If not building a template (i.e., regular segmentation)
-    obj.dopr        = 0;
+    obj.dopr        = false;
     obj.nitermain   = 1;    
     obj.num_workers = 0;    
-    obj.dotpm       = 0;    
+    obj.dotpm       = false;    
     obj.niter       = 30;
     obj.niter1      = 8;
     obj.nsubitmog   = 20;
@@ -17,10 +17,10 @@ end
 
 if isempty(pth_logTPM)
     % Create a uniform (log) template
-    obj.pth_logTPM = init_uniform_TPM(obj,V,K);
-    
-    obj.use_tpm    = 0;    
-    obj.uniform    = 1;
+    [obj.pth_logTPM] = init_uniform_TPM(obj,V,K);
+        
+    obj.use_tpm    = false;    
+    obj.uniform    = true;
 else    
     % Template will be loaded from file
     Nii     = nifti(pth_logTPM);
@@ -31,10 +31,9 @@ else
         error('Template has incorrect dimensions!')
     end
     
-    K = d(4);
-    
-    obj.use_tpm = 1;    
-    obj.uniform = 0;        
+    K           = d(4);    
+    obj.use_tpm = true;    
+    obj.uniform = false;        
 end
 %==========================================================================
 
@@ -74,7 +73,7 @@ end
 img  = zeros(dm);
 vols = cell(K,1);
 for k=1:K    
-    vols{k}       = fullfile(pth,[nam num2str(k) ext]);
+    vols{k} = fullfile(pth,[nam num2str(k) ext]);
     create_nii(vols{k},img,mat,16,'logTPM');
 end
 clear img

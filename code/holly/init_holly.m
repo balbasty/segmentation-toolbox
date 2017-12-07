@@ -1,8 +1,11 @@
-function [holly,pth_pth_obj] = init_holly(pth_obj,dir_data,run_on_holly,holly)
+function [holly,pth_pth_obj] = init_holly(pth_obj,dir_data,holly,run_on_holly)
+if nargin<4, run_on_holly = 1; end
+
+HOLLY_CORES = 192;
+
 jnam       = holly.jnam; 
 jnam_dummy = holly.jnam_dummy;
-RAM        = holly.RAM;
-split      = holly.split;
+RAM        = 5; % This value will be decreased automatically to an optimal value after the first iteration
 
 holly       = struct;
 pth_pth_obj = '';
@@ -21,9 +24,8 @@ if run_on_holly
         holly.t = holly.t + S; 
     end
     
-    if split>holly.t
-        split = min(holly.t,8);
-    end
+    split = ceil(holly.t/HOLLY_CORES);
+    fprintf('Splitting Holly array jobs into %d sub-job(s)\n\n',split);
     
     holly.t = ceil(holly.t/split);
     

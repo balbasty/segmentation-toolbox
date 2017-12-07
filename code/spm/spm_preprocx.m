@@ -43,15 +43,15 @@ nsubitmog  = obj.nsubitmog;
 nsubitbf   = obj.nsubitbf;
 nitdef     = obj.nitdef;
 
-dobias   = obj.dobias;
-dodef    = obj.dodef;
-dowp     = obj.dowp;
-dotpm    = obj.dotpm;
+dobias = obj.dobias;
+dodef  = obj.dodef;
+dowp   = obj.dowp;
+dotpm  = obj.dotpm;
 
 def_done0 = obj.def_done;
 def_done  = 0;
 
-diff_TPM = obj.diff_TPM;
+bb = obj.bb;
 
 % TODO: remove once missing data part works...
 nomiss = 1;
@@ -101,6 +101,11 @@ sk4    = reshape(sk,[1 1 1 3]);
 
 % Dimensions of sub-sampled image
 d      = [size(x0) length(z0)];
+
+if obj.iter==1
+    % Allocate deformations        
+    create_nii(obj.pth_def,zeros([d 3],'single'),eye(4),'float32','def');      
+end
 
 Nii   = nifti(obj.pth_def);
 Twarp = single(Nii.dat(:,:,:,:)); 
@@ -169,7 +174,7 @@ cl  = cell(length(z0),1);
 buf = struct('f',cl,'mu',cl,'bf',cl,'code',cl);
 for z=1:length(z0)        
     buf(z).msk = cell(1,N);
-    if ~diff_TPM && d(3)>1
+    if ~dotpm && d(3)>1
         % Load only those voxels that are more than 5mm up
         % from the bottom of the tissue probability map.  This
         % assumes that the affine transformation is pretty close.
@@ -1037,7 +1042,7 @@ for iter=1:niter
     end
 end
 
-if diff_TPM && use_mog         
+if dotpm && use_mog         
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % For estimating a template using maximum likelihood
     %------------------------------------------------------------
@@ -1078,15 +1083,25 @@ if diff_TPM && use_mog
     MM     = M*MT;
     t      = affine_transf(MM,t);         
     [pf,c] = spm_diffeo('pushc',pf,t,dtpm);
-    clear t                
+    clear t                         
     
-    pf = double(pf);
+    % Mask
+    msk = isfinite(pf(:,:,:,1));    
+    msk = bsxfun(@and,msk,c>0);
+    clear c
     
-    msk       = isfinite(pf);    
-    msk       = bsxfun(@and,msk,c>0);
-    pf(~msk) = 0;
-    clear msk c
+    % Calculate a bounding box from mask (TODO: implement own version of imBoundingBox)    
+    bb = imBoundingBox(msk); % [y x z]    
+    clear msk
     
+    % Get bounding box info
+    [dm,ix_x,ix_y,ix_z] = bb_info(bb);
+    nmu                 = prod(dm);
+    
+    % 'Crop' likelihoods
+    pf = pf(ix_x,ix_y,ix_z,:);   
+    
+    % Renormalise
     pf = max(pf,eps);
     pf = bsxfun(@rdivide,pf,sum(pf,4));    
     
@@ -1095,21 +1110,20 @@ if diff_TPM && use_mog
         set(0,'CurrentFigure',fig{4});      
         for i=(Kb + 1):2*Kb
             subplot(2,Kb,i);
-            imagesc(pf(:,:,floor(logtpm.d(3)/2 + 1),i - Kb)'); axis image xy off; colormap(gray);
+            imagesc(pf(:,:,floor(dm(3)/2 + 1),i - Kb)'); axis image xy off; colormap(gray);
             title(['push(pf), k=' num2str(i - Kb)]);
         end  
-    end
+    end           
     
     % Solve dL/dmu=0 for mu (where L is the objective function and mu is the template)  
     %-----------------------------------------------------------
-    
-    nmu = prod(dtpm); % number of template voxels
-    
-    % log(mu)
-    logmu = zeros([Kb nmu]); 
+       
+    % log(mu) [Kb nmu]
+    logmu = zeros([dm Kb],'single'); 
     for k=1:Kb
-        logmu(k,:) = reshape(logtpm.dat{k},[1 nmu]);
+        logmu(:,:,:,k) = logtpm.dat{k}(ix_x,ix_y,ix_z);
     end
+    logmu = reshape(logmu,[nmu Kb])';
     clear logtpm
         
     % exp(log(w) + log(mu)) = w*mu
@@ -1124,28 +1138,42 @@ if diff_TPM && use_mog
     clear pf
 
     % w*mu*P(f|theta)/sum(w*mu*P(f|theta),k)
-    munum = bsxfun(@rdivide,wmupf,sum(wmupf,1)); % numerator of update
+    munum = bsxfun(@rdivide,wmupf,sum(wmupf,1)); 
     munum(~isfinite(munum)) = 0;
-    clear wmupf
+    clear wmupf                 
+    
+    % Save numerator of update
+    if exist(obj.pth_munum,'file')==2
+        delete(obj.pth_munum);
+    end
+    create_nii(obj.pth_munum,zeros([dm Kb],'single'),eye(4),'float32','munum')                    
     
     Nii              = nifti(obj.pth_munum);
-    Nii.dat(:,:,:,:) = reshape(single(munum'),[dtpm Kb]); 
+    munum            = reshape(munum',[dm Kb]); 
+    Nii.dat(:,:,:,:) = munum;
     clear Nii munum
     
     % w/sum(w*mu,k)
     wmu   = 1./sum(wmu,1);     
-    muden = bsxfun(@times,wmu,exp(logwp)); % denominator of update
+    muden = bsxfun(@times,wmu,exp(logwp));
     muden(~isfinite(muden)) = 0; 
     clear wmu
     
+    % Save denominator of update
+    if exist(obj.pth_muden,'file')==2
+        delete(obj.pth_muden);
+    end
+    create_nii(obj.pth_muden,zeros([dm Kb],'single'),eye(4),'float32','muden') 
+    
     Nii              = nifti(obj.pth_muden);
-    Nii.dat(:,:,:,:) = reshape(single(muden'),[dtpm Kb]); 
-    clear Nii muden
+    muden            = reshape(muden',[dm Kb]); 
+    Nii.dat(:,:,:,:) = muden;
+    clear Nii muden        
 end
 
 % Save the results
 Nii              = nifti(obj.pth_def);
-Nii.dat(:,:,:,:) = single(Twarp); 
+Nii.dat(:,:,:,:) = Twarp; 
 clear Nii
 
 obj.def_done = def_done;
@@ -1161,6 +1189,7 @@ elseif use_mog
     obj.mn = mn;
     obj.vr = vr;
 end
+obj.bb = bb;
     
 return;
 %=======================================================================
