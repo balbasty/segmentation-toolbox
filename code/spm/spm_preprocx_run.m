@@ -278,30 +278,28 @@ if 0
         end
     end
 
-    if is3D
-        mn_bb = min(bb,[],3);
-        mx_bb = max(bb,[],3);
-        nbb   = [mn_bb(:,1) mx_bb(:,2)];
-        nbb   = floor(nbb);
-        nbb(nbb==0) = 1;
+    mn_bb = min(bb,[],3);
+    mx_bb = max(bb,[],3);
+    nbb   = [mn_bb(:,1) mx_bb(:,2)];
+    nbb   = floor(nbb);
+    nbb(nbb==0) = 1;
 
-        V  = spm_vol(pth_logTPM);
-        od = V(1).dim;
+    V  = spm_vol(pth_logTPM);
+    od = V(1).dim;
 
-        for k=1:numel(V)
-            subvol(V(k),nbb','tmp');        
-        end
-
-        delete(pth_logTPM);
-        [pth,nam,ext] = fileparts(V(1).fname);
-        fname         = fullfile(pth,['tmp' nam ext]);
-        movefile(fname,pth_logTPM);
-
-        V  = spm_vol(pth_logTPM);
-        nd = V(1).dim;
-
-        fprintf('dim(TPM)=[%s], dim(nTPM)=[%s]\n\n',sprintf('%d ',od),sprintf('%d ',nd));
+    for k=1:numel(V)
+        subvol(V(k),nbb','tmp');        
     end
+
+    delete(pth_logTPM);
+    [pth,nam,ext] = fileparts(V(1).fname);
+    fname         = fullfile(pth,['tmp' nam ext]);
+    movefile(fname,pth_logTPM);
+
+    V  = spm_vol(pth_logTPM);
+    nd = V(1).dim;
+
+    fprintf('dim(TPM)=[%s], dim(nTPM)=[%s]\n\n',sprintf('%d ',od),sprintf('%d ',nd));
 end
 
 if softmax_TPM

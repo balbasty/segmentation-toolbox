@@ -4,7 +4,7 @@ addpath(genpath('./code'))
 
 %--------------------------------------------------------------------------
 S = 12; % Number of subjects
-K = 6; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
+K = 10; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
 
 %--------------------------------------------------------------------------
 % Folder for all algorithm data (not used when running on Holly)
@@ -18,9 +18,10 @@ obj.dir_data = '/data-scratch/mbrud/data/segmentation-toolbox-parfor';
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
 im = {};
 
-im{end + 1} = {'/home/mbrud/Dropbox/PhD/Data/2D-Data/IXI-2D',S(1),'MRI','healthy',''};
+im{end + 1} = {'/home/mbrud/Dropbox/PhD/Data/2D-Data/IXI-2D',S,'MRI','healthy',''};
+im{end + 1} = {'/home/mbrud/Dropbox/PhD/Data/2D-Data/CT-CHROMIS-2D',S,'CT','healthy',''};
 
-% browse_subjects(im{1}{1});
+% show_im(im);
 
 %--------------------------------------------------------------------------
 % Path to initial template
