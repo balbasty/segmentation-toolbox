@@ -34,7 +34,7 @@ for i=2:numel(mom)
     if ~isempty(ind)
         x = X(ind,msk0);
         for k=1:K,
-            q                = Q(ind,k);
+            q                = Q(ind,k);                        
             mom(i).s0(1,k)   = mom(i).s0(1,k)   + sum(q);
             mom(i).s1(:,k)   = mom(i).s1(:,k)   + x'*q;
             mom(i).S2(:,:,k) = mom(i).S2(:,:,k) + bsxfun(@times,q,x)'*x;

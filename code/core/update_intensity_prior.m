@@ -1,10 +1,22 @@
 function pr = update_intensity_prior(obj)
-m0  = obj{1}.pr.m;
-b0  = obj{1}.pr.b;
-W0  = obj{1}.pr.W;
-n0  = obj{1}.pr.n;
-
 S = numel(obj);
+
+% Compute sample means of all subjects' priors
+m0 = 0;
+b0 = 0;
+n0 = 0;
+W0 = 0;
+for s=1:S
+    m0  = m0 + obj{s}.pr.m;
+    b0  = b0 + obj{s}.pr.b;
+    W0  = W0 + obj{s}.pr.W;
+    n0  = n0 + obj{s}.pr.n; 
+end
+m0 = m0/S;
+b0 = b0/S;
+W0 = W0/S;
+n0 = n0/S;
+
 N = size(m0,1);
 K = size(m0,2);
 

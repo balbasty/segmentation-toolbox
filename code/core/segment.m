@@ -2,10 +2,9 @@ function obj = segment(obj,fig)
 if nargin<2, fig = cell(4,1); end
                                
 obj.iter = obj.iter + 1;
-fprintf('iter=%d, m=%d, s=%d\n',obj.iter,obj.m,obj.s);                  
-
+             
 % Load template
-logtpm = spm_load_logpriors8(obj.pth_logTPM,obj.tiny,obj.deg);
+logtpm = spm_load_logpriors8(obj.pth_logtpm,obj.deg);
 
 if obj.doaff && ((obj.use_tpm && obj.iter==1) || (~obj.use_tpm && obj.iter==3))
     % Affinely register template to 1st image
@@ -26,13 +25,13 @@ if ~obj.use_tpm && obj.dotpm
         obj.dowp  = false; % No tissue mixing weight update for iteration 1 and 2
     elseif obj.iter==2                     
         % 2nd iteration    
-
-        obj = clear_pars(obj); % Re-estimate cluster and bias field parameters
-
-    elseif obj.iter==3                  
+                
+        % Re-estimate cluster parameters        
+        if isfield(obj.mog,'po'), obj.mog = rmfield(obj.mog,'po'); end 
+        if isfield(obj.mog,'mn'), obj.mog = rmfield(obj.mog,'mn'); end 
+        if isfield(obj.mog,'vr'), obj.mog = rmfield(obj.mog,'vr'); end 
+    elseif obj.iter>=3                  
         % 3rd iteration
-        
-        obj = clear_pars(obj); % Re-estimate cluster and bias field parameters                
 
         obj.dowp  = obj.dowp0;
         obj.dodef = obj.dodef0; 

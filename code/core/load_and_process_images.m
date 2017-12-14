@@ -1,6 +1,5 @@
 function [V,labels] = load_and_process_images(obj,im)
 preproc      = obj.preproc;
-dir_data     = obj.dir_data;
 num_workers  = obj.num_workers;
 run_on_holly = obj.run_on_holly;
 
@@ -21,10 +20,12 @@ for m=1:M
             [V{m},labels{m}] = rem_corrupted_ims(V{m},labels{m},num_workers,descrip);
         end
     else   
+        dir_data = obj.dir_data;
+        
         if preproc.is_DICOM
             % imobj points to a folder structure of DICOMS, which is converted
             % to NIFTIs
-            warning('DICOM conversion started, assumes single-channel data..')
+            warning('DICOM conversion, at the moment, assumes single-channel data...')
             
             dirNII = fullfile(dir_Data,'DICOM2NII');
             if m>1
@@ -58,26 +59,17 @@ for m=1:M
         end
         [V{m},imdir_2D] = cpy2imdir(V{m},imdir,num_workers);            
         
-        % Process the input images in parallel
+        % Process the input images
         V_m = V{m};
         S   = numel(V_m);
 %         for s=1:S        
-        parfor (s=1:S,num_workers)
-            fprintf('s=%d\n',s); 
-
+        parfor (s=1:S,num_workers)            
             N = numel(V_m{s});
-            
-            if N>1
-                % If multi-channel data, register and reslice to image with
-                % largest volume
-                V_m{s} = reg_and_reslice(V_m{s});
-            end
-
-            Affine = [];
-            for n=1:N 
-                if preproc.realign
-                    % Reset origin and align to MNI space
-                    vx = sqrt(sum(V_m{s}(n).mat(1:3,1:3).^2));
+                       
+            if preproc.realign
+                % Reset origin and align to MNI space
+                for n=1:N              
+                    vx = vxsize(V_m{s}(n).mat);
 
                     try
                         nm_reorient(V_m{s}(n).fname,vx,0);
@@ -106,9 +98,12 @@ for m=1:M
                         disp(V_m{s}(n).fname);
                     end
                 end
-
-                if preproc.crop
-                    % Remove data outside of the head     
+            end
+            
+            if preproc.crop
+                % Remove data outside of the head     
+                Affine = [];
+                for n=1:N                                 
                     try
                         if n==1
                             Affine = atlas_crop(V_m{s}(n).fname,[],'sv_',preproc.crop_neck);
@@ -126,9 +121,17 @@ for m=1:M
                         disp(V_m{s}(n).fname);
                     end 
                 end
-
-                if preproc.denoise && strcmp(descrip,'CT')
-%                     Denoise using L2-TV (ADMM)
+            end
+            
+            if N>1
+                % If multi-channel data, register and reslice to image with
+                % largest volume
+                [V_m{s}] = reg_and_reslice(V_m{s});
+            end
+            
+            if preproc.denoise && strcmp(descrip,'CT')
+                % Denoise using L2-TV (ADMM)
+                for n=1:N              
                     try
                         denoise_img(V_m{s}(n).fname,descrip);                
 
@@ -142,31 +145,42 @@ for m=1:M
                         disp(V_m{s}(n).fname);
                     end                
                 end
-
+            end
+                       
+            for n=1:N
                 % Save a 2D slice of the processed image
                 dm = V_m{s}(n).dim;
-                if dm(3)>1
-                    nz = floor(dm(3)/2) + 1; % z-dimension to slice
-
+                    
+                d1 = floor(dm(1)/2) + 1;
+                d2 = floor(dm(2)/2) + 1;
+                d3 = floor(dm(3)/2) + 1;
+                nd = cat(3,[d1 d1;-inf inf;-inf inf],...
+                           [-inf inf;d2 d2;-inf inf],...
+                           [-inf inf;-inf inf;d3 d3]);
+                       
+                anat_plane = {'S','C','A'};
+                for i=1:3
                     try
-                        subvol(V_m{s}(n),[-inf inf;-inf inf;nz nz]','2D_');
-
-                        [pth,nam,ext] = fileparts(V_m{s}(n).fname);               
-                        nfname        = fullfile(pth,['2D_' nam ext]);
-
-                        reset_origin(nfname);
-
-                        sdir = fullfile(imdir_2D,['S' num2str(s)]);
+                        sdir = fullfile(imdir_2D{i},['S' num2str(s)]);
                         if ~exist(sdir,'dir')
                             mkdir(sdir);
-                        end                        
+                        end  
+                
+                        prefix = ['2D' anat_plane{i} '_'];
+
+                        subvol(V_m{s}(n),nd(:,:,i)',prefix);
+
+                        [pth,nam,ext] = fileparts(V_m{s}(n).fname);               
+                        nfname        = fullfile(pth,[prefix nam ext]);
+
+                        reset_origin(nfname);
 
                         movefile(nfname,sdir);
                     catch
                         warning('Create 2D slice')
                         disp(V_m{s}(n).fname);
                     end  
-                end 
+                end
             end
         end
         V{m} = V_m;
@@ -192,12 +206,26 @@ if exist(imdir,'dir')
 end
 mkdir(imdir);
 
-imdir_2D = [imdir '_2D'];
-if exist(imdir_2D,'dir')
-    rmdir(imdir_2D,'s');
+imdir_2D = cell(1,3);
+
+imdir_2D{1} = [imdir '_2DS'];
+if exist(imdir_2D{1},'dir')
+    rmdir(imdir_2D{1},'s');
 end
-mkdir(imdir_2D);
+mkdir(imdir_2D{1});
     
+imdir_2D{2} = [imdir '_2DC'];
+if exist(imdir_2D{2},'dir')
+    rmdir(imdir_2D{2},'s');
+end
+mkdir(imdir_2D{2});
+
+imdir_2D{3} = [imdir '_2DA'];
+if exist(imdir_2D{3},'dir')
+    rmdir(imdir_2D{3},'s');
+end
+mkdir(imdir_2D{3});
+
 nV = cell(1,S);
 parfor (s=1:S,num_workers)
     fname = V{s}.fname;

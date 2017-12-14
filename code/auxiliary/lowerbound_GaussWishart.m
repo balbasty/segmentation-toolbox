@@ -1,5 +1,4 @@
-function lb = lowerbound(mom,po,pr)
-mom = mom_John2Bishop(mom);  
+function lb = lowerbound_GaussWishart(mom,po,pr)
 s0  = mom.s0;
 s1  = mom.s1;
 S2  = mom.S2;
@@ -18,15 +17,12 @@ b0 = pr.b;
 
 lb = 0;
 for k=1:K
-    logB0 = (n0(k)/2)*LogDet(inv(W0(:,:,k))) - (n0(k)*N/2)*log(2) ...
-          - (N*(N-1)/4)*log(pi) - sum(gammaln(0.5*(n0(k)+1 -[1:N])));
-  
-    t1          = psi(0, 0.5*repmat(n(k)+1,N,1) - 0.5*[1:N]');
-    logLamTilde = sum(t1) + N*log(2)  + LogDet(W(:,:,k));
+    logB0 = -logWishartDen(W0(:,:,k),n0(k));
+    logBk =  logWishartDen(W(:,:,k),n(k)); 
+
+    logLamTilde = Elogdet(W(:,:,k),n(k));
     
-    logBk = -(n(k)/2)*LogDet(W(:,:,k)) - (n(k)*N/2)*log(2)...
-            - (N*(N-1)/4)*log(pi) - sum(gammaln(0.5*(n(k) + 1 - [1:N])));
-    H     = -logBk - 0.5*(n(k) -N-1)*logLamTilde + 0.5*n(k)*N;
+    H = logBk - 0.5*(n(k) - N -1)*logLamTilde + 0.5*n(k)*N;
 
     trSW      = trace(n(k)*S2(:,:,k)*W(:,:,k));
     diff1     = s1(:,k) - m(:,k);
@@ -44,4 +40,4 @@ for k=1:K
     lbk = lb1 + lb2 + lb3 - lb4;
     lb  = lb + lbk;
 end
-%=======================================================================
+%==========================================================================

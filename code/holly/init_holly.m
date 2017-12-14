@@ -2,12 +2,16 @@ function holly = init_holly(pth_obj,dir_data,jnam)
 HOLLY_CORES = 192;
 RAM         = 6; % This value will be decreased automatically to an optimal value after the first iteration
 
-jnam       = ['seg-' jnam]; 
-jnam_dummy = ['dummy-' jnam];
+holly = struct;
 
-holly      = struct;
+if numel(jnam)>9
+    error('Name of Holly job needs to be less than 10 characters!')
+end
 
-[holly.dir_root_h,holly.dir_root_l,holly.dir_pwd_h] = read_directory_details('directory_details.txt',jnam);    
+holly.jnam_h     = jnam; 
+holly.jnam_dummy = ['w' jnam];
+
+[holly.dir_root_h,holly.dir_root_l,holly.dir_pwd_h] = read_directory_details('directory_details.txt',holly.jnam_h);    
 
 holly.dir_matlab_h              = '/share/apps/MATLAB/R2016a/bin/matlab';
 [holly.username,holly.password] = read_user_details('user_details.txt');   
@@ -34,10 +38,8 @@ if exist(holly.dir_scripts_l,'dir'),  rmdir(holly.dir_scripts_l,'s');  end; mkdi
 
 holly.dir_logs_h     = fullfile(holly.dir_root_h,'logs');           
 holly.dir_scripts_h  = fullfile(holly.dir_root_h,'scripts');
-
-holly.jnam_h     = jnam;        
-holly.fun        = 'segment_holly'; 
-holly.jnam_dummy = jnam_dummy;      
+      
+holly.fun = 'segment_holly'; 
 
 holly = create_bash_scripts(holly);   
 

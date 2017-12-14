@@ -3,11 +3,7 @@ clear;
 addpath(genpath('./code'))
 
 %--------------------------------------------------------------------------
-S = [Inf]; % Number of subjects
-
-%--------------------------------------------------------------------------
-% Folder for all algorithm data (not used when running on Holly)
-obj.dir_data = '/data-scratch/mbrud/data/segmentation-toolbox-preproc';  
+S = Inf; % Number of subjects
 
 %--------------------------------------------------------------------------
 % Define data cell array, which should contain the following:
@@ -17,9 +13,9 @@ obj.dir_data = '/data-scratch/mbrud/data/segmentation-toolbox-preproc';
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
 im = {};
 
-im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck',S(1),'CT','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/IXI-subjects',S,'MRI','healthy',''};
 
-browse_subjects(im{1}{1});
+% browse_subjects(im{1}{1});
 
 %--------------------------------------------------------------------------
 % Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
@@ -33,12 +29,18 @@ obj.preproc.is_DICOM      = false; % If input images are DICOM, converts DICOM t
 obj.preproc.rem_corrupted = false; % Try to remove CT images that are corrupted (e.g. bone windowed)
 obj.preproc.realign       = true; % Realign to MNI space
 obj.preproc.crop          = true; % Remove data outside of head
-obj.preproc.crop_neck     = true; % Remove neck (the spine, etc.)
 obj.preproc.denoise       = false; % Denoise CT images
 
 %%
-V = load_and_process_images(obj,im);
-manage_parpool(0);
+obj.dir_data          = '/data-scratch/mbrud/data/segmentation-toolbox-preproc/IXI-noneck';  
+obj.preproc.crop_neck = true; % Remove neck (the spine, etc.)
+
+load_and_process_images(obj,im);
 
 %%
-show_V(V)
+obj.dir_data          = '/data-scratch/mbrud/data/segmentation-toolbox-preproc/IXI-neck';  
+obj.preproc.crop_neck = false; % Remove neck (the spine, etc.)
+
+load_and_process_images(obj,im);
+
+manage_parpool(0);

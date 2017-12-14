@@ -17,13 +17,11 @@ function [s,ds1,ds2,ds3] = spm_sample_logpriors8(lntpm,x1,x2,x3)
 % John Ashburner
 % $Id: spm_sample_priors8.m 5962 2014-04-17 12:47:43Z spm $
 
-tiny = lntpm.tiny;
-deg  = lntpm.deg;
-
-d  = lntpm.V.dim;
-dx = size(x1);
-Kb = numel(lntpm.dat);
-s  = cell(1,Kb);
+deg = lntpm.deg;
+d   = lntpm.V.dim;
+dx  = size(x1);
+Kb  = numel(lntpm.dat);
+s   = cell(1,Kb);
 
 if d(3)==1
     x3 = ones(size(x3));
@@ -56,7 +54,7 @@ else
     tot = zeros(dx);
     for k=1:Kb,
         [a,da1,da2,da3] = spm_bsplins(double(lntpm.dat{k}),x1,x2,x3,[deg deg deg  0 0 0]);
-        if k==Kb, s{k} = ones(dx); else s{k} = zeros(dx)+tiny; end
+        if k==Kb, s{k} = ones(dx); else s{k} = zeros(dx); end
         s{k} = ones(dx)*exp(double(lntpm.bg2(k)));
         s{k}(msk1) = exp(a);
         s{k}(msk2) = exp(double(lntpm.bg1(k)));

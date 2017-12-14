@@ -1,8 +1,8 @@
-function [obj,K] = init_TPM(obj,V,K)
-pth_logTPM = obj.pth_logTPM;
+function [obj,K] = init_tpm(obj,V,K)
+pth_logtpm = obj.pth_logtpm;
 
-if ~isempty(pth_logTPM) || numel(V{1})==1    
-    % If not building a template (i.e., regular segmentation)
+if ~isempty(pth_logtpm) || numel(V{1})==1    
+    % If not building TPMs (i.e., regular segmentation)
     obj.dopr        = false;
     obj.nitermain   = 1;    
     obj.num_workers = 0;    
@@ -15,14 +15,14 @@ if ~isempty(pth_logTPM) || numel(V{1})==1
     obj.wp_reg      = 1;
 end
 
-if isempty(pth_logTPM)
-    % Create a uniform (log) template
-    [obj.pth_logTPM] = init_uniform_TPM(obj,V,K);
+if isempty(pth_logtpm)
+    % Create uniform (log) TPMs
+    [obj.pth_logtpm] = init_uniform_tpm(obj,V,K);
         
     obj.use_tpm = false;   
 else    
-    % Template will be loaded from file
-    Nii     = nifti(pth_logTPM);
+    % TPMs will be loaded from file
+    Nii     = nifti(pth_logtpm);
     d       = size(Nii.dat(:,:,:,:));
     clear Nii
     
@@ -36,12 +36,12 @@ end
 %==========================================================================
 
 %==========================================================================
-function pth_logTPM = init_uniform_TPM(obj,V,K)
-vx_TPM     = obj.vx_TPM;
+function pth_logtpm = init_uniform_tpm(obj,V,K)
+vxtpm      = obj.samp;
 dir_res    = obj.dir_res;
-pth_logTPM = fullfile(dir_res,'logTPM.nii');
+pth_logtpm = fullfile(dir_res,'logtpm.nii');
        
-% Create a uniform TPM that covers all images    
+% Create uniform TPMs that covers all images    
 M   = numel(V);
 mat = [];
 dm  = [];    
@@ -64,20 +64,20 @@ for m=1:M
     end
 end
 
-[mat,dm] = compute_avg_mat(mat,dm,vx_TPM);
+[mat,dm] = compute_avg_mat(mat,dm,vxtpm);
 
-[pth,nam,ext] = fileparts(pth_logTPM);
+[pth,nam,ext] = fileparts(pth_logtpm);
 
 img  = zeros(dm);
 vols = cell(K,1);
 for k=1:K    
     vols{k} = fullfile(pth,[nam num2str(k) ext]);
-    create_nii(vols{k},img,mat,16,'logTPM');
+    create_nii(vols{k},img,mat,16,'logtpm');
 end
 clear img
 
 matlabbatch{1}.spm.util.cat.vols  = vols;
-matlabbatch{1}.spm.util.cat.name  = pth_logTPM;
+matlabbatch{1}.spm.util.cat.name  = pth_logtpm;
 matlabbatch{1}.spm.util.cat.dtype = 16;
 spm_jobman('run',matlabbatch);
 

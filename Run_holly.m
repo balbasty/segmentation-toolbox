@@ -3,13 +3,13 @@ clear;
 addpath(genpath('./code'))
 
 %--------------------------------------------------------------------------
-S = [Inf 100]; % Number of subjects
-K = 16; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
+S = [32 100]; % Number of subjects
+K = 10; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
 
 %--------------------------------------------------------------------------
 % Options for running algorithm on the FIL cluster (Holly)
 obj.run_on_holly = true;
-obj.holly_jnam   = 'CR1'; % OBS: Keep short!
+obj.holly_jnam   = 'TEST';
 
 %--------------------------------------------------------------------------
 % Define data cell array, which should contain the following:
@@ -19,26 +19,13 @@ obj.holly_jnam   = 'CR1'; % OBS: Keep short!
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
 im = {};
 
-% 2D
-% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-aged-2D-den',S(1),'CT','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-CHROMIS-2D-den',S(1),'CT','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-healthy-2D-den',S(2),'CT','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/IXI-2D',S(2),'MRI','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/OASIS-long-2D',S,'MRI','healthy',''};
-
-% 3D
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-aged-noneck-den',S,'CT','healthy',''};
 im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck',S(1),'CT','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-noneck-den',S(2),'CT','healthy',''};
-im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck',S(2),'MRI','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/OASIS-long-noneck',S,'MRI','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck',S(2),'MRI','healthy',''};
 
-% browse_subjects(im{1}{1});
 
 %--------------------------------------------------------------------------
 % Path to initial template
-obj.pth_logTPM = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
-% obj.pth_logTPM = '/home/smajjk/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+obj.pth_logtpm = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
 
 %--------------------------------------------------------------------------
 % Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
@@ -50,14 +37,12 @@ obj.preproc.do_preproc    = false; % Do preprocessing on input images
 obj.preproc.rem_corrupted = true; % Try to remove CT images that are corrupted (e.g. bone windowed)
 
 %--------------------------------------------------------------------------
-% The distance (mm) between samples (for sub-sampling input data--improves speed)
-obj.samp = 1.5;
-
-%--------------------------------------------------------------------------
 % Segmentation parameters
-obj.lkp    = 1; % Number of gaussians per tissue
-obj.vb     = false; % Use a variational Bayesian mixture model
-obj.wp_reg = 1e0; % Bias weight updates towards 1
+obj.samp         = 1.5; % The distance (mm) between samples (for sub-sampling input data--improves speed)
+obj.missing_data = false;
+obj.vb           = true; % Use a variational Bayesian mixture model
+obj.wp_reg       = 1e0; % Bias weight updates towards 1
+obj.lkp          = 1; % Number of gaussians per tissue
 
 %--------------------------------------------------------------------------
 % What estimates to perform
@@ -91,10 +76,10 @@ obj.biasreg  = 1e-4;
 
 %--------------------------------------------------------------------------
 % Template options
-obj.vx_TPM   = obj.samp; % Voxel size of template to be estimated
-obj.deg      = 2;        % Degree of interpolation when sampling template
-obj.tiny     = 1e-4;     % Strength of Dirichlet prior used in template construction
-obj.fwhm_TPM = 1e-2;     % Ad hoc smoothing of template (improves convergence)
+obj.deg          = 2;    % Degree of interpolation when sampling template
+obj.pr_dirichlet = 1e-4; % Strength of Dirichlet prior used in template construction
+obj.fwhmtpm      = 1e-2; % Ad hoc smoothing of template (improves convergence)
+obj.crop_bb      = true;
 
 %--------------------------------------------------------------------------
 % For debugging
@@ -108,5 +93,4 @@ obj.dir_res  = 'results';
 %==========================================================================
 %% Run algorithm
 %==========================================================================
-
 spm_preprocx_run(obj,im,K);

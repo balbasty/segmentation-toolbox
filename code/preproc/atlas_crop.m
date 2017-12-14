@@ -1,15 +1,13 @@
 function Affine = atlas_crop(P,Affine,prefix,crop_neck)
 if nargin < 2, Affine    = []; end
 if nargin < 3, prefix    = ''; end
-if nargin < 4, crop_neck = 0; end
+if nargin < 4, crop_neck = false; end
 
 % Locate TPM.nii in SPM
-Pspm = which('spm');
-Pspm = Pspm(1:end-5);
-Ptpm = fullfile(Pspm,'tpm','TPM.nii');
+pth_tpm = fullfile(spm('dir'),'tpm','TPM.nii,');
 
 Vin  = spm_vol(P);
-Vtpm = spm_vol(Ptpm);
+Vtpm = spm_vol(pth_tpm);
 
 mat    = Vin.mat;
 mattpm = Vtpm.mat;
