@@ -294,7 +294,7 @@ for z=1:length(z0)
     end
 
     % Create a buffer for tissue probability info
-    buf(z).dat = zeros([buf(z).Nm Kb],'single');
+    buf(z).dat = zeros([prod(d(1:2)) Kb],'single');
 end
 
 % Set-up MoG struct
@@ -350,7 +350,7 @@ for iter=1:niter
     for z=1:length(z0)
         if ~buf(z).Nm, continue; end
         
-        [x1,y1,z1] = defs(Twarp,z,x0,y0,z0,M,buf(z).code);        
+        [x1,y1,z1] = defs(Twarp,z,x0,y0,z0,M);        
         tpm        = spm_sample_logpriors8(logtpm,x1,y1,z1);
         for k1=1:Kb
             buf(z).dat(:,k1) = tpm{k1};
@@ -364,7 +364,7 @@ for iter=1:niter
             set(0,'CurrentFigure',fig{2});                                        
             for i=1:Kb            
                 subplot(K1,K2,i);
-                slice(buf(z).code>0) = tpm{i};
+                slice(buf(z).code>=0) = tpm{i};
                 imagesc(slice'); axis image xy off; colormap(gray);
                 title(['TPM, k=' num2str(i)]);
             end 
@@ -379,17 +379,11 @@ for iter=1:niter
         K   = Kb;
         lkp = 1:Kb;
                   
-        if isfield(obj,'wp')
-            wp = obj.wp;
-        else
-            wp = ones(1,Kb)/Kb;
-        end
+        if isfield(obj,'wp'), wp = obj.wp;
+        else                  wp = ones(1,Kb)/Kb; end
 
-        if isfield(obj,'mg')
-            mg = obj.mg;
-        else
-            mg = ones(1,Kb);
-        end
+        if isfield(obj,'mg'), mg = obj.mg;
+        else                  mg = ones(1,Kb); end
 
         mom = mom_from_buf(buf,Kb,N,z0,uniform);
     end
@@ -677,11 +671,10 @@ for iter=1:niter
                 [qt,dlq] = latent(buf(z),double(buf(z).dat),mg,mog,wp,lkp); 
                 ll       = ll + sum(dlq);
 
-                q   = zeros([buf(z).Nm Kb]);
-                msk = buf(z).code>0;
+                q = zeros([prod(d(1:2)) Kb]);
                 for k1=1:Kb
                     for k=find(lkp==k1)
-                        q(:,k1) = q(:,k1) + qt(msk,k);
+                        q(:,k1) = q(:,k1) + qt(:,k);
                     end
                     buf(z).dat(:,k1) = single(q(:,k1));
                 end     
@@ -696,12 +689,11 @@ for iter=1:niter
 
                 qt       = log_likelihoods(K,buf(z),mg,mog);
                 max_qt   = max(qt,[],2);
-                ll_const = ll_const + nansum(max_qt);  
-                q        = zeros([buf(z).Nm Kb]);
-                msk      = buf(z).code>0;
+                ll_const = ll_const + sum(max_qt);  
+                q        = zeros([prod(d(1:2)) Kb]);
                 for k1=1:Kb
                     for k=find(lkp==k1)
-                        q(:,k1) = q(:,k1) + exp(qt(msk,k) - max_qt(msk));
+                        q(:,k1) = q(:,k1) + exp(qt(:,k) - max_qt(:));
                     end
                     buf(z).dat(:,k1) = single(q(:,k1));
                 end                                
@@ -723,7 +715,7 @@ for iter=1:niter
                 if ~buf(z).Nm, continue; end
 
                 % Deformations from parameters
-                [x1,y1,z1] = defs(Twarp,z,x0,y0,z0,M,buf(z).code);
+                [x1,y1,z1] = defs(Twarp,z,x0,y0,z0,M);
 
                 % Tissue probability map and spatial derivatives
                 [tpm,db1,db2,db3] = spm_sample_logpriors8(logtpm,x1,y1,z1);
@@ -755,10 +747,10 @@ for iter=1:niter
                 % Rotate gradients (according to initial affine registration) and
                 % compute the sums of the tpm and its gradients, times the
                 % likelihoods/responsibilities
-                p   = zeros(buf(z).Nm,1) + eps;
-                dp1 = zeros(buf(z).Nm,1);
-                dp2 = zeros(buf(z).Nm,1);
-                dp3 = zeros(buf(z).Nm,1);
+                p   = zeros(prod(d(1:2)),1) + eps;
+                dp1 = zeros(prod(d(1:2)),1);
+                dp2 = zeros(prod(d(1:2)),1);
+                dp3 = zeros(prod(d(1:2)),1);
                 MM  = M*MT; % Map from sampled voxels to atlas data
                 for k1=1:Kb
                     pp  = double(buf(z).dat(:,k1));
@@ -771,12 +763,9 @@ for iter=1:niter
 
                 % Compute first and second derivatives of the matching term.  Note that
                 % these can be represented by a vector and tensor field respectively.
-                tmp      = zeros(d(1:2));
-                msk      = buf(z).code>0;
-                tmp(msk) = dp1./p; dp1 = tmp;
-                tmp(msk) = dp2./p; dp2 = tmp;
-                tmp(msk) = dp3./p; dp3 = tmp;
-                clear msk
+                tmp = dp1./p; dp1 = reshape(tmp,d(1:2));
+                tmp = dp2./p; dp2 = reshape(tmp,d(1:2));
+                tmp = dp3./p; dp3 = reshape(tmp,d(1:2));
                 
                 Beta(:,:,z,1)   = -dp1;     % First derivatives
                 Beta(:,:,z,2)   = -dp2;
@@ -814,7 +803,7 @@ for iter=1:niter
                 for z=1:length(z0)
                     if ~buf(z).Nm, continue; end
                     
-                    [x1,y1,z1] = defs(Twarp1,z,x0,y0,z0,M,buf(z).code);
+                    [x1,y1,z1] = defs(Twarp1,z,x0,y0,z0,M);
                     tpm        = spm_sample_logpriors8(logtpm,x1,y1,z1);
                     clear x1 y1 z1
                     
@@ -824,7 +813,7 @@ for iter=1:niter
                             cr(buf(z).msk{n1},n1) = double(buf(z).f{n1}).*double(buf(z).bf{n1});
                         end
 
-                        B = zeros(buf(z).Nm,Kb);
+                        B = zeros(prod(d(1:2)),Kb);
                         for k1=1:Kb
                             B(:,k1) = double(tpm{k1});
                         end
@@ -840,7 +829,7 @@ for iter=1:niter
                         for k1=1:Kb, tpm{k1} = tpm{k1}*wp(k1); s = s + tpm{k1}; end
                         for k1=1:Kb, tpm{k1} = tpm{k1}./s; end
 
-                        sq = zeros(buf(z).Nm,1);
+                        sq = zeros(prod(d(1:2)),1);
                         for k1=1:Kb
                             sq = sq + double(buf(z).dat(:,k1)).*double(tpm{k1});
                         end
@@ -884,7 +873,7 @@ for iter=1:niter
         
         if ~isempty(fig{2})                
             % Visualise deformed template
-            [x1,y1,z1] = defs(Twarp,zix,x0,y0,z0,M,buf(zix).code);
+            [x1,y1,z1] = defs(Twarp,zix,x0,y0,z0,M);
             tpm        = spm_sample_logpriors8(logtpm,x1,y1,z1);
             clear x1 y1 z1
 
@@ -893,7 +882,7 @@ for iter=1:niter
             set(0,'CurrentFigure',fig{2});                                        
             for i=1:Kb     
                 subplot(K1,K2,i);
-                slice(buf(zix).code>0) = tpm{i};
+                slice(buf(zix).code>=0) = tpm{i};
                 imagesc(slice'); axis image xy off; colormap(gray);
                 title(['TPM, k=' num2str(i)]);
             end 
@@ -921,15 +910,14 @@ if dotpm
               
         qt     = log_likelihoods(K,buf(z),[],mog);                
         max_qt = max(qt,[],2);
-        msk    = buf(z).code>0;
-        q      = zeros([buf(z).Nm Kb]);
+        q      = zeros([prod(d(1:2)) Kb]);
         for k1=1:Kb
             for k=find(lkp==k1)
-                q(:,k1) = q(:,k1) + exp(qt(msk,k) - max_qt(msk));
+                q(:,k1) = q(:,k1) + exp(qt(:,k) - max_qt(:));
             end
-            px(msk,z,k1) = single(q(:,k1));
+            px(:,z,k1) = single(q(:,k1));
         end
-        clear qt max_qt q msk
+        clear qt max_qt q
     end          
     px = reshape(px,[d Kb]);    
     clear buf
@@ -1060,24 +1048,15 @@ obj.nm       = nm;
 obj.mog      = mog;
 obj.bb       = bb;
 obj.DC       = DC;
-
-return;
 %==========================================================================
       
 %==========================================================================
-function [x1,y1,z1] = defs(Twarp,z,x0,y0,z0,M,code)
-x1a = x0    + double(Twarp(:,:,z,1));
-y1a = y0    + double(Twarp(:,:,z,2));
-z1a = z0(z) + double(Twarp(:,:,z,3));
-if nargin>=7  
-    msk = code>0;
-    x1a = x1a(msk);
-    y1a = y1a(msk);
-    z1a = z1a(msk);
-end
-[x1,y1,z1] = affine_transf(M,x1a,y1a,z1a);
+function [x1,y1,z1] = defs(Twarp,z,x0,y0,z0,M)
+x1a        = x0    + double(Twarp(:,:,z,1));
+y1a        = y0    + double(Twarp(:,:,z,2));
+z1a        = z0(z) + double(Twarp(:,:,z,3));
+[x1,y1,z1] = affine_transf(M,x1a(:),y1a(:),z1a(:));
 if numel(z0)==1, z1 = ones(size(z1)); end
-return;
 %==========================================================================
 
 %==========================================================================
@@ -1114,7 +1093,6 @@ if ~isempty(T)
 else
     T = zeros(size(B1,1),size(B2,1));
 end
-return;
 %==========================================================================
                  
 %==========================================================================
@@ -1224,15 +1202,9 @@ else
         for n=1:N
             cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n});
         end
-
-        % Responsibilities from TPMs
-        q = zeros(numel(buf(z).code),Kb);
-        for k=1:Kb
-            q(buf(z).code>0,k) = double(buf(z).dat(:,k));
-        end
-
-        % Calculate sufficient statistics                
-        mom = spm_SuffStats(cr,q,buf(z).code,mom);                                                          
+        
+        % Calculate sufficient statistics
+        mom = spm_SuffStats(cr,double(buf(z).dat),buf(z).code,mom);                                                          
     end   
 end 
 %==========================================================================

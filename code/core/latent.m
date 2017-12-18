@@ -1,13 +1,9 @@
 function [Q,L] = latent(buf,B,mg,mog,wp,lkp,cr)
 if nargin<7, cr = []; end
-K  = numel(lkp);
-B  = log_spatial_priors(B,wp,mg,lkp);
-Q  = log_likelihoods(K,buf,[],mog,cr);
-
-msk = buf.code>0;
-for k=1:K
-    Q(msk,k) = Q(msk,k) + B(:,k);
-end
+K = numel(lkp);
+B = log_spatial_priors(B,wp,mg,lkp);
+Q = log_likelihoods(K,buf,[],mog,cr);
+Q = Q + B;
 
 if isfield(mog,'pr')            
     logSumQ = logsumexp(Q,2);
@@ -31,9 +27,7 @@ if isfield(mog,'pr')
     L(2) = nansum(nansum(Q.*bf));
     
     % TPMs
-    for k=1:K
-        L(3) = L(3) + nansum(nansum(bsxfun(@times,Q(msk,k),B(:,k))));    
-    end
+    L(3) = sum(sum(Q.*B));   
 else
     [Q,L] = safe_softmax(Q);
 end
