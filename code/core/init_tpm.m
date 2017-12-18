@@ -1,5 +1,10 @@
 function [obj,K] = init_tpm(obj,V,K)
-pth_logtpm = obj.pth_logtpm;
+if isfield(obj,'pth_logtpm')
+    pth_logtpm = obj.pth_logtpm;
+else
+    pth_logtpm     = '';
+    obj.pth_logtpm = pth_logtpm;
+end
 
 if ~isempty(pth_logtpm) || numel(V{1})==1    
     % If not building TPMs (i.e., regular segmentation)

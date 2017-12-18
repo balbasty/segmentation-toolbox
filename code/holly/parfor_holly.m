@@ -30,7 +30,7 @@ while 1,
 
     [status,result] = system(cmd);   
     if isempty(result)
-        fprintf('Elapsed time (holly): %d s\n',round(toc))                        
+        fprintf('Elapsed time (parfor_holly): %0.1f s\n',toc)                        
         pause(1);
         break
     end

@@ -49,13 +49,13 @@ for z=1:d(3)
     mom = spm_SuffStats(cr,q,buf(z).code,mom);
 end
 
-% Sort sufficient statistics
-[~,ix] = sort(mean(mom(end).s1(:,:),1),2);
-for i=2:numel(mom) 
-    mom(i).s0 = mom(i).s0(ix);
-    mom(i).s1 = mom(i).s1(:,ix);
-    mom(i).S2 = mom(i).S2(:,:,ix);
-end
+% % Sort sufficient statistics
+% [~,ix] = sort(mean(mom(end).s1(:,:),1),2);
+% for i=2:numel(mom) 
+%     mom(i).s0 = mom(i).s0(ix);
+%     mom(i).s1 = mom(i).s1(:,ix);
+%     mom(i).S2 = mom(i).S2(:,:,ix);
+% end
 
 if verbose
     % Display estimated labels    

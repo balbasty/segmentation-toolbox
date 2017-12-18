@@ -57,7 +57,7 @@ for m=1:M
         if m>1
             imdir = [imdir '_m' num2str(m)];
         end
-        [V{m},imdir_2D] = cpy2imdir(V{m},imdir,num_workers);            
+        [V{m},imdir_2D] = cpy2imdir(V{m},imdir);            
         
         % Process the input images
         V_m = V{m};
@@ -197,7 +197,7 @@ end
 %==========================================================================
 
 %=======================================================================
-function [V,imdir_2D] = cpy2imdir(V,imdir,num_workers)
+function [V,imdir_2D] = cpy2imdir(V,imdir)
 S = numel(V);
 N = numel(V{1});
 
@@ -227,7 +227,7 @@ end
 mkdir(imdir_2D{3});
 
 nV = cell(1,S);
-parfor (s=1:S,num_workers)
+for s=1:S
     fname = V{s}.fname;
     odir   = fileparts(fname);
     

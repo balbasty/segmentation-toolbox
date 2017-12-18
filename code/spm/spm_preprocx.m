@@ -10,8 +10,11 @@ if nargin<3, fig = cell(4,1); end
 V         = obj.image;
 descrip   = obj.descrip;
 N         = numel(V);
+
 Affine    = obj.Affine;
 M         = logtpm.M\Affine*V(1).mat;
+B_aff     = affine_basis;
+
 d0        = V(1).dim(1:3);
 dtpm      = logtpm.d;
 vx        = vxsize(V(1).mat);
@@ -105,44 +108,58 @@ clear Nii
 llr   = -0.5*sum(sum(sum(sum(Twarp.*bsxfun(@times,spm_diffeo('vel2mom',bsxfun(@times,Twarp,1./sk4),param),1./sk4)))));
 
 % Initialise bias correction
-%-----------------------------------------------------------------------
-cl   = cell(N,1);
-args = {'C',cl,'B1',cl,'B2',cl,'B3',cl,'T',cl,'ll',cl};
-chan = struct(args{:});
-
-for n=1:N
-    % GAUSSIAN REGULARISATION for bias correction
+%--------------------------------------------------------------------------
+cl      = cell(N,1);
+args    = {'C',cl,'B1',cl,'B2',cl,'B3',cl,'T',cl,'ll',cl,'DC',cl};
+chan    = struct(args{:});
+for n=1:N    
+    biasreg = obj.biasreg(n)*ff; 
+    vx      = vxsize(V(n).mat);
     fwhm    = obj.biasfwhm(n);
-    biasreg = obj.biasreg(n);
-    vx      = sqrt(sum(V(n).mat(1:3,1:3).^2));
-    d0      = V(n).dim;
-    sd      = vx(1)*d0(1)/fwhm; d3(1) = ceil(sd*2); krn_x   = exp(-(0:(d3(1)-1)).^2/sd.^2)/sqrt(vx(1));
-    sd      = vx(2)*d0(2)/fwhm; d3(2) = ceil(sd*2); krn_y   = exp(-(0:(d3(2)-1)).^2/sd.^2)/sqrt(vx(2));
-    sd      = vx(3)*d0(3)/fwhm; d3(3) = ceil(sd*2); krn_z   = exp(-(0:(d3(3)-1)).^2/sd.^2)/sqrt(vx(3));
-    Cbias   = kron(krn_z,kron(krn_y,krn_x)).^(-2)*biasreg*ff;
-    chan(n).C   = sparse(1:length(Cbias),1:length(Cbias),Cbias,length(Cbias),length(Cbias));
+       
+    sd = vx(1)*d0(1)/fwhm; d3(1) = ceil(sd*2); krn_x = exp(-(0:(d3(1)-1)).^2/sd.^2)/sqrt(vx(1));
+    sd = vx(2)*d0(2)/fwhm; d3(2) = ceil(sd*2); krn_y = exp(-(0:(d3(2)-1)).^2/sd.^2)/sqrt(vx(2));
+    sd = vx(3)*d0(3)/fwhm; d3(3) = ceil(sd*2); krn_z = exp(-(0:(d3(3)-1)).^2/sd.^2)/sqrt(vx(3));
+    
+%     % GAUSSIAN REGULARISATION for bias correction    
+%     fwhm  = obj.biasfwhm(n);
+%     Cbias = kron(krn_z,kron(krn_y,krn_x)).^(-2)*biasreg;        
+%     chan(n).C = sparse(1:length(Cbias),1:length(Cbias),Cbias,length(Cbias),length(Cbias)); % Store prior covaricance for bias regularisation
 
-    % Basis functions for bias correction
-    chan(n).B3  = spm_dctmtx(d0(3),d3(3),z0);
-    chan(n).B2  = spm_dctmtx(d0(2),d3(2),y0(1,:)');
-    chan(n).B1  = spm_dctmtx(d0(1),d3(1),x0(:,1));
-
+    % BENDING ENERGY regularisation for bias correction
+    % This penalises the sum of squares of the 2nd derivatives of the bias parameters
+    chan(n).C = diffeo('penalty',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0]);
+    chan(n).C = chan(n).C(1:size(chan(n).C,1)/3,1:size(chan(n).C,1)/3);
+    
     % Initial parameterisation of bias field
-    if isfield(obj,'Tbias') && ~isempty(obj.Tbias{n})
+    if isfield(obj,'Tbias') && ~isempty(obj.Tbias{n})                
         chan(n).T = obj.Tbias{n};
+        if d(3)>1
+            chan(n).T(1,1,1) = chan(n).T(1,1,1) - obj.DC(n);
+        else
+            chan(n).T(1,1)   = chan(n).T(1,1)   - obj.DC(n);
+        end
     else
         chan(n).T = zeros(d3);
     end
+    
+    % Basis functions for bias correction
+    chan(n).B3 = spm_dctmtx(d0(3),d3(3),z0);
+    chan(n).B2 = spm_dctmtx(d0(2),d3(2),y0(1,:)');
+    chan(n).B1 = spm_dctmtx(d0(1),d3(1),x0(:,1));
 end
 
 if isfield(obj,'msk') && ~isempty(obj.msk)
+    % Get mask
+    %----------------------------------------------------------------------
     VM = spm_vol(obj.msk);
     if sum(sum((VM.mat-V(1).mat).^2)) > 1e-6 || any(VM.dim(1:3) ~= V(1).dim(1:3))
         error('Mask must have the same dimensions and orientation as the image.');
     end
 end
 
-% For dealing with missing data
+% For building code array for dealing with missing data
+%--------------------------------------------------------------------------
 if N<=8
     cast = @uint8;
     typ  = 'uint8';
@@ -160,7 +177,7 @@ else
 end
 
 % Load the data
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 
 % Total number of voxels  
 nm = 0;
@@ -252,10 +269,10 @@ for z=1:length(z0)
     
     for n=1:N                                   
         % Normalise image intensities (not if CT)            
-        if strcmp(descrip,'CT')
-            a(n) = 1.0;
+        if strcmp(descrip,'MRI') && obj.iter==1 && dotpm
+            a(n) = 512/(a(n)/buf(z).nm{n});            
         else
-            a(n) = 512/(a(n)/buf(z).nm{n});
+            a(n) = 1.0;
         end
        
         % Eliminate unwanted voxels
@@ -292,14 +309,14 @@ clear s0 s1 S2
 
 % Create initial bias field
 %-----------------------------------------------------------------------
-llrb = 0;
+llrb    = 0;
 for n=1:N
-    B1 = chan(n).B1;
-    B2 = chan(n).B2;
-    B3 = chan(n).B3;
-    C  = chan(n).C;
-    T  = chan(n).T;
-    chan(n).ll = double(-0.5*T(:)'*C*T(:));
+    B1 = chan(n).B1; 
+    B2 = chan(n).B2; 
+    B3 = chan(n).B3; 
+    C  = chan(n).C;  
+    T  = chan(n).T; 
+    chan(n).ll = double(-0.5*T(:)'*C*T(:));    
     for z=1:numel(z0)
         bf             = transf(B1,B2,B3(z,:),T);
         tmp            = bf(buf(z).msk{n});
@@ -489,21 +506,21 @@ for iter=1:niter
 
                             q = latent(buf(z),double(buf(z).dat),mg,mog,wp,lkp,cr);
                             
-                            w1 = zeros(buf(z).Nm,1);
-                            w2 = zeros(buf(z).Nm,1);
+                            w1 = zeros(prod(d(1:2)),1);
+                            w2 = zeros(prod(d(1:2)),1);
                             for k=1:K
                                 qk  = q(buf(z).msk{n},k);
-                                w0  = zeros(buf(z).Nm,1);
+                                w0  = zeros(prod(d(1:2)),1);
                                 for n1=1:N
-                                    w0 = w0 + pr_bf(n1,n,k)*(mn_bf(n1,k) - cr(buf(z).msk{n1},n1));
+                                    w0(buf(z).msk{n1}) = w0(buf(z).msk{n1}) + pr_bf(n1,n,k)*(mn_bf(n1,k) - cr(buf(z).msk{n1},n1));
                                 end
-                                w1  = w1 + qk.*w0;
-                                w2  = w2 + qk*pr_bf(n,n,k);
+                                w1(buf(z).msk{n}) = w1(buf(z).msk{n}) + qk.*w0(buf(z).msk{n});
+                                w2(buf(z).msk{n}) = w2(buf(z).msk{n}) + qk*pr_bf(n,n,k);
                             end
                             wt1                = zeros(d(1:2));
-                            wt1(buf(z).code>0) = -(1 + cr(buf(z).msk{n},n).*w1); % US eq. 34 (gradient)
+                            wt1(buf(z).msk{n}) = -(1 + cr(buf(z).msk{n},n).*w1(buf(z).msk{n})); % US eq. 34 (gradient)
                             wt2                = zeros(d(1:2));
-                            wt2(buf(z).code>0) = cr(buf(z).msk{n},n).*cr(buf(z).msk{n},n).*w2 + 1; % Simplified Hessian of US eq. 34
+                            wt2(buf(z).msk{n}) = cr(buf(z).msk{n},n).*cr(buf(z).msk{n},n).*w2(buf(z).msk{n}) + 1; % Simplified Hessian of US eq. 34
                             clear cr
 
                             b3    = chan(n).B3(z,:)';
@@ -637,6 +654,14 @@ for iter=1:niter
         end
     end
 
+    if 1 && iter<niter && vb
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Estimate affine parameters        
+        %------------------------------------------------------------       
+        
+        % Update M...
+    end
+    
     if dodef && iter<niter
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Estimate deformations
@@ -746,10 +771,12 @@ for iter=1:niter
 
                 % Compute first and second derivatives of the matching term.  Note that
                 % these can be represented by a vector and tensor field respectively.
-                tmp                = zeros(d(1:2));
-                tmp(buf(z).msk{1}) = dp1./p; dp1 = tmp;
-                tmp(buf(z).msk{1}) = dp2./p; dp2 = tmp;
-                tmp(buf(z).msk{1}) = dp3./p; dp3 = tmp;
+                tmp      = zeros(d(1:2));
+                msk      = buf(z).code>0;
+                tmp(msk) = dp1./p; dp1 = tmp;
+                tmp(msk) = dp2./p; dp2 = tmp;
+                tmp(msk) = dp3./p; dp3 = tmp;
+                clear msk
                 
                 Beta(:,:,z,1)   = -dp1;     % First derivatives
                 Beta(:,:,z,2)   = -dp2;
@@ -765,53 +792,7 @@ for iter=1:niter
             end
 
             % Heavy-to-light regularisation
-            if dotpm
-                switch (obj.iter - 2)
-                    case 1
-                        prm = [param(1:3) 256*param(4:8)];
-                    case 2
-                        prm = [param(1:3) 128*param(4:8)];
-                    case 3
-                        prm = [param(1:3)  64*param(4:8)];
-                    case 4
-                        prm = [param(1:3)  32*param(4:8)];
-                    case 5
-                        prm = [param(1:3)  16*param(4:8)];
-                    case 6
-                        prm = [param(1:3)  8*param(4:8)];
-                    case 7
-                        prm = [param(1:3)  4*param(4:8)];
-                    case 8
-                        prm = [param(1:3)  2*param(4:8)];
-                    otherwise
-                        prm = [param(1:3)    param(4:8)];
-                end               
-            else
-                if ~def_done0
-                    switch iter
-                        case 1
-                            prm = [param(1:3) 256*param(4:8)];
-                        case 2
-                            prm = [param(1:3) 128*param(4:8)];
-                        case 3
-                            prm = [param(1:3)  64*param(4:8)];
-                        case 4
-                            prm = [param(1:3)  32*param(4:8)];
-                        case 5
-                            prm = [param(1:3)  16*param(4:8)];
-                        case 6
-                            prm = [param(1:3)  8*param(4:8)];
-                        case 7
-                            prm = [param(1:3)  4*param(4:8)];
-                        case 8
-                            prm = [param(1:3)  2*param(4:8)];
-                        otherwise
-                            prm = [param(1:3)    param(4:8)];
-                    end
-                else
-                    prm = [param(1:3)   param(4:8)];
-                end
-            end
+            prm = def_regularisation(dotpm,param,iter,obj.iter,def_done0);
             
             % Add in the first derivatives of the prior term
             Beta   = Beta  + spm_diffeo('vel2mom',bsxfun(@times,Twarp,1./sk4),prm);
@@ -969,7 +950,7 @@ if dotpm
     MM     = M*MT;
     t      = affine_transf(MM,t);     
     if dtpm(3)==1, t(:,:,:,3) = 1; end
-    [px,c] = spm_diffeo('push',px,t,dtpm);
+    [px,c] = spm_diffeo('pushc',px,t,dtpm);
     clear t                         
     
     % Mask
@@ -1058,6 +1039,13 @@ if dotpm
     clear Nii tpmden        
 end
 
+% For setting the DC component of all the bias fields so that they
+% average to 0 (used for global signal normalisation).
+DC = zeros(1,N);
+for n=1:N        
+    DC(n) = chan(n).T(1,1,1);
+end 
+
 % Save the results
 Nii              = nifti(obj.pth_def);
 Nii.dat(:,:,:,:) = Twarp; 
@@ -1071,7 +1059,8 @@ obj.ll       = ll;
 obj.nm       = nm;
 obj.mog      = mog;
 obj.bb       = bb;
-    
+obj.DC       = DC;
+
 return;
 %==========================================================================
       
@@ -1092,13 +1081,38 @@ return;
 %==========================================================================
 
 %==========================================================================
-function t = transf(B1,B2,B3,T)
+function T = transf(B1,B2,B3,T)
 if ~isempty(T)
     d2 = [size(T) 1];
-    t1 = reshape(reshape(T, d2(1)*d2(2),d2(3))*B3', d2(1), d2(2));
-    t  = B1*t1*B2';
+
+    T = reshape(T,prod(d2(1:2)),d2(3));    
+    T = T*B3';
+
+    T = reshape(T,d2(1),d2(2));    
+    T = B1*T*B2';
+    
+%     T1        = T;
+%     T1(1,1,1) = 0;
+% 
+%     T2              = T;
+%     T2(1:end,2:end) = 0;
+%     T2(2:end,1)     = 0;
+% 
+%     T1 = reshape(T1,prod(d2(1:2)),d2(3));    
+%     T1 = T1*B3';
+% 
+%     T1 = reshape(T1,d2(1),d2(2));    
+%     T1 = B1*T1*B2';
+% 
+%     T2 = reshape(T2,prod(d2(1:2)),d2(3));    
+%     T2 = T2*B3';
+% 
+%     T2 = reshape(T2,d2(1),d2(2));    
+%     T2 = B1*T2*B2';
+% 
+%     T = T1 + T2;
 else
-    t  = zeros(size(B1,1),size(B2,1));
+    T = zeros(size(B1,1),size(B2,1));
 end
 return;
 %==========================================================================
@@ -1223,6 +1237,57 @@ else
 end 
 %==========================================================================
 
+%==========================================================================
+function prm = def_regularisation(dotpm,param,iter,itertpm,def_done0)
+if dotpm
+    switch (itertpm - 2)
+        case 1
+            prm = [param(1:3) 256*param(4:8)];
+        case 2
+            prm = [param(1:3) 128*param(4:8)];
+        case 3
+            prm = [param(1:3)  64*param(4:8)];
+        case 4
+            prm = [param(1:3)  32*param(4:8)];
+        case 5
+            prm = [param(1:3)  16*param(4:8)];
+        case 6
+            prm = [param(1:3)  8*param(4:8)];
+        case 7
+            prm = [param(1:3)  4*param(4:8)];
+        case 8
+            prm = [param(1:3)  2*param(4:8)];
+        otherwise
+            prm = [param(1:3)    param(4:8)];
+    end               
+else
+    if ~def_done0
+        switch iter
+            case 1
+                prm = [param(1:3) 256*param(4:8)];
+            case 2
+                prm = [param(1:3) 128*param(4:8)];
+            case 3
+                prm = [param(1:3)  64*param(4:8)];
+            case 4
+                prm = [param(1:3)  32*param(4:8)];
+            case 5
+                prm = [param(1:3)  16*param(4:8)];
+            case 6
+                prm = [param(1:3)  8*param(4:8)];
+            case 7
+                prm = [param(1:3)  4*param(4:8)];
+            case 8
+                prm = [param(1:3)  2*param(4:8)];
+            otherwise
+                prm = [param(1:3)    param(4:8)];
+        end
+    else
+        prm = [param(1:3)   param(4:8)];
+    end
+end
+%==========================================================================
+            
 %==========================================================================
 function count = my_fprintf(varargin)
 if varargin{end}

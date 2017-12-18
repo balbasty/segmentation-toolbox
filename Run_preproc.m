@@ -1,4 +1,4 @@
-clear;
+clear; clc;
 
 addpath(genpath('./code'))
 
@@ -13,13 +13,11 @@ S = Inf; % Number of subjects
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
 im = {};
 
-im{end + 1} = {'/data-scratch/mbrud/images/IXI-subjects',S,'MRI','healthy',''};
-
-% browse_subjects(im{1}{1});
+im{end + 1} = {'/data-scratch/mbrud/images/Rob-CT-healthy',S,'CT','healthy',''};
 
 %--------------------------------------------------------------------------
 % Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
-obj.num_workers  = Inf;
+obj.num_workers  = 2;
 obj.run_on_holly = false;
 
 %--------------------------------------------------------------------------
@@ -32,13 +30,7 @@ obj.preproc.crop          = true; % Remove data outside of head
 obj.preproc.denoise       = false; % Denoise CT images
 
 %%
-obj.dir_data          = '/data-scratch/mbrud/data/segmentation-toolbox-preproc/IXI-noneck';  
-obj.preproc.crop_neck = true; % Remove neck (the spine, etc.)
-
-load_and_process_images(obj,im);
-
-%%
-obj.dir_data          = '/data-scratch/mbrud/data/segmentation-toolbox-preproc/IXI-neck';  
+obj.dir_data          = '/data-scratch/mbrud/data/segmentation-toolbox-preproc/CT-healthy-noneck';  
 obj.preproc.crop_neck = false; % Remove neck (the spine, etc.)
 
 load_and_process_images(obj,im);

@@ -3,7 +3,7 @@ clear;
 addpath(genpath('./code'))
 
 %--------------------------------------------------------------------------
-S = [8 8]; % Number of subjects
+S = 8*ones(1,4); % Number of subjects
 K = 6; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
 
 %--------------------------------------------------------------------------
@@ -19,30 +19,25 @@ obj.dir_data = '/data-scratch/mbrud/data/segmentation-toolbox-parfor';
 im = {};
 
 % im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/OASIS-long-2D',S,'MRI','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-CHROMIS-2D',S(1),'CT','healthy',''};
-im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/IXI-2D',S(2),'MRI','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-healthy-2D/ims_2DA',S(1),'CT','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/IXI-noneck-2D/ims_2DA',S(2),'MRI','healthy',''};
 
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck',S(1),'CT','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-neck',S(1),'CT','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-neck',S(2),'MRI','healthy',''};
 
 %--------------------------------------------------------------------------
-% Path to initial template
-obj.pth_logtpm = ''; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
-% obj.pth_logtpm = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_2D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
-% obj.pth_logtpm = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_3D.nii'; % Path to existing template (set to '' for estimating a template, or get_spm_TPM for using the default SPM one)
+% Path to TPMs
+% obj.pth_logtpm = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_2D.nii';
+% obj.pth_logtpm = '/home/mbrud/Dropbox/PhD/Data/logTPM/logTPM_3D.nii';
 
 %--------------------------------------------------------------------------
 % Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
 obj.num_workers = Inf;
 
 %--------------------------------------------------------------------------
-% Preprocessing options
-obj.preproc.do_preproc    = false; % Do preprocessing on input images
-obj.preproc.rem_corrupted = true; % Try to remove CT images that are corrupted (e.g. bone windowed)
-
-%--------------------------------------------------------------------------
 % Segmentation parameters
-obj.samp         = 1.5; % The distance (mm) between samples (for sub-sampling input data--improves speed)
-obj.missing_data = false;
+obj.samp         = 2; % The distance (mm) between samples (for sub-sampling input data--improves speed)
+obj.missing_data = true;
 obj.vb           = true; % Use a variational Bayesian mixture model
 obj.wp_reg       = 1e0; % Bias weight updates towards 1
 obj.lkp          = 1; % Number of gaussians per tissue
@@ -58,7 +53,7 @@ obj.dowp   = true; % Tissue mixing weights
 
 %--------------------------------------------------------------------------
 % Iterations and stopping tolerances for algorithm
-obj.nitermain = 200;
+obj.nitermain = 100;
 obj.tolmain   = 1e-4;
 obj.tolseg    = 1e-4;
 
@@ -74,8 +69,8 @@ obj.rparam = [0 0.001 0.5 0.05 0.2]*0.1;
 
 %--------------------------------------------------------------------------
 % Bias field options
+obj.biasreg  = 1e-3;       
 obj.biasfwhm = 60;
-obj.biasreg  = 1e-4;       
 
 %--------------------------------------------------------------------------
 % Template options
@@ -87,6 +82,7 @@ obj.crop_bb      = true;
 %--------------------------------------------------------------------------
 % For debugging
 obj.verbose = 2;
+obj.distfig = false;
 obj.figix   = 1;
 
 %--------------------------------------------------------------------------
@@ -96,6 +92,11 @@ obj.dir_res  = 'results';
 %--------------------------------------------------------------------------
 % Options for running algorithm on the FIL cluster (Holly)
 obj.run_on_holly = false;
+
+%--------------------------------------------------------------------------
+% Preprocessing options
+obj.preproc.do_preproc    = false; % Do preprocessing on input images
+obj.preproc.rem_corrupted = true; % Try to remove CT images that are corrupted (e.g. bone windowed)
 
 %==========================================================================
 %% Run algorithm

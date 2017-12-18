@@ -30,7 +30,7 @@ if exist(obj.dir_res,'dir'), rmdir(obj.dir_res,'s'); end; mkdir(obj.dir_res);
 % Initialise some debugging output
 %==========================================================================
 
-[fig_seg,fig_tpm,fig_L,obj.verbose] = create_fig(obj,false);
+[fig_seg,fig_tpm,fig_L,obj.verbose] = create_fig(obj);
 
 %==========================================================================
 % Initialise algorithm i/o 
@@ -85,7 +85,7 @@ for iter=1:nitermain
         
     if dotpm
         % Update template 
-        update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb);                
+        update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb,iter);                
               
         show_tpm(fig_tpm,pth_logtpm,deg);
     end  
@@ -96,7 +96,7 @@ for iter=1:nitermain
     end
         
     % Check convergence
-    fprintf('L=%d\n',L(end));    
+    fprintf('L=%0.0f\n',L(end));    
     if ~(abs(L(end)-L(end - 1))>2*tolmain*Nm) && iter>9
         fprintf('==============================================\n')                        
         fprintf('Algorithm converged in %d iterations.\n',iter)                        
@@ -131,17 +131,13 @@ end
 
 % Read results from estimations
 %--------------------------------------------------------------------------
-tic
+tic;
 M      = numel(pth_obj);
-tpmnum = zeros([dm_tpm K],'single'); tpmden = tpmnum; ll = 0; Nm = 0;
+tpmnum = zeros([dm_tpm K],'single'); tpmden = tpmnum; ll = 0; Nm = 0; totS = zeros(1,M); sDC = cell(1,M); sDC(1,:) = {0};
 for m=1:M
     S = numel(pth_obj{m});             
     for s=1:S
-        if run_on_holly
-            obj = load(pth_obj{m}{s},'-mat','ll','nm','pth_tpmnum_l','pth_tpmden_l','status','bb','dotpm','image');
-        else
-            obj = load(pth_obj{m}{s},'-mat','ll','nm','pth_tpmnum','pth_tpmden','status','bb','dotpm','image'); 
-        end
+        obj = load(pth_obj{m}{s},'-mat'); 
 
         if obj.status==0   
             if obj.dotpm
@@ -162,7 +158,10 @@ for m=1:M
                 end
                 tpmden1 = Nii.dat(:,:,:,:); 
                 tpmden(ix_x,ix_y,ix_z,:) = tpmden(ix_x,ix_y,ix_z,:) + tpmden1; 
-            end     
+            end
+            
+            sDC{m}  = sDC{m} + obj.DC;
+            totS(m) = totS(m) + 1;
         else
             fprintf(2,['Error for image: ' obj.image(1).fname '\n']);
         end
@@ -172,13 +171,36 @@ for m=1:M
     end
 end
 L = [L,ll];
-fprintf('Elapsed time (parfor_holly): %d s\n',round(toc))  
+
+% For setting the DC component of all the bias fields so that they
+% average to 0 (used for global signal normalisation)
+%--------------------------------------------------------------------------
+avgDC = cell(1,M);
+for m=1:M   
+    avgDC{m} = sDC{m}/totS(m);
+    
+    if 1
+       fprintf('avgDC{%d} = %s\n',m,sprintf('%0.2f ',avgDC{m}));  
+    end
+end
+
+for m=1:M
+    S = numel(pth_obj{m});             
+    for s=1:S
+        obj    = load(pth_obj{m}{s},'-mat'); 
+        obj.DC = avgDC{m};
+        save(pth_obj{m}{s},'-struct','obj')                    
+    end
+end
+
+fprintf('Elapsed time (update_subjects): %0.1f s\n',toc);  
 %==========================================================================
 
 %==========================================================================
 function parfor_matlab(pth_obj,num_workers,fig)
 % Estimate on all subjects
 M = numel(pth_obj);
+tic;
 manage_parpool(num_workers);
 for m=1:M      
     fprintf('Updating parameters for subject group m=%d\n',m);  
@@ -195,6 +217,7 @@ for m=1:M
         save_in_parfor(pth_obj_m{s},obj,'-struct');
     end     
 end    
+fprintf('Elapsed time (parfor_matlab): %0.1f s\n',toc);  
 %==========================================================================
 
 %==========================================================================
@@ -258,12 +281,12 @@ for m=1:M
         save(pth_obj{m}{s},'-struct','obj')
     end              
 end
-toc
+fprintf('Elapsed time (update_global_prior): %0.1f s\n',toc);
 %==========================================================================        
 
 %==========================================================================
-function update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb,softmax_tpm,dir_res)
-if nargin<8, softmax_tpm = false; end
+function update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb,iter,softmax_tpm,dir_res)
+if nargin<9, softmax_tpm = false; end
 
 fprintf('Updating TPMs...\n')
 
@@ -277,9 +300,9 @@ clear tpmnum tpmden
 % Save updated template
 Nii = nifti(pth_logtpm);
 Nii.dat(:,:,:,:) = logtpm;        
-clear Nii logtpm
+clear Nii
 
-if crop_bb
+if crop_bb && iter>=3 && size(logtpm,3)>1
     % Crop template according to subject bounding boxes
     M = numel(pth_obj);
     S = 0;
@@ -292,25 +315,19 @@ if crop_bb
         for s=1:S
             obj = load(pth_obj{m}{s},'-mat','bb','status');
             if obj.status==0 && ~isempty(obj.bb)
-                bb1  = obj.bb;
-                is3D = numel(bb1)==6;
-                if is3D
-                    % 3D
-                    bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);bb1(5) bb1(6)];
-                else
-                    % 2D
-                    bb1 = [bb1(3) bb1(4);bb1(1) bb1(2);1 1];
-                end
+                bb1         = obj.bb;
+                bb1         = [bb1(3) bb1(4);bb1(1) bb1(2);bb1(5) bb1(6)];
                 bb(:,:,cnt) = bb1;
                 cnt         = cnt + 1;
             end
         end
     end
 
-    mn_bb = min(bb,[],3);
-    mx_bb = max(bb,[],3);
-%     nbb   = [mn_bb(:,1) mx_bb(:,2)];
-    nbb   = [mx_bb(:,1) mn_bb(:,2)];
+    mn_bb    = min(bb,[],3);
+    mx_bb    = max(bb,[],3);
+%     nbb      = [mn_bb(:,1) mx_bb(:,2)];
+    nbb      = [mx_bb(:,1) mn_bb(:,2)];
+    nbb(3,1) = min(10,nbb(3,1)); % To not accidentally remove the neck
 
     V0  = spm_vol(pth_logtpm);
     od = V0(1).dim;
@@ -406,7 +423,8 @@ for m=1:M
         
         obj.biasfwhm = obj0.biasfwhm*ones(1,N);
         obj.biasreg  = obj0.biasreg*ones(1,N);       
-
+        obj.DC       = zeros(1,N);
+        
         obj.use_tpm = obj0.use_tpm;
         
         obj.missing_data = obj0.missing_data;
@@ -427,6 +445,8 @@ for m=1:M
         end        
 
         obj.Affine  = eye(4);
+%         obj.r       = zeros([12,1]); % Matrix exponentials parameterisation of an affine transformation
+               
         obj.reg     = obj0.rparam;
         obj.samp    = obj0.samp;
         obj.fwhm    = 0;
@@ -507,14 +527,13 @@ end
 %==========================================================================
 
 %==========================================================================
-function [fig_seg,fig_tpm,fig_L,verbose] = create_fig(obj,distf)
-if nargin<2, distf = true; end
-
+function [fig_seg,fig_tpm,fig_L,verbose] = create_fig(obj)
 verbose      = obj.verbose;
 num_workers  = obj.num_workers;
 figix        = obj.figix;
 dotpm        = obj.dotpm;
 run_on_holly = obj.run_on_holly;
+distfig      = obj.distfig;
 
 fig_seg = cell(4,1);
 
@@ -543,7 +562,7 @@ else
     fig_L   = [];
 end
 
-if distf
+if distfig
     try
         distFig; 
     catch
