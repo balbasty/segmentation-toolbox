@@ -49,6 +49,7 @@ dir_res      = obj.dir_res;
 run_on_holly = obj.run_on_holly;
 num_workers  = obj.num_workers;
 crop_bb      = obj.crop_bb;
+neck         = obj.neck;
 if run_on_holly
     holly_jnam = obj.holly_jnam;
     holly_ram  = obj.holly_ram;
@@ -86,7 +87,7 @@ for iter=1:nitermain
         
     if dotpm
         % Update template 
-        update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb,iter);                
+        update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb,iter,neck);                
               
         show_tpm(fig_tpm,pth_logtpm,deg);
     end  
@@ -286,8 +287,8 @@ fprintf('Elapsed time (update_global_prior): %0.1f s\n',toc);
 %==========================================================================        
 
 %==========================================================================
-function update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb,iter,softmax_tpm,dir_res)
-if nargin<9, softmax_tpm = false; end
+function update_global_tpm(tpmnum,tpmden,pth_logtpm,pr_dirichlet,fwhmtpm,pth_obj,crop_bb,iter,neck,softmax_tpm,dir_res)
+if nargin<10, softmax_tpm = false; end
 
 fprintf('Updating TPMs...\n')
 
@@ -328,8 +329,12 @@ if crop_bb && iter>=3 && size(logtpm,3)>1
     mx_bb    = max(bb,[],3);
 %     nbb      = [mn_bb(:,1) mx_bb(:,2)];
     nbb      = [mx_bb(:,1) mn_bb(:,2)];
-    nbb(3,1) = min(0,nbb(3,1)); % To not accidentally remove the neck
-
+    
+    if neck
+        % To not accidentally remove the neck
+        nbb(3,1) = min(0,nbb(3,1)); 
+    end
+    
     V0  = spm_vol(pth_logtpm);
     od = V0(1).dim;
 

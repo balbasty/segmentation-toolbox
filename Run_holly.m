@@ -3,13 +3,13 @@ clear;
 addpath(genpath('./code'))
 
 %--------------------------------------------------------------------------
-S = [72 72]; % Number of subjects
+S = [72 Inf]; % Number of subjects
 K = 16; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
 
 %--------------------------------------------------------------------------
 % Options for running algorithm on the FIL cluster (Holly)
 obj.run_on_holly = true;
-obj.holly_jnam   = 'CT-MRI';
+obj.holly_jnam   = 'IXI';
 obj.holly_ram    = 6;
 
 %--------------------------------------------------------------------------
@@ -20,12 +20,13 @@ obj.holly_ram    = 6;
 % subject one has a T1 and a T2 image, then those images should be in a subfolder, for example, S1.
 im = {};
 
-im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-neck',S(1),'CT','healthy',''};
+% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-noneck',S(1),'CT','healthy',''};
 im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-neck',S(2),'MRI','healthy',''};
+neck        = true;
 
 %--------------------------------------------------------------------------
 % Run the algorithm in parallel by setting number of workers (Inf uses maximum number available)
-obj.num_workers = Inf;
+obj.num_workers = 0;
 
 %--------------------------------------------------------------------------
 % Segmentation parameters
@@ -71,6 +72,7 @@ obj.deg          = 2;    % Degree of interpolation when sampling template
 obj.pr_dirichlet = 1e-4; % Strength of Dirichlet prior used in template construction
 obj.fwhmtpm      = 1e-2; % Ad hoc smoothing of template (improves convergence)
 obj.crop_bb      = true;
+obj.neck         = neck;
 
 %--------------------------------------------------------------------------
 % For debugging

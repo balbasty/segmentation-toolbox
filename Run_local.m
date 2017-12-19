@@ -78,6 +78,7 @@ obj.deg          = 2;    % Degree of interpolation when sampling template
 obj.pr_dirichlet = 1e-4; % Strength of Dirichlet prior used in template construction
 obj.fwhmtpm      = 1e-2; % Ad hoc smoothing of template (improves convergence)
 obj.crop_bb      = true;
+obj.neck         = true;
 
 %--------------------------------------------------------------------------
 % For debugging
