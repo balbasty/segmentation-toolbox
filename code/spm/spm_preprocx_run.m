@@ -6,8 +6,6 @@ function spm_preprocx_run(obj,im,K)
 
 if obj.run_on_holly
     [~,obj.dir_data,~] = read_directory_details('directory_details.txt',obj.holly_jnam);    
-else
-    obj.holly_jnam     = '';
 end
 
 if ~exist(obj.dir_data,'dir'), mkdir(obj.dir_data); end
@@ -50,8 +48,11 @@ dir_data     = obj.dir_data;
 dir_res      = obj.dir_res;
 run_on_holly = obj.run_on_holly;
 num_workers  = obj.num_workers;
-holly_jnam   = obj.holly_jnam;
 crop_bb      = obj.crop_bb;
+if run_on_holly
+    holly_jnam = obj.holly_jnam;
+    holly_ram  = obj.holly_ram;
+end
 
 pth_obj = get_pth_obj(obj,V,K,im,labels,run_on_holly);
 clear V obj
@@ -62,7 +63,7 @@ clear V obj
 %==========================================================================
    
 if run_on_holly
-    holly = init_holly(pth_obj,dir_data,holly_jnam);
+    holly = init_holly(pth_obj,dir_data,holly_jnam,holly_ram);
 else
     holly = [];
 end

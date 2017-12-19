@@ -10,6 +10,7 @@ K = 16; % Number of classes (if a template is used, then K will be set to the nu
 % Options for running algorithm on the FIL cluster (Holly)
 obj.run_on_holly = true;
 obj.holly_jnam   = 'CT-MRI';
+obj.holly_ram    = 6;
 
 %--------------------------------------------------------------------------
 % Define data cell array, which should contain the following:

@@ -1,6 +1,5 @@
-function holly = init_holly(pth_obj,dir_data,jnam)
+function holly = init_holly(pth_obj,dir_data,jnam,ram)
 HOLLY_CORES = 192;
-RAM         = 6; % This value will be decreased automatically to an optimal value after the first iteration
 
 holly = struct;
 
@@ -16,7 +15,7 @@ holly.jnam_dummy = ['w' jnam];
 holly.dir_matlab_h              = '/share/apps/MATLAB/R2016a/bin/matlab';
 [holly.username,holly.password] = read_user_details('user_details.txt');   
 
-holly.RAM = RAM;
+holly.RAM = ram; % This value will be changed automatically to an 'optimal' value, iteratively
 
 M       = numel(pth_obj);
 holly.t = 0;
