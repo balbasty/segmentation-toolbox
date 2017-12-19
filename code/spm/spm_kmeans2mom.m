@@ -80,9 +80,6 @@ warning('off','stats:kmeans:FailedToConvergeRep')
 
 opts = statset('MaxIter',1000);
 
-rng('default');
-rng(1);
-
 labels = kmeans(f,single(K),...
                 'Distance','sqeuclidean',...
                 'Start','plus',...

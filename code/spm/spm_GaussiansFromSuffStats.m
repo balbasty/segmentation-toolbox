@@ -215,13 +215,17 @@ if vb
         mom    = mom_John2Bishop(mom);  
         
         if ~isfield(mog,'pr')
-            mog.pr.m = mom.s1;
-            mog.pr.b = 1e-3*s0;
-            mog.pr.n = 1e-3*s0 + N - 1;                                   
-            mog.pr.W = zeros(N,N,K);
-            for k=1:K
-                mog.pr.W(:,:,k) = inv(vr1)/mog.pr.n(k);
-            end
+            mog.pr.m = zeros(N,K);
+            mog.pr.b = ones(1,K);
+            mog.pr.n = (N - .999)*ones(1,K);                                   
+            mog.pr.W = repmat(eye(N,N),1,1,K);
+%             mog.pr.m = mom.s1;
+%             mog.pr.b = 1e-3*s0;
+%             mog.pr.n = 1e-3*s0 + N - 1;                                   
+%             mog.pr.W = zeros(N,N,K);
+%             for k=1:K
+%                 mog.pr.W(:,:,k) = inv(vr1)/mog.pr.n(k);
+%             end
         end
         
         mog.po.n = mog.pr.n + s0;

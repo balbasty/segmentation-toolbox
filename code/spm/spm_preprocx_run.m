@@ -327,7 +327,7 @@ if crop_bb && iter>=3 && size(logtpm,3)>1
     mx_bb    = max(bb,[],3);
 %     nbb      = [mn_bb(:,1) mx_bb(:,2)];
     nbb      = [mx_bb(:,1) mn_bb(:,2)];
-    nbb(3,1) = min(10,nbb(3,1)); % To not accidentally remove the neck
+    nbb(3,1) = min(0,nbb(3,1)); % To not accidentally remove the neck
 
     V0  = spm_vol(pth_logtpm);
     od = V0(1).dim;

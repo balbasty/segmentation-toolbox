@@ -3,8 +3,8 @@ clear;
 addpath(genpath('./code'))
 
 %--------------------------------------------------------------------------
-S = 8*ones(1,4); % Number of subjects
-K = 6; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
+S = 32*ones(1,4); % Number of subjects
+K = 16; % Number of classes (if a template is used, then K will be set to the number of classes in that template)
 
 %--------------------------------------------------------------------------
 % Folder for all algorithm data (not used when running on Holly)
@@ -19,7 +19,7 @@ obj.dir_data = '/data-scratch/mbrud/data/segmentation-toolbox-parfor';
 im = {};
 
 % im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/OASIS-long-2D',S,'MRI','healthy',''};
-% im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-healthy-2D/ims_2DA',S(1),'CT','healthy',''};
+im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/CT-healthy-2D/ims_2DA',S(1),'CT','healthy',''};
 im{end + 1} = {'/data-scratch/mbrud/images/2D-Data/IXI-noneck-2D/ims_2DA',S(2),'MRI','healthy',''};
 
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-neck',S(1),'CT','healthy',''};

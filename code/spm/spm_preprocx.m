@@ -329,6 +329,10 @@ for n=1:N
     clear B1 B2 B3 T C tmp
 end
 
+% Activate 'non-seeded' random numbers again. So that, for example, k-means
+% produces more random initial 'distributions'.
+rng('shuffle');
+
 % For debugging
 %-----------------------------------------------------------------------
 zix     = floor(d(3)/2 + 1);
@@ -400,7 +404,9 @@ for iter=1:niter
             if dowp
                 % Update tissue mixing weights
                 mgm = 0;
-                for z=1:length(z0)        
+                for z=1:length(z0) 
+                    if ~buf(z).Nm, continue; end
+                    
                     tpm = double(buf(z).dat);
                     s   = 1./(tpm*wp');                                        
                     mgm = mgm + s'*tpm; 
