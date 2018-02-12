@@ -1,21 +1,16 @@
-function obj = update_subject(obj,pth_template,fig)
-obj.iter = obj.iter + 1;
-
-N              = numel(obj.image);    
+function obj = update_subject(obj,pth_template,fig) 
 do_write_res   = obj.do_write_res;
 do_push_resp   = obj.do_push_resp;
-bb             = obj.bb;
-vx             = obj.vox;
 iter           = obj.iter;
 build_template = obj.tot_S>1;
 print_seg      = obj.print_seg;
 
-if obj.status==0
+try
     % Affine registration
     %----------------------------------------------------------------------
     if ~build_template || iter==2      
         tpm = spm_load_priors8(pth_template);
-        
+
         M = obj.image(1).mat;
         c = (obj.image(1).dim+1)/2;
         obj.image(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
@@ -34,78 +29,26 @@ if obj.status==0
         obj.Affine = spm_maff8(obj.image(1),obj.samp*2, obj.fwhm,      tpm, obj.Affine, obj.affreg);        
         clear tpm 
     end    
-    
-    % Parameters for building templates
-    %----------------------------------------------------------------------
-    if iter>=2 
-        obj.uniform = false;
-    end
-    
-    reg0 = obj.reg;
-    if iter>=3
-        % Start estimating deformations
-        obj.do_def = true;     
-        sched      = exp(linspace(5,0,25));
-        obj.reg(3) = sched(min(iter - 2,numel(sched)))*obj.reg(3);
-        
-%         % Start updating tissue weights
-%         obj.do_wp  = true;  
-    end
-    
+
     % Run the new SPM segmentation routine
-    %----------------------------------------------------------------------
-    t1 = 0;
-    try       
-        if print_seg, fprintf('spm_segment started...\n');  end
+    %----------------------------------------------------------------------    
+    tic;    
+    obj = spm_segment(obj,pth_template,fig);    
+    t1  = toc;    
 
-        tic;    
-        obj        = spm_segment(obj,pth_template,fig);    
-        t1         = toc;     
-        obj.status = 0;
-
-        if print_seg, fprintf('spm_segment finished\n');  end
-    catch ME
-        if print_seg, fprintf('spm_segment failed\n');  end 
-
-        fprintf(['Error for image: ' obj.image(1).fname '\n'])
-        for i=1:numel(ME.stack)
-            disp([ME.stack(i).name ', line ' num2str(ME.stack(i).line)]);
-        end
-        disp(ME.message)
-        obj.status = 1;                        
-    end   
-    obj.reg = reg0;
-    
     % Push responsibilities to template space
     %----------------------------------------------------------------------
     t2 = 0;
-    if do_push_resp && obj.status==0         
-        try       
-            if print_seg, fprintf('push_resp started...\n');  end
-
-            tic;    
-            [ll,obj]        = push_resp(obj,pth_template,bb,vx);    
-            t2              = toc;   
-            obj.ll_template = ll; 
-            obj.status      = 0;
-
-            if print_seg, fprintf('push_resp finished\n');  end
-        catch ME
-            if print_seg, fprintf('push_resp failed\n');  end
-
-            fprintf(['Error for image: ' obj.image(1).fname '\n'])
-            for i=1:numel(ME.stack)
-                disp([ME.stack(i).name ', line ' num2str(ME.stack(i).line)]);
-            end
-            disp(ME.message)
-            obj.status      = 1;
-            obj.ll_template = 0;                 
-        end               
+    if do_push_resp
+        tic;    
+        obj = push_resp(obj,pth_template,obj.bb,obj.vox);    
+        t2  = toc;                            
     end
-        
+
     % Write results
     %----------------------------------------------------------------------
     if do_write_res
+        N = numel(obj.image); 
         write_res(obj,pth_template,true(max(obj.lkp),4),true(N,2),true(1,2),obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write); 
     end    
 
@@ -113,14 +56,24 @@ if obj.status==0
     %----------------------------------------------------------------------    
     fprintf_obj(print_seg,obj,t1,t2,pth_template);   
 
-%     % Run the old SPM segmentation algorithm (for comparison)
-%     tic
-%     res = spm_preproc8_def(obj);
-%     fprintf_obj(res,toc);
-% 
-%     if 0
-%         spm_preproc_write8_def(res,true(max(obj.lkp),4),true(N,2),true(1,2),obj.mrf,obj.cleanup,obj.bb,obj.vox,dir_write);
-%     end
+    %     % Run the old SPM segmentation algorithm (for comparison)
+    %     tic
+    %     res = spm_preproc8_def(obj);
+    %     fprintf_obj(res,toc);
+    % 
+    %     if 0
+    %         spm_preproc_write8_def(res,true(max(obj.lkp),4),true(N,2),true(1,2),obj.mrf,obj.cleanup,obj.bb,obj.vox,dir_write);
+    %     end
+    
+    obj.status = 0; % success
+catch ME            
+    fprintf(['Error for image: ' obj.image(1).fname '\n'])
+    for i=1:numel(ME.stack)
+        disp([ME.stack(i).name ', line ' num2str(ME.stack(i).line)]);
+    end
+    disp(ME.message)    
+    
+    obj.status = 1; % fail
 end
 %==========================================================================
 

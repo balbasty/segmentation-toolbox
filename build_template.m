@@ -2,6 +2,7 @@ function build_template
 
 % 1. Parameterise in log-space
 %     --Set tiny and deg to zero for template construction?
+%     --Use K - 1 classes for template?
 % 2. Add back missing 
 %     --problem with convergence of reg and bf
 %     --include missing ll for ml
@@ -39,7 +40,7 @@ dir_output = '/data-scratch/mbrud/data/build-template/';
 %                20,'CT',[],3,'mean',''}; % 79 
            
 % Uncomment below for testing     
-S           = 1;
+S           = 8;
 K           = 6;           
 im          = {};
 im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck/',...
@@ -57,10 +58,10 @@ holly.client.folder  = dir_output;
 
 % Uncomment the below to run a regular for-loop
 holly.server.ip      = '';
-holly.client.workers = 0;
+holly.client.workers = Inf;
 
 holly.matlab.bin     = '/share/apps/matlab';
-holly.matlab.add     = '/home/mbrud/dev/build-template/';
+holly.matlab.add     = '/home/mbrud/dev/build-template';
 
 holly.translate      = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
 holly.restrict       = 'char';
@@ -69,11 +70,11 @@ holly.verbose        = false;
 
 holly.job.est_mem    = true;
 holly.job.batch      = true;
-holly.job.mem        = '4G';
+holly.job.mem        = '6G';
 holly.job.use_dummy  = true;
 
 %--------------------------------------------------------------------------
-pars.print_ll  = true;
+pars.print_ll  = false;
 pars.print_seg = true;
 
 pars.ml           = false;
@@ -87,7 +88,7 @@ pars.niter = 30;
 
 pars.dir_output = dir_output;
 
-do_show_seg     = true;
+do_show_seg     = false;
 do_shrink       = true;
 do_show_results = 3;
 tol             = 1e-4;
@@ -122,10 +123,13 @@ print_algorithm_progress('started')
 
 L = -Inf;
 for iter=1:niter        
-               
-    % Compute average bias field DC component from pth_obj
-    %----------------------------------------------------------------------    
-    obj = get_avg_bf_dc(obj);       
+    
+    if niter>1
+        % Some parameters of the obj struct are changed depending on iteration 
+        % number (only for building templates)
+        %----------------------------------------------------------------------    
+        obj = modify_obj(obj,iter);
+    end       
     
     % Segment a bunch of subjects 
     %----------------------------------------------------------------------
@@ -169,6 +173,59 @@ for iter=1:niter
 end
 
 print_algorithm_progress('finished')
+%==========================================================================
+
+%==========================================================================
+function obj = modify_obj(obj,iter)
+M     = numel(obj);
+sched = exp(linspace(5,0,25));
+for m=1:M
+    S         = numel(obj{m});    
+    sum_bf_dc = 0;
+    cnt_S     = 0;
+    for s=1:S            
+        obj{m}{s}.iter = iter;
+        
+        if iter==1 
+            obj{m}{s}.do_def       = false;
+            obj{m}{s}.do_bf        = false;
+            obj{m}{s}.do_push_resp = true;
+            
+            obj{m}{s}.niter  = 1;                 
+            obj{m}{s}.nsubit = 1;
+            obj{m}{s}.nitgmm = 1;
+        end
+
+        if iter==2
+            obj{m}{s}.nsubit = 8;
+            obj{m}{s}.nitgmm = 20;
+            
+            if strcmp(obj{m}{s}.modality,'MRI')
+                obj{m}{s}.do_bf = true;
+            end
+            
+            obj{m}{s}.uniform = false;
+        end
+
+        if iter>=3
+            obj{m}{s}.do_def = true;         
+            obj{m}{s}.reg    = obj{m}{s}.reg0;
+            obj{m}{s}.reg(3) = sched(min(iter - 2,numel(sched)))*obj{m}{s}.reg(3);
+        end
+        
+        % Sum bias field DC components
+        sum_bf_dc = sum_bf_dc + obj{m}{s}.bf_dc;
+        cnt_S     = cnt_S + 1;
+    end
+    
+    % Average of bias field DC components
+    avg_bf_dc = sum_bf_dc/cnt_S;
+    
+    % Set average bias field DC component
+    for s=1:S 
+        obj{m}{s}.avg_bf_dc = avg_bf_dc; 
+    end
+end
 %==========================================================================
 
 %==========================================================================
@@ -224,28 +281,6 @@ end
 
 if cnt
    fprintf('% i job(s) failed!\n',cnt);
-end
-%==========================================================================
-
-%==========================================================================
-function obj = get_avg_bf_dc(obj)
-M = numel(obj);
-for m=1:M
-    S         = numel(obj{m});
-    sum_bf_dc = 0;
-    cnt_S     = 0;
-    for s=1:S                
-        if obj{m}{s}.status==0
-            sum_bf_dc = sum_bf_dc + obj{m}{s}.bf_dc;
-            cnt_S     = cnt_S + 1;
-        end
-    end
-    
-    avg_bf_dc = sum_bf_dc/cnt_S;
-    
-    for s=1:S 
-        obj{m}{s}.avg_bf_dc = avg_bf_dc; 
-    end
 end
 %==========================================================================
 

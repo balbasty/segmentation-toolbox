@@ -1,5 +1,10 @@
 function y = linspace_vec(x1,x2,n)
 
+if numel(x1)==1 && numel(x2)==1
+    y = linspace(x1,x2,n);
+    return
+end
+
 x1 = squeeze(x1); x2 = squeeze(x2);
 
 if ndims(x1)~= ndims(x2) || any(size(x1)~= size(x2))

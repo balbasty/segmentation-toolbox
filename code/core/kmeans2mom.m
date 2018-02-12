@@ -2,7 +2,7 @@ function mom = kmeans2mom(buf,K,ix_subj,mn,mx,init_clust,kmeans_dist)
 N = numel(buf(1).f);
 d = [size(buf(1).msk{1}) numel(buf)];
 
-C                  = linspace_vec(mn,mx,K);
+C = linspace_vec(mn,mx,K);
 if size(C,1)~=K, C = C'; end
 
 mom = moments_struct(K,N);  

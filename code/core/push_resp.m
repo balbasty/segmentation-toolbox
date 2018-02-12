@@ -1,4 +1,4 @@
-function [ll,obj] = push_resp(obj,pth_template,bb,vx)
+function obj = push_resp(obj,pth_template,bb,vx)
 if nargin<3, bb = NaN(2,3);   end % Default to TPM bounding box
 if nargin<4, vx = NaN;        end % Default to TPM voxel size
 
@@ -339,6 +339,8 @@ for z=1:d(3), % Loop over planes
     end
 end
 clear t s mu wz1 a Nii
+
+obj.ll_template = ll;  
 
 % Save gradients
 %--------------------------------------------------------------------------

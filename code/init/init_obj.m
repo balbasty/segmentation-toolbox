@@ -79,6 +79,7 @@ for m=1:M
         obj_s.mrf          =  1;
         obj_s.affreg       = 'mni';
         obj_s.reg          = [0 0.001 0.5 0.05 0.2]*0.1;
+        obj_s.reg0         = obj_s.reg;
         obj_s.fwhm         = 1;
         obj_s.samp         = samp;
         obj_s.Affine       = eye(4);
@@ -110,16 +111,7 @@ for m=1:M
         obj_s.kmeans_dist  = pars.kmeans_dist;
         obj_s.init_clust   = init_clust;
         obj_s.missing_data = pars.missing_data;
-        
-        %------------------------------------------------------------------
-        if tot_subj>1            
-            obj_s.niter        = 1;            
-%             obj_s.tol1         = 1e-5;
-%             obj_s.do_wp        = false;
-            obj_s.do_def       = false;
-            obj_s.do_push_resp = true;
-        end
-        
+
         %------------------------------------------------------------------
         obj_s.uniform = uniform;            
         Kb            = numel(V1);
