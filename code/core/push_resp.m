@@ -2,18 +2,16 @@ function obj = push_resp(obj,pth_template,bb,vx)
 if nargin<3, bb = NaN(2,3);   end % Default to TPM bounding box
 if nargin<4, vx = NaN;        end % Default to TPM voxel size
 
+lkp             = obj.lkp;
+Kb              = max(lkp);
+N               = numel(obj.image);
+modality        = obj.modality;
+K_lab           = obj.K_lab;
+do_missing_data = obj.do_missing_data;
+
 % Load template
 %-----------------------------------------------------------------------
 tpm = spm_load_priors8(pth_template);
-
-lkp          = obj.lkp;
-wp           = obj.wp;
-pth_template = obj.pth_template;
-Kb           = max(lkp);
-N            = numel(obj.image);
-modality     = obj.modality;
-K_lab        = obj.K_lab;
-missing_data = obj.missing_data;
 
 % Read essentials from tpm (it will be cleared later)
 %--------------------------------------------------------------------------
@@ -77,7 +75,7 @@ end
 
 %--------------------------------------------------------------------------
 d         = obj.image(1).dim(1:3);
-[rngx,x2,o] = ndgrid(1:d(1),1:d(2),1);
+[x1,x2,o] = ndgrid(1:d(1),1:d(2),1);
 x3        = 1:d(3);
 
 %--------------------------------------------------------------------------
@@ -86,7 +84,7 @@ for n=1:N
     d3         = [size(obj.Tbias{n}) 1];
     chan(n).B3 = spm_dctmtx(d(3),d3(3),x3);
     chan(n).B2 = spm_dctmtx(d(2),d3(2),x2(1,:)');
-    chan(n).B1 = spm_dctmtx(d(1),d3(1),rngx(:,1));
+    chan(n).B1 = spm_dctmtx(d(1),d3(1),x1(:,1));
     chan(n).T  = obj.Tbias{n};
 
     % Need to fix writing of bias fields or bias corrected images, when the data used are 4D.    
@@ -114,11 +112,11 @@ for z=1:length(x3)
     nm  = 0;    
     msk = cell(1,N);
     for n=1:N
-        f{n}   = spm_sample_vol(obj.image(n),rngx,x2,o*x3(z),0);
+        f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
         msk{n} = msk_modality(f{n},modality);
     end
     
-    if ~missing_data
+    if ~do_missing_data
         tmp = true;
         for n=1:N
             tmp = tmp & msk{n};
@@ -139,7 +137,7 @@ for z=1:length(x3)
     clear bfn
     
     % Compute the deformation (mapping voxels in image to voxels in TPM)
-    [t1,t2,t3] = make_inv_deformation(Coef,z,obj.MT,prm,rngx,x2,x3,M);
+    [t1,t2,t3] = make_inv_deformation(Coef,z,obj.MT,prm,x1,x2,x3,M);
 
     y(:,:,z,1) = t1;
     y(:,:,z,2) = t2;
@@ -202,10 +200,10 @@ for k1=1:Kb
     if k1==1
         % Calculate bounding box from count image
         bb_push     = compute_bb(c,obj.pth_resp{k1},M1);        
-        rngx        = bb_push(1,1):bb_push(1,2);
+        x1        = bb_push(1,1):bb_push(1,2);
         rngy        = bb_push(2,1):bb_push(2,2);
         rngz        = bb_push(3,1):bb_push(3,2);
-        dm_bb       = [numel(rngx) numel(rngy) numel(rngz)];
+        dm_bb       = [numel(x1) numel(rngy) numel(rngz)];
         obj.bb_push = bb_push;
         
         % Allocate sufficient statistics
@@ -222,7 +220,7 @@ for k1=1:Kb
     Nii.descrip = ['Pushed responsibilities ' num2str(k1)];        
     create(Nii);
     
-    t(:,:,:,k1)    = t1(rngx,rngy,rngz);    
+    t(:,:,:,k1)    = t1(x1,rngy,rngz);    
     Nii.dat(:,:,:) = t(:,:,:,k1);    
 end
 clear Q y Nii t1 c
@@ -237,7 +235,7 @@ d   = [dm_bb,Kb,1,1,1];
 R = null(ones(1,d(4)));
 
 % Read a responsibility and log(wp)      
-lwp = reshape(log(wp),1,1,d(4));
+lwp = reshape(log(obj.wp),1,1,d(4));
 
 % Re-organise sufficient statistics to a form that is easier to work with
 t = max(t,eps('single')*1000);
@@ -256,7 +254,7 @@ ll = 0;
 for z=1:d(3), % Loop over planes
 
     % Log of template
-    sz = Nii.dat(rngx,rngy,rngz(z),:);    
+    sz = Nii.dat(x1,rngy,rngz(z),:);    
     sz = min(max(sz,0),1);
     sz(~isfinite(sz)) = 1/d(4);
     sz = squeeze(log(double(sz*(1-d(4)*1e-3)+1e-3)));

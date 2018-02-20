@@ -1,4 +1,4 @@
-function results = spm_preproc8_def(obj)
+function results = spm_preproc8_def(obj,pth_template)
 % Combined Segmentation and Spatial Normalisation
 %
 % FORMAT results = spm_preproc8(obj)
@@ -76,7 +76,7 @@ function results = spm_preproc8_def(obj)
 wp_reg    = 1; % Bias wp towards 1
 
 Affine    = obj.Affine;
-tpm       = obj.tpm;
+tpm       = spm_load_priors8(pth_template);
 V         = obj.image;
 M         = tpm.M\Affine*V(1).mat;
 d0        = V(1).dim(1:3);
@@ -99,9 +99,6 @@ end
 do_bf    = obj.do_bf;
 do_def   = obj.do_def;
 print_ll = obj.print_ll;
-modality = obj.modality;
-nitdef   = obj.nitdef;
-uniform  = obj.uniform;
 
 kron = @(a,b) spm_krutil(a,b);
 
@@ -727,7 +724,7 @@ for iter=1:30
         end
 
         oll = ll;
-        for subit=1:nitdef
+        for subit=1:3
             Alpha  = zeros([size(x0),numel(z0),6],'single');
             Beta   = zeros([size(x0),numel(z0),3],'single');
             for z=1:length(z0)
@@ -896,9 +893,7 @@ results.ll       = ll;
 results.do_bf    = do_bf;
 results.do_def   = do_def;
 results.new      = false;
-results.modality = modality;
 results.ml       = true;
-results.uniform  = uniform;
 return;
 %=======================================================================
 

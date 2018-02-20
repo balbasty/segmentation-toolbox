@@ -4,6 +4,7 @@ do_push_resp   = obj.do_push_resp;
 iter           = obj.iter;
 build_template = obj.tot_S>1;
 print_seg      = obj.print_seg;
+do_old_segment = obj.do_old_segment;
 
 try
     % Affine registration
@@ -30,40 +31,39 @@ try
         clear tpm 
     end    
 
-    % Run the new SPM segmentation routine
-    %----------------------------------------------------------------------    
-    tic;    
-    obj = spm_segment(obj,pth_template,fig);    
-    t1  = toc;    
-
-    % Push responsibilities to template space
-    %----------------------------------------------------------------------
-    t2 = 0;
-    if do_push_resp
+    if ~do_old_segment
+        % Run the new SPM segmentation routine
+        %------------------------------------------------------------------   
         tic;    
-        obj = push_resp(obj,pth_template,obj.bb,obj.vox);    
-        t2  = toc;                            
+        obj = spm_segment(obj,pth_template,fig);    
+        t1  = toc;    
+
+        % Push responsibilities to template space
+        %------------------------------------------------------------------
+        t2 = 0;
+        if do_push_resp
+            tic;    
+            obj = push_resp(obj,pth_template,obj.bb,obj.vox);    
+            t2  = toc;                            
+        end
+
+        % Write results
+        %------------------------------------------------------------------
+        if do_write_res      
+            write_res(obj,pth_template,obj.write_tc,obj.write_bf,obj.write_df,obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write); 
+        end    
+
+        % Verbose
+        %------------------------------------------------------------------  
+        fprintf_obj(print_seg,obj,t1,t2,pth_template);   
+    
+    else
+        % Run the old SPM segmentation algorithm (for comparison)
+        %------------------------------------------------------------------
+        res = spm_preproc8_def(obj,pth_template);        
+
+        spm_preproc_write8_def(res,obj.write_tc,obj.write_bf,obj.write_df,obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write);
     end
-
-    % Write results
-    %----------------------------------------------------------------------
-    if do_write_res
-        N = numel(obj.image); 
-        write_res(obj,pth_template,true(max(obj.lkp),4),true(N,2),true(1,2),obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write); 
-    end    
-
-    % Verbose
-    %----------------------------------------------------------------------    
-    fprintf_obj(print_seg,obj,t1,t2,pth_template);   
-
-    %     % Run the old SPM segmentation algorithm (for comparison)
-    %     tic
-    %     res = spm_preproc8_def(obj);
-    %     fprintf_obj(res,toc);
-    % 
-    %     if 0
-    %         spm_preproc_write8_def(res,true(max(obj.lkp),4),true(N,2),true(1,2),obj.mrf,obj.cleanup,obj.bb,obj.vox,dir_write);
-    %     end
     
     obj.status = 0; % success
 catch ME            

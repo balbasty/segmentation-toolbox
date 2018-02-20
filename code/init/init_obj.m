@@ -1,4 +1,4 @@
-function [obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,uniform,do_show_seg,do_show_results,pars)
+function [obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,uniform,do_show_seg,do_show_results,pars,TESTING)
 M = numel(V);
 
 %--------------------------------------------------------------------------
@@ -73,10 +73,9 @@ for m=1:M
         obj_s.iter         = 0;
         obj_s.tot_S        = tot_subj;
         obj_s.bb           = NaN(2,3);
-%         obj.bb       = [-90 -126 -72; 90 90 108];
-        obj_s.vox          =  NaN;
-        obj_s.cleanup      =  0;
-        obj_s.mrf          =  1;
+        obj_s.vox          = NaN;
+        obj_s.cleanup      = true;
+        obj_s.mrf          = 2;
         obj_s.affreg       = 'mni';
         obj_s.reg          = [0 0.001 0.5 0.05 0.2]*0.1;
         obj_s.reg0         = obj_s.reg;
@@ -88,15 +87,10 @@ for m=1:M
         obj_s.modality     = modality;
         obj_s.ml           = pars.ml;
         obj_s.do_bf        = pars.do_bf;
-        if strcmp(modality,'CT')
-            obj_s.do_bf    = false;
-        end
         obj_s.do_def       = pars.do_def;
         obj_s.do_wp        = pars.do_wp;
         obj_s.print_seg    = pars.print_seg;
-        obj_s.print_ll     = pars.print_ll;
-        obj_s.do_write_res = pars.do_write_res;
-        obj_s.do_push_resp = false;
+        obj_s.print_ll     = pars.print_ll;        
         obj_s.bf_dc        = zeros(1,N);
         obj_s.avg_bf_dc    = zeros(1,N);
         obj_s.ll_template  = 0;
@@ -110,8 +104,15 @@ for m=1:M
         obj_s.gmm          = struct;
         obj_s.kmeans_dist  = pars.kmeans_dist;
         obj_s.init_clust   = init_clust;
-        obj_s.missing_data = pars.missing_data;
+        obj_s.do_missing_data = pars.do_missing_data;
+        obj_s.do_write_res = pars.do_write_res;
+        obj_s.do_push_resp = pars.do_push_resp;
+        obj_s.do_old_segment = pars.do_old_segment;
 
+        if strcmp(modality,'CT')
+            obj_s.do_bf = false;
+        end
+        
         %------------------------------------------------------------------
         obj_s.uniform = uniform;            
         Kb            = numel(V1);
@@ -129,6 +130,27 @@ for m=1:M
         msk         = ismember(K1,K_rem);
         K_keep      = K1(~msk);
         obj_s.K_lab = {K_keep,K_rem};
+        
+        %------------------------------------------------------------------
+        obj_s.write_tc = true(max(obj_s.lkp),4);
+        obj_s.write_bf = true(N,2);
+        obj_s.write_df = true(1,2);
+        
+        %------------------------------------------------------------------
+        if TESTING
+            obj_s.nsubit = 3;
+            obj_s.nitgmm = 10;
+            obj_s.niter  = 6;   
+        
+            obj_s.do_write_res = true;
+            obj_s.do_push_resp = true;  
+            obj_s.cleanup      = false;
+            obj_s.mrf          = 0;
+            
+            obj_s.write_tc(:,2:end) = false;
+            obj_s.write_bf          = false(N,2);
+            obj_s.write_df          = false(1,2);
+        end
         
         %------------------------------------------------------------------   
 %         if ~obj_s.ml

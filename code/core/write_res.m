@@ -1,44 +1,46 @@
-function [cls,M1] = write_res(obj,pth_template,tc,bf,df,mrf,cleanup,bb,vx,odir)
-% Write out VBM preprocessed data
-% FORMAT [cls,M1] = spm_preproc_write8(res,tc,bf,df,mrf,cleanup,bb,vx,odir)
-%__________________________________________________________________________
-% Copyright (C) 2008-2016 Wellcome Trust Centre for Neuroimaging
+function [cls,M1] = write_res(obj,pth_template,write_tc,write_bf,write_df,mrf,cleanup,bb,vx,odir)
 
-% John Ashburner
-% $Id: spm_preproc_write8.m 7202 2017-11-08 12:30:01Z john $
+lkp             = obj.lkp;
+Kb              = max(lkp);
+N               = numel(obj.image);
+modality        = obj.modality;
+do_missing_data = obj.do_missing_data;
 
-% Prior adjustment factor.
-% This is a fudge factor to weaken the effects of the tissue priors.  The
-% idea here is that the bias from the tissue priors probably needs to be
-% reduced because of the spatial smoothing typically used in VBM studies.
-% Having the optimal bias/variance tradeoff for each voxel is not the same
-% as having the optimal tradeoff for weighted averages over several voxels.
-
-% Load template
-%-----------------------------------------------------------------------
-tpm = spm_load_priors8(pth_template);
-
-if isfield(obj,'mg')
-    lkp = obj.lkp;
-    Kb  = max(lkp);
-else
-    Kb  = size(obj.intensity(1).lik,2);
-end
-N       = numel(obj.image);
-
-if nargin<3, tc = true(Kb,4); end % native, import, warped, warped-mod
-if nargin<4, bf = false(N,2); end % field, corrected
-if nargin<5, df = false(1,2); end % inverse, forward
+if nargin<3, write_tc = true(Kb,4); end % native, import, warped, warped-mod
+if nargin<4, write_bf = false(N,2); end % field, corrected
+if nargin<5, write_df = false(1,2); end % inverse, forward
 if nargin<6, mrf = 1;         end % MRF parameter
 if nargin<7, cleanup = 1;     end % Run the ad hoc cleanup
 if nargin<8, bb = NaN(2,3);   end % Default to TPM bounding box
 if nargin<9, vx = NaN;        end % Default to TPM voxel size
 if nargin<10, odir = [];       end % Output directory
 
+% Load template
+%-----------------------------------------------------------------------
+tpm = spm_load_priors8(pth_template);
+
 % Read essentials from tpm (it will be cleared later)
 d1  = size(tpm.dat{1});
 d1  = d1(1:3);
 M1  = tpm.M;
+
+% For missing data
+%--------------------------------------------------------------------------
+if N<=8,
+    cast = @uint8;
+    typ  = 'uint8';
+elseif N<=16,
+    cast = @uint16;
+    typ  = 'uint16';
+elseif N<=32,
+    cast = @uint32;
+    typ  = 'uint32';
+elseif N<=64,
+    cast = @uint64;
+    typ  = 'uint64';
+else,
+    error('Too many dimensions.');
+end
 
 % Define orientation and field of view of any "normalised" space
 % data that may be generated (wc*.nii, mwc*.nii, rc*.nii & y_*.nii).
@@ -99,7 +101,7 @@ for n=1:N
     if ~isempty(odir) && ischar(odir), pth1 = odir; end
     chan(n).ind = obj.image(n).n;
 
-    if bf(n,2)
+    if write_bf(n,2)
         chan(n).Nc      = nifti;
         chan(n).Nc.dat  = file_array(fullfile(pth1,['m', nam1, '.nii']),...
                                      obj.image(n).dim(1:3),...
@@ -111,7 +113,7 @@ for n=1:N
         create(chan(n).Nc);
     end
 
-    if bf(n,1),
+    if write_bf(n,1),
         chan(n).Nf      = nifti;
         chan(n).Nf.dat  = file_array(fullfile(pth1,['BiasField_', nam1, '.nii']),...
                                      obj.image(n).dim(1:3),...
@@ -124,13 +126,13 @@ for n=1:N
     end
 end
 
-do_cls   = any(tc(:)) || nargout>=1;
+do_cls   = any(write_tc(:)) || nargout>=1;
 tiss(Kb) = struct('Nt',[]);
 for k1=1:Kb
-    if tc(k1,4) || any(tc(:,3)) || tc(k1,2) || nargout>=1,
+    if write_tc(k1,4) || any(write_tc(:,3)) || write_tc(k1,2) || nargout>=1,
         do_cls  = true;
     end
-    if tc(k1,1),
+    if write_tc(k1,1),
         tiss(k1).Nt      = nifti;
         tiss(k1).Nt.dat  = file_array(fullfile(pth,['c', num2str(k1), nam, '.nii']),...
                                       obj.image(n).dim(1:3),...
@@ -154,10 +156,10 @@ Coef{1} = spm_bsplinc(Twarp(:,:,:,1),prm);
 Coef{2} = spm_bsplinc(Twarp(:,:,:,2),prm);
 Coef{3} = spm_bsplinc(Twarp(:,:,:,3),prm);
 
-do_defs = any(df);
+do_defs = any(write_df);
 do_defs = do_cls | do_defs;
 if do_defs
-    if df(1)
+    if write_df(1)
         Ndef      = nifti;
         Ndef.dat  = file_array(fullfile(pth,['iy_', nam, '.nii']),...
                                [obj.image(1).dim(1:3),1,3],...
@@ -168,7 +170,7 @@ if do_defs
         Ndef.descrip = 'Inverse Deformation';
         create(Ndef);
     end
-    if df(2) || any(any(tc(:,[2,3,4]))) || nargout>=1
+    if write_df(2) || any(any(write_tc(:,[2,3,4]))) || nargout>=1
         y = zeros([obj.image(1).dim(1:3),3],'single');
     end
 end
@@ -183,34 +185,35 @@ end
 for z=1:length(x3)
 
     % Bias corrected image
-    cr  = cell(1,N);
-    fN  = cell(1,N);
-    bfN = cell(1,N);
+    f   = cell(1,N);
+    bf  = cell(1,N);
+    msk = cell(1,N);
     for n=1:N
-        f    = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
+        f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
+        msk{n} = msk_modality(f{n},modality);        
+        bf{n}  = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));  
         
-        if strcmp(obj.modality,'CT')
-            msk  = isfinite(f) & (f~=min(f(:))) & (f~=0) & (f~=-3024) & (f~=-1500);            
-            mn_f = min(f(msk));
-            f    = f + abs(mn_f);
-        end
-        fN{n} = f(:);
-        
-        bf     = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));
-        bfN{n} = bf(:);
-        
-        cr{n}      = bf.*f;
         if ~isempty(chan(n).Nc),
             % Write a plane of bias corrected data
-            chan(n).Nc.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = cr{n};
+            chan(n).Nc.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bf{n}.*f{n};
         end
         if ~isempty(chan(n).Nf),
             % Write a plane of bias field
-            chan(n).Nf.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bf;
+            chan(n).Nf.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bf{n};
+        end
+    end    
+        
+    if ~do_missing_data
+        tmp = true;
+        for n=1:N
+            tmp = tmp & msk{n};
+        end
+
+        for n=1:N
+            msk{n} = tmp;
         end
     end
-
-
+    
     if do_defs
         % Compute the deformation (mapping voxels in image to voxels in TPM)
         [t1,t2,t3] = make_deformation(Coef,z,obj.MT,prm,x1,x2,x3,M);
@@ -231,23 +234,28 @@ for z=1:length(x3)
         end
 
         if do_cls
-            % Generate variable Q if tissue classes are needed
-            msk = any((f==0) | ~isfinite(f),3);
+            code            = zeros([numel(msk{1}) 1],typ);
+            for n=1:N, code = bitor(code,bitshift(feval(cast,msk{n}(:)),(n - 1))); end                   
 
-            % Parametric representation of intensity distributions                
-            b = spm_sample_priors8(tpm,t1,t2,t3);
-            B = zeros([prod(d(1:2)) Kb]);
-            for k1 = 1:Kb, B(:,k1) = b{k1}(:); end
-
-            q  = zeros([d(1:2) Kb]);  
-            q1 = latent(fN,bfN,obj.mg,obj.gmm,B,lkp,obj.wp,[],obj.K_lab);
+            % Parametric representation of intensity distributions                       
+            q  = zeros([d(1:2) Kb]);                          
+            q1 = log_likelihoods(f,bf,obj.mg,obj.gmm,msk,code);
             q1 = reshape(q1,[d(1:2),numel(obj.mg)]);
-            for k1=1:Kb
-                tmp       = sum(q1(:,:,lkp==k1),3);
-                tmp(msk)  = 1e-3;
-                q(:,:,k1) = tmp;
-            end 
+            q1 = exp(q1) + eps;
             
+            b = spm_sample_priors8(tpm,t1,t2,t3);    
+            s = zeros(size(b{1}));
+            for k1 = 1:Kb
+                b{k1} = obj.wp(k1)*b{k1};
+                s     = s + b{k1};
+            end
+            
+            for k1=1:Kb
+                tmp                 = sum(q1(:,:,lkp==k1),3);
+                tmp(~isfinite(tmp)) = 1e-3;
+                q(:,:,k1)           = tmp.*(b{k1}./s);
+            end
+                
             Q(:,:,z,:) = reshape(q,[d(1:2),1,Kb]);
         end
     end
@@ -300,7 +308,7 @@ if do_cls
 
     % Put tissue classes into a cell array...
     for k1=1:Kb
-        if tc(k1,4) || any(tc(:,3)) || tc(k1,2) || nargout>=1
+        if write_tc(k1,4) || any(write_tc(:,3)) || write_tc(k1,2) || nargout>=1
             cls{k1} = P(:,:,:,k1);
         end
     end
@@ -310,7 +318,7 @@ end
 clear tpm
 M0  = obj.image(1).mat;
 
-if any(tc(:,2))
+if any(write_tc(:,2))
     % "Imported" tissue class images
 
     % Generate mm coordinates of where deformations map from
@@ -322,15 +330,15 @@ if any(tc(:,2))
     % Procrustes analysis to compute the closest rigid-body
     % transformation to the deformation, weighted by the
     % interesting tissue classes.
-    ind        = find(tc(:,2)); % Saved tissue classes
+    ind        = find(write_tc(:,2)); % Saved tissue classes
     [dummy,R]  = spm_get_closest_affine(x,y1,single(cls{ind(1)})/255);
     clear x y1
 
     mat0   = R\mat; % Voxel-to-world of original image space
 
     fwhm   = max(vx./sqrt(sum(obj.image(1).mat(1:3,1:3).^2))-1,0.01);
-    for k1=1:size(tc,1)
-        if tc(k1,2)
+    for k1=1:size(write_tc,1)
+        if write_tc(k1,2)
 
             % Low pass filtering to reduce aliasing effects in downsampled images,
             % then reslice and write to disk
@@ -356,7 +364,7 @@ if any(tc(:,2))
     end
 end
 
-if any(tc(:,3)) || any(tc(:,4)) || nargout>=1 || df(2)
+if any(write_tc(:,3)) || any(write_tc(:,4)) || nargout>=1 || write_df(2)
     % Adjust stuff so that warped data (and deformations) have the
     % desired bounding box and voxel sizes, instead of being the same
     % as those of the tissue probability maps.
@@ -373,9 +381,9 @@ if any(tc(:,3)) || any(tc(:,4)) || nargout>=1 || df(2)
     d1 = odim;
 end
 
-if any(tc(:,3)) || any(tc(:,4)) || nargout>=1
+if any(write_tc(:,3)) || any(write_tc(:,4)) || nargout>=1
 
-    if any(tc(:,3))
+    if any(write_tc(:,3))
         C = zeros([d1,Kb],'single');
     end
 
@@ -383,7 +391,7 @@ if any(tc(:,3)) || any(tc(:,4)) || nargout>=1
     for k1 = 1:Kb
         if ~isempty(cls{k1})
             c = single(cls{k1})/255;
-            if any(tc(:,3))
+            if any(write_tc(:,3))
                 [c,w]       = spm_diffeo('push',c,y,d1(1:3));
                 vx          = sqrt(sum(M1(1:3,1:3).^2));
                 spm_field('boundary',1);
@@ -395,7 +403,7 @@ if any(tc(:,3)) || any(tc(:,4)) || nargout>=1
             if nargout>=1
                 cls{k1} = c;
             end
-            if tc(k1,4)
+            if write_tc(k1,4)
                 N      = nifti;
                 N.dat  = file_array(fullfile(pth,['mwc', num2str(k1), nam, '.nii']),...
                                     d1,...
@@ -412,12 +420,12 @@ if any(tc(:,3)) || any(tc(:,4)) || nargout>=1
     end
     spm_progress_bar('Clear');
 
-    if any(tc(:,3))
+    if any(write_tc(:,3))
         spm_progress_bar('init',Kb,'Writing Warped Tis Cls','Classes completed');
         C = max(C,eps);
         s = sum(C,4);
         for k1=1:Kb
-            if tc(k1,3)
+            if write_tc(k1,3)
                 N      = nifti;
                 N.dat  = file_array(fullfile(pth,['wc', num2str(k1), nam, '.nii']),...
                                     d1,'uint8',0,1/255,0);
@@ -434,7 +442,7 @@ if any(tc(:,3)) || any(tc(:,4)) || nargout>=1
     end    
 end
 
-if df(2)
+if write_df(2)
     y         = spm_diffeo('invdef',y,d1,eye(4),M0);
     y         = spm_extrapolate_def(y,M1);
     N         = nifti;
@@ -448,6 +456,7 @@ if df(2)
 end
 
 return;
+%==========================================================================
 
 %==========================================================================
 % function [x1,y1,z1] = defs(sol,z,MT,prm,x0,y0,z0,M)
@@ -464,7 +473,7 @@ x1  = M(1,1)*x1a + M(1,2)*y1a + M(1,3)*z1a + M(1,4);
 y1  = M(2,1)*x1a + M(2,2)*y1a + M(2,3)*z1a + M(2,4);
 z1  = M(3,1)*x1a + M(3,2)*y1a + M(3,3)*z1a + M(3,4);
 return;
-
+%==========================================================================
 
 %==========================================================================
 % function t = transf(B1,B2,B3,T)
@@ -478,7 +487,7 @@ else
     t = zeros(size(B1,1),size(B2,1),size(B3,1));
 end
 return;
-
+%==========================================================================
 
 %==========================================================================
 % function dat = decimate(dat,fwhm)
@@ -495,7 +504,6 @@ k  = (length(z) - 1)/2;
 spm_conv_vol(dat,dat,x,y,z,-[i j k]);
 return;
 
-
 %==========================================================================
 % function y1 = affind(y0,M)
 %==========================================================================
@@ -505,7 +513,6 @@ for d=1:3
     y1(:,:,:,d) = y0(:,:,:,1)*M(d,1) + y0(:,:,:,2)*M(d,2) + y0(:,:,:,3)*M(d,3) + M(d,4);
 end
 return;
-
 
 %==========================================================================
 % function x = rgrid(d)
@@ -519,7 +526,6 @@ for i=1:d(3)
     x(:,:,i,3) = single(i);
 end
 return;
-
 
 %==========================================================================
 % function [P] = clean_gwc(P,level)
@@ -599,4 +605,45 @@ for i=1:size(b,3)
     end 
 end
 spm_progress_bar('Clear');
+%==========================================================================
 
+%==========================================================================
+function L = log_likelihoods(f,bf,mg,gmm,msk,code)
+K = numel(mg);
+N = numel(f);
+M = numel(f{1});
+
+% Compute Bx
+%--------------------------------------------------------------------------
+cr                      = NaN(M,N);
+for n=1:N, cr(msk{n},n) = double(f{n}(msk{n})).*double(bf{n}(msk{n})); end
+
+% Compute log|B|
+%--------------------------------------------------------------------------
+if ~gmm.ml    
+    nbf                      = NaN([M N]);
+    for n=1:N, nbf(msk{n},n) = double(bf{n}(msk{n})); end
+end
+
+% Compute likelihoods
+%--------------------------------------------------------------------------
+L = zeros(M,K);
+for n=2:2^N
+    msk0                 = dec2bin(n - 1,N)=='1';
+    ind                  = find(code==msk0*(2.^(0:(N - 1))'));
+    if ~isempty(ind)
+        for k=1:K
+            if gmm.ml
+                C        = chol(gmm.vr(msk0,msk0,k));
+                d        = bsxfun(@minus,cr(ind,msk0),gmm.mn(msk0,k)')/C;
+                L(ind,k) = log(mg(k)) - (N/2)*log(2*pi) - sum(log(diag(C))) - 0.5*sum(d.*d,2);
+            else
+                d        = bsxfun(@minus,cr(ind,msk0)',gmm.po.m(msk0,k));
+                Q        = chol(gmm.po.W(msk0,msk0,k))*d;
+                E        = N/gmm.po.b(k) + gmm.po.n(k)*dot(Q,Q,1);
+                L(ind,k) = 0.5*(Elogdet(gmm.po.W(msk0,msk0,k),gmm.po.n(k)) - E') + log(mg(k)) - N/2*log(2*pi) + log(prod(nbf(ind,msk0),2));
+            end
+        end
+    end
+end
+%==========================================================================

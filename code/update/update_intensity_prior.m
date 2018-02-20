@@ -1,5 +1,6 @@
-function obj = update_intensity_prior(obj)
-M = numel(obj);
+function obj = update_intensity_prior(obj,pth_template)
+M   = numel(obj);
+pth = fileparts(pth_template);
 for m=1:M
     pr = do_update(obj{m});    
     
@@ -7,6 +8,13 @@ for m=1:M
     for s=1:S
         obj{m}{s}.gmm.pr = pr;   
     end
+    
+    pth1 = fileparts(obj{m}{1}.image(1).fname);
+    pth1 = strsplit(pth1,'/');
+    pth1 = pth1{end - 1};
+    
+    fname = fullfile(pth,['prior-' pth1 '.mat']);
+    save(fname,'pr');
 end
 %==========================================================================
 

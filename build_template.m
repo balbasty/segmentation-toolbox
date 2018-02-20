@@ -11,10 +11,8 @@ function build_template
 % -Clean up repo
 % -Investigate shoot_template prm
 % -Create pars.seg.
-% -Modify write to use missing data
 % -Add readme
 % -Add spm_preproc_img (introduces negative values!)
-% -remove gmm.po (test on IXIs)
 % -Same results, cluster vs non-cluster
 % -Introduce aux
 % -Improved registration
@@ -24,12 +22,15 @@ function build_template
 addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing/')
 
+TESTING = 1;
+
 %--------------------------------------------------------------------------
-dir_output = '/data-scratch/mbrud/data/build-template/';
+dir_output       = '/data-scratch/mbrud/data/build-template/';
+pth_log_template = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
 
 %-------------------------------------------------------------------------- 
+im  = {};
 % K           = 12;
-% im          = {};
 % % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck/',...
 % %                Inf,'CT',0,3,'mean',''};
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-healthy-noneck/',...
@@ -39,14 +40,15 @@ dir_output = '/data-scratch/mbrud/data/build-template/';
 % im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-big-lesions/',...
 %                20,'CT',[],3,'mean',''}; % 79 
            
-% Uncomment below for testing     
-S           = 8;
-K           = 6;           
-im          = {};
-im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck/',...
-               S,'MRI',[],4,'mean',''}; 
-% im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/CT-CHROMIS-noneck/',...
-%                S,'CT',[],4,'random',''};
+if TESTING
+    if     TESTING==1, S = 1;
+    elseif TESTING==2, S = 8; 
+    end
+    
+    K           = 6;               
+    im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck/',...
+                   S,'MRI',[],4,'mean',''}; 
+end
 
 %--------------------------------------------------------------------------
 holly = struct;
@@ -56,16 +58,20 @@ holly.server.login   = 'mbrud';
 holly.server.folder  = ['/scratch/' dir_output(15:end)];
 holly.client.folder  = dir_output;
 
-% Uncomment the below to run a regular for-loop
-holly.server.ip      = '';
-holly.client.workers = Inf;
+if TESTING
+    holly.server.ip  = '';   
+    
+    if     TESTING==1, holly.client.workers = 0;
+    elseif TESTING==2, holly.client.workers = Inf;
+    end
+end
 
 holly.matlab.bin     = '/share/apps/matlab';
 holly.matlab.add     = '/home/mbrud/dev/build-template';
 
 holly.translate      = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
 holly.restrict       = 'char';
-holly.clean          = true;
+holly.clean          = false;
 holly.verbose        = false;
 
 holly.job.est_mem    = true;
@@ -74,27 +80,35 @@ holly.job.mem        = '6G';
 holly.job.use_dummy  = true;
 
 %--------------------------------------------------------------------------
-pars.print_ll  = false;
-pars.print_seg = true;
+pars.ml              = false;
+pars.do_bf           = true;
+pars.do_def          = true;
+pars.do_wp           = true;
+pars.do_write_res    = false;
+pars.do_push_resp    = false;
+pars.kmeans_dist     = 'cityblock';
+pars.niter           = 30;
+pars.dir_output      = dir_output;
+pars.do_missing_data = false;
+pars.print_ll        = false;
+pars.print_seg       = false;    
+pars.do_old_segment  = false;
 
-pars.ml           = false;
-pars.do_bf        = true;
-pars.do_def       = true;
-pars.do_wp        = true;
-pars.do_write_res = false;
-pars.kmeans_dist  = 'cityblock';
-
-pars.niter = 30;
-
-pars.dir_output = dir_output;
-
-do_show_seg     = false;
-do_shrink       = true;
-do_show_results = 3;
-tol             = 1e-4;
-
-pars.missing_data   = false;
+do_shrink           = true;
+tol                 = 1e-4;
 do_avg_template_dim = true;
+
+do_show_seg     = false;   
+do_show_results = 3;
+if TESTING==1
+    do_show_seg    = true;
+    pars.print_ll  = true;
+    pars.print_seg = true;
+elseif TESTING==2
+    do_show_seg    = false;
+    pars.print_ll  = false;
+    pars.print_seg = false;    
+end
 
 %--------------------------------------------------------------------------
 M               = numel(im);
@@ -105,15 +119,15 @@ for m=1:M, V{m} = get_V(im{m}); end
 pth_template = '';
 
 % Uncomment below to use predefined templates
-% pth_template = fullfile(spm('dir'),'tpm','TPM.nii');  
-% pars.lkp     = [1 1 2 2 3 3 4 4 5 5 5 6 6];
+pth_template = fullfile(spm('dir'),'tpm','TPM.nii');  
+pars.lkp     = [1 1 2 2 3 3 4 4 5 5 5 6 6];
 % pth_template = fullfile(get_pth_dropbox,'/PhD/Data/CB-TPM/BlaiottaTPM.nii');
 % pars.lkp     = [1 1 2 2 3 3 4 4 5 5 6 6 7 7];
 
 [pth_template,uniform] = init_template(pth_template,V,K,pars.dir_output,do_avg_template_dim); 
 
 %------------------------------------------------------
-[obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,uniform,do_show_seg,do_show_results,pars);
+[obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,uniform,do_show_seg,do_show_results,pars,TESTING);
 
 %-------------------------------------------------------------------------- 
 holly = distribute_default(holly);
@@ -157,7 +171,7 @@ for iter=1:niter
     if niter>1
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
-        obj = update_intensity_prior(obj);
+        obj = update_intensity_prior(obj,pth_template);
     end
        
     if niter>1

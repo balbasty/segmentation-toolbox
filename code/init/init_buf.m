@@ -1,8 +1,8 @@
 function [buf,nm,vr0,mn,mx] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
-Kb           = numel(tpm.V);
-d            = [size(x0) length(z0)];
-modality     = obj.modality;
-missing_data = obj.missing_data;
+Kb              = numel(tpm.V);
+d               = [size(x0) length(z0)];
+modality        = obj.modality;
+do_missing_data = obj.do_missing_data;
 
 if isfield(obj,'msk') && ~isempty(obj.msk)
     VM = spm_vol(obj.msk);
@@ -78,7 +78,7 @@ for z=1:length(z0)
         buf(z).nm(n)  = nnz(buf(z).msk{n});
     end        
   
-    if ~missing_data
+    if ~do_missing_data
         msk = true;
         for n=1:N
             msk = msk & buf(z).msk{n};
