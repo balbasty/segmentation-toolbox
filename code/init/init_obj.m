@@ -142,11 +142,11 @@ for m=1:M
             obj_s.nitgmm = 10;
             obj_s.niter  = 6;   
         
-            obj_s.do_write_res = true;
-            obj_s.do_push_resp = true;  
-            obj_s.cleanup      = false;
-            obj_s.mrf          = 0;
+            obj_s.do_push_resp = true; 
             
+            obj_s.do_write_res      = true;             
+            obj_s.cleanup           = false;
+            obj_s.mrf               = 0;            
             obj_s.write_tc(:,2:end) = false;
             obj_s.write_bf          = false(N,2);
             obj_s.write_df          = false(1,2);

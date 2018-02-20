@@ -45,7 +45,7 @@ for z=1:nz
     [x1,y1,z1] = make_deformation(Twarp,z,x0,y0,z0,M,msk1);
 
     % Tissue probability map and spatial derivatives
-    [b,db1,db2,db3] = spm_sample_priors8(tpm,x1,y1,z1);
+    [b,db1,db2,db3] = spm_sample_logpriors(tpm,x1,y1,z1);
     clear x1 y1 z1
 
     % Adjust for tissue weights
@@ -150,7 +150,7 @@ for line_search=1:12
             
             msk1                          = buf(z).code>0;
             [x1,y1,z1]                    = make_deformation(Twarp1,z,x0,y0,z0,M,msk1);
-            b                             = spm_sample_priors8(tpm,x1,y1,z1);
+            b                             = spm_sample_logpriors(tpm,x1,y1,z1);
             for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
             clear x1 y1 z1
             
@@ -175,7 +175,7 @@ for line_search=1:12
 
             msk1                          = buf(z).code>0;
             [x1,y1,z1]                    = make_deformation(Twarp1,z,x0,y0,z0,M,msk1);
-            b                             = spm_sample_priors8(tpm,x1,y1,z1);
+            b                             = spm_sample_logpriors(tpm,x1,y1,z1);
             for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
             clear x1 y1 z1
             
@@ -210,7 +210,7 @@ for line_search=1:12
                 
                 msk1       = buf(z).code>0;
                 [x1,y1,z1] = make_deformation(Twarp,z,x0,y0,z0,M,msk1);
-                b          = spm_sample_priors8(tpm,x1,y1,z1);
+                b          = spm_sample_logpriors(tpm,x1,y1,z1);
                 clear x1 y1 z1
                 
                 for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end                

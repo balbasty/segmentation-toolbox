@@ -1,13 +1,11 @@
 function build_template
 
-% 1. Parameterise in log-space
-%     --Set tiny and deg to zero for template construction?
-%     --Use K - 1 classes for template?
-% 2. Add back missing 
+% 1. Add back missing 
 %     --problem with convergence of reg and bf
 %     --include missing ll for ml
 %     --artefact: BECAUSE THERE ARE NEG VALUES INTRODUCED WHEN CREATING PREPROC DATA
 %
+% -Use K - 1 classes for template?
 % -Clean up repo
 % -Investigate shoot_template prm
 % -Create pars.seg.
@@ -22,11 +20,10 @@ function build_template
 addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing/')
 
-TESTING = 1;
+TESTING = 2;
 
 %--------------------------------------------------------------------------
 dir_output       = '/data-scratch/mbrud/data/build-template/';
-pth_log_template = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
 
 %-------------------------------------------------------------------------- 
 im  = {};
@@ -47,7 +44,7 @@ if TESTING
     
     K           = 6;               
     im{end + 1} = {'/data-scratch/mbrud/images/Preprocessed/IXI-noneck/',...
-                   S,'MRI',[],4,'mean',''}; 
+                   S,'MRI',[],3,'mean',''}; 
 end
 
 %--------------------------------------------------------------------------
@@ -87,7 +84,7 @@ pars.do_wp           = true;
 pars.do_write_res    = false;
 pars.do_push_resp    = false;
 pars.kmeans_dist     = 'cityblock';
-pars.niter           = 30;
+pars.niter           = 50;
 pars.dir_output      = dir_output;
 pars.do_missing_data = false;
 pars.print_ll        = false;
@@ -119,8 +116,8 @@ for m=1:M, V{m} = get_V(im{m}); end
 pth_template = '';
 
 % Uncomment below to use predefined templates
-pth_template = fullfile(spm('dir'),'tpm','TPM.nii');  
-pars.lkp     = [1 1 2 2 3 3 4 4 5 5 5 6 6];
+% pth_template = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
+% pars.lkp     = [1 1 2 2 3 3 4 4 5 5 5 6 6];
 % pth_template = fullfile(get_pth_dropbox,'/PhD/Data/CB-TPM/BlaiottaTPM.nii');
 % pars.lkp     = [1 1 2 2 3 3 4 4 5 5 6 6 7 7];
 
@@ -204,6 +201,7 @@ for m=1:M
             obj{m}{s}.do_def       = false;
             obj{m}{s}.do_bf        = false;
             obj{m}{s}.do_push_resp = true;
+            obj{m}{s}.do_write_res = false;
             
             obj{m}{s}.niter  = 1;                 
             obj{m}{s}.nsubit = 1;
@@ -313,7 +311,8 @@ end
 set(0,'CurrentFigure',fig);     
 
 Nii = nifti(pth_template);
-b   = Nii.dat(:,:,:,:);
+b   = exp(Nii.dat(:,:,:,:));
+b   = bsxfun(@rdivide,b,sum(b,4));
 d   = size(b);
 K   = d(4);                                  
 for k=1:K         

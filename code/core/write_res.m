@@ -17,7 +17,7 @@ if nargin<10, odir = [];       end % Output directory
 
 % Load template
 %-----------------------------------------------------------------------
-tpm = spm_load_priors8(pth_template);
+tpm = spm_load_logpriors(pth_template);
 
 % Read essentials from tpm (it will be cleared later)
 d1  = size(tpm.dat{1});
@@ -243,7 +243,7 @@ for z=1:length(x3)
             q1 = reshape(q1,[d(1:2),numel(obj.mg)]);
             q1 = exp(q1) + eps;
             
-            b = spm_sample_priors8(tpm,t1,t2,t3);    
+            b = spm_sample_logpriors(tpm,t1,t2,t3);    
             s = zeros(size(b{1}));
             for k1 = 1:Kb
                 b{k1} = obj.wp(k1)*b{k1};

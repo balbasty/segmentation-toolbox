@@ -1,4 +1,4 @@
-function [mu,a,L] = spm_shoot_blur_wp_load(obj,mu,prm,iter,verbose)
+function [mu,L] = spm_shoot_blur_wp_load(obj,mu,prm,iter,verbose)
 % A function for blurring ("smoothing") tissue probability maps
 % FORMAT [sig,a_new] = spm_shoot_blur(t,prm,its,sig)
 %     t   - sufficient statistics
@@ -67,9 +67,6 @@ R = null(ones(1,d(4)));
 a = zeros([d(1:3),d(4)-1],'single');
 for z=1:d(3), % Loop over planes
     sz = mu(:,:,z,:);
-    sz = min(max(sz,0),1);
-    sz(~isfinite(sz)) = 1/d(4);
-    sz = squeeze(log(double(sz*(1-d(4)*1e-3)+1e-3)));
     for j1=1:(d(4)-1),
         az = zeros(d(1:2));
         for j2=1:d(4),
@@ -98,17 +95,14 @@ reg = double(0.01*sqrt(mx)*d(4));
 %reg = double(0.1*sqrt(ss2/prod(d(1:3))));
 a   = a - spm_field(W,gr,[prm(1:3) prm(4)+reg prm(5:6) rits]); % Gauss-Newton update  
     
-mu = sftmax(a,R);
+mu = rotate_back(a,R);
 L  = -(ll + ll1);
 %________________________________________________________
 
 %________________________________________________________
-function sig = sftmax(a,R,log_wp)
-% Softmax function
-if nargin<3, log_wp = 0; end
-
-d     = [size(a) 1 1 1];
-sig   = zeros([d(1:3),d(4)+1],'single');
+function sig = rotate_back(a,R)
+d   = [size(a) 1 1 1];
+sig = zeros([d(1:3),d(4) + 1],'single');
 
 for j=1:size(a,3), % Loop over planes
 
@@ -122,11 +116,6 @@ for j=1:size(a,3), % Loop over planes
         end
     end
 
-    % Compute safe softmax
-    sj           = bsxfun(@plus,sj,log_wp);
-    mx_sj        = max(sj,[],3);
-    sj           = exp(bsxfun(@minus,sj,mx_sj));
-    s            = sum(sj,3);
-    sig(:,:,j,:) = single(bsxfun(@rdivide,sj,s));
+    sig(:,:,j,:) = sj;
 end
 %________________________________________________________

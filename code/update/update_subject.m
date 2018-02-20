@@ -7,27 +7,27 @@ print_seg      = obj.print_seg;
 do_old_segment = obj.do_old_segment;
 
 try
-    % Affine registration
-    %----------------------------------------------------------------------
     if ~build_template || iter==2      
-        tpm = spm_load_priors8(pth_template);
+        % Affine registration
+        %------------------------------------------------------------------
+        tpm = spm_load_logpriors(pth_template);
 
         M = obj.image(1).mat;
         c = (obj.image(1).dim+1)/2;
         obj.image(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
-        [Affine1,ll1]    = spm_maff8(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
+        [Affine1,ll1]    = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
         Affine1          = Affine1*(obj.image(1).mat/M);
         obj.image(1).mat = M;
 
         % Run using the origin from the header
-        [Affine2,ll2] = spm_maff8(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
+        [Affine2,ll2] = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
 
         % Pick the result with the best fit
         if ll1>ll2, obj.Affine  = Affine1; else obj.Affine  = Affine2; end
 
         % Initial affine registration.
-        obj.Affine = spm_maff8(obj.image(1),obj.samp*2,(obj.fwhm+1)*16,tpm, obj.Affine, obj.affreg); % Closer to rigid
-        obj.Affine = spm_maff8(obj.image(1),obj.samp*2, obj.fwhm,      tpm, obj.Affine, obj.affreg);        
+        obj.Affine = spm_maff_new(obj.image(1),obj.samp*2,(obj.fwhm+1)*16,tpm, obj.Affine, obj.affreg); % Closer to rigid
+        obj.Affine = spm_maff_new(obj.image(1),obj.samp*2, obj.fwhm,      tpm, obj.Affine, obj.affreg);        
         clear tpm 
     end    
 

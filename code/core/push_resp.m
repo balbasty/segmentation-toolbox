@@ -11,7 +11,7 @@ do_missing_data = obj.do_missing_data;
 
 % Load template
 %-----------------------------------------------------------------------
-tpm = spm_load_priors8(pth_template);
+tpm = spm_load_logpriors(pth_template);
 
 % Read essentials from tpm (it will be cleared later)
 %--------------------------------------------------------------------------
@@ -152,7 +152,7 @@ for z=1:length(x3)
     
     % Parametric representation of intensity distributions  
     msk1 = code>0;
-    b    = spm_sample_priors8(tpm,t1(msk1),t2(msk1),t3(msk1));
+    b    = spm_sample_logpriors(tpm,t1(msk1),t2(msk1),t3(msk1));
     clear t1 t2 t3
     
     B           = zeros([nnz(msk1) Kb]);
@@ -238,11 +238,11 @@ R = null(ones(1,d(4)));
 lwp = reshape(log(obj.wp),1,1,d(4));
 
 % Re-organise sufficient statistics to a form that is easier to work with
-t = max(t,eps('single')*1000);
+% t = max(t,eps('single'));
 s = sum(t,4);
-for k=1:d(4)
-    t(:,:,:,k) = t(:,:,:,k)./s;
-end
+% for k=1:d(4)
+%     t(:,:,:,k) = t(:,:,:,k)./s;
+% end
 
 % Compute gradients and Hessian
 %--------------------------------------------------------------------------
@@ -254,10 +254,7 @@ ll = 0;
 for z=1:d(3), % Loop over planes
 
     % Log of template
-    sz = Nii.dat(x1,rngy,rngz(z),:);    
-    sz = min(max(sz,0),1);
-    sz(~isfinite(sz)) = 1/d(4);
-    sz = squeeze(log(double(sz*(1-d(4)*1e-3)+1e-3)));
+    sz = squeeze(double(Nii.dat(x1,rngy,rngz(z),:)));    
     
     a = zeros([d(1:2) 1 d(4) - 1],'single');
     for j1=1:(d(4)-1),
@@ -275,13 +272,13 @@ for z=1:d(3), % Loop over planes
     ll  = ll - sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d(1:2),d(4)]),3).*s(:,:,z)));
 
     % Compute first derivatives (d(4)-1) x 1 
-    grz = mu - double(reshape(t(:,:,z,:),[d(1:2),d(4)]));
+    grz = bsxfun(@times,mu,s(:,:,z)) - double(reshape(t(:,:,z,:),[d(1:2),d(4)]));
     for j1=1:(d(4)-1),
         gr1 = zeros([dgr(1:2) 1 dgr(4)],'single');
         for j2=1:d(4),
             gr1(:,:,1,j1) = gr1(:,:,1,j1) + R(j2,j1)*grz(:,:,j2); % Note the rotation
         end
-        gr(:,:,z,j1) = gr(:,:,z,j1) + gr1(:,:,1,j1).*s(:,:,z);
+        gr(:,:,z,j1) = gr(:,:,z,j1) + gr1(:,:,1,j1);%.*s(:,:,z);
     end
 
     % Compute d(4) x d(4) matrix of second derivatives at each voxel.
@@ -409,9 +406,8 @@ function sig = sftmax(a,R,log_wp)
 % Softmax function
 if nargin<3, log_wp = 0; end
 
-d     = [size(a) 1 1 1];
-sig   = zeros([d(1:3),d(4)+1],'single');
-trunc = log(realmax('single')*(1-eps('single'))/(d(4)+1));
+d   = [size(a) 1 1 1];
+sig = zeros([d(1:3),d(4)+1],'single');
 
 for j=1:size(a,3), % Loop over planes
 

@@ -71,7 +71,7 @@ if isempty(pth_template)
     pth_template  = fullfile(dir_template,'template.nii');   
     [pth,nam,ext] = fileparts(pth_template);
 
-    img  = ones(d,'single')/K;
+    img  = zeros(d,'single');
     vols = cell(K,1);
     for k=1:K    
         vols{k} = fullfile(pth,[nam num2str(k) ext]);

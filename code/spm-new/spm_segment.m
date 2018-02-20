@@ -2,7 +2,7 @@ function obj = spm_segment(obj,pth_template,fig)
 
 % Load template
 %-----------------------------------------------------------------------
-tpm = spm_load_priors8(pth_template);
+tpm = spm_load_logpriors(pth_template);
 
 % Parameters, etc.
 %-----------------------------------------------------------------------

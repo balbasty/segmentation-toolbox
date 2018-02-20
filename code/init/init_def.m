@@ -42,7 +42,7 @@ for z=1:nz
     
     msk1                          = buf(z).code>0;
     [x1,y1,z1]                    = make_deformation(Twarp,z,x0,y0,z0,M,msk1);
-    b                             = spm_sample_priors8(tpm,x1,y1,z1);
+    b                             = spm_sample_logpriors(tpm,x1,y1,z1);
     for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
 end
 
