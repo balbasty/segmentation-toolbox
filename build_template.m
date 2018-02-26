@@ -27,8 +27,8 @@ addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing/')
 
 %--------------------------------------------------------------------------
-NAME    = 'build-template';
-TESTING = 3;
+NAME    = 'CT-lesion';
+TESTING = 0;
 
 %-------------------------------------------------------------------------- 
 im = {};
@@ -48,9 +48,9 @@ if TESTING
 else
     K           = 8;
     im{end + 1} = {'/data/mbrud/images/CT-CHROMIS-noneck-den/',...
-                   Inf,'CT',[],3,'mean',''};    
+                   Inf,'CT',[],2,'mean',''};    
     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
-                   Inf,'CT',[],3,'mean',''};                        
+                   Inf,'CT',[],2,'mean',''};                        
 %     im{end + 1} = {'/data/mbrud/images/CT-big-lesions/',...
 %                    Inf,'CT',[],3,'total',''};        
 %     im{end + 1} = {'/data/mbrud/images/IXI-noneck/',...
