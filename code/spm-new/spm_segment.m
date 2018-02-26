@@ -33,12 +33,6 @@ pth_vel   = obj.pth_vel;
 M         = tpm.M\Affine*V(1).mat;
 tot_S     = obj.tot_S;
 
-% Some random numbers are used, so initialise random number generators to
-% give the same results each time.
-%-----------------------------------------------------------------------
-rng('default');
-rng(1);
-
 % Fudge Factor - to (approximately) account for non-independence of voxels.
 %-----------------------------------------------------------------------
 ff = compute_fudge_factor(obj,V,sk);
@@ -52,9 +46,6 @@ ff = compute_fudge_factor(obj,V,sk);
 if isfield(obj,'wp'), wp = obj.wp;
 else,                 wp = ones(1,Kb)/Kb;
 end
-
-wp(K_lab{2}) = eps;
-wp           = wp/sum(wp);
         
 if isfield(obj,'mg')
     mg  = obj.mg;     

@@ -6,6 +6,12 @@ build_template = obj.tot_S>1;
 print_seg      = obj.print_seg;
 do_old_segment = obj.do_old_segment;
 
+% Some random numbers are used, so initialise random number generators to
+% give the same results each time.
+%-----------------------------------------------------------------------
+rng('default');
+rng(obj.s);
+
 try
     if ~build_template || iter==2      
         % Affine registration
@@ -26,8 +32,8 @@ try
         if ll1>ll2, obj.Affine  = Affine1; else obj.Affine  = Affine2; end
 
         % Initial affine registration.
-        obj.Affine = spm_maff_new(obj.image(1),obj.samp*2,(obj.fwhm+1)*16,tpm, obj.Affine, obj.affreg); % Closer to rigid
-        obj.Affine = spm_maff_new(obj.image(1),obj.samp*2, obj.fwhm,      tpm, obj.Affine, obj.affreg);        
+        obj.Affine = spm_maff_new(obj.image(1),obj.samp,(obj.fwhm+1)*16,tpm, obj.Affine, obj.affreg); % Closer to rigid
+        obj.Affine = spm_maff_new(obj.image(1),obj.samp, obj.fwhm,      tpm, obj.Affine, obj.affreg);        
         clear tpm 
     end    
 
@@ -90,7 +96,7 @@ if print_seg
     fprintf('----------------------------------------------\n')
     fprintf('| bf_dc = [%s] | avg_bf_dc = [%s] \n',sprintf('%.3f ', obj.bf_dc),sprintf('%.3f ', obj.avg_bf_dc));
     fprintf('----------------------------------------------\n')
-    if obj.ml
+    if obj.do_ml
         if obj.new
             for n=1:size(obj.gmm.mn,1), fprintf('| mn = [%.3f, %s%.3f]\n',obj.gmm.mn(n,1),sprintf('%.3f, ',obj.gmm.mn(n,2:end - 1)),obj.gmm.mn(n,end)); end
         else
@@ -104,7 +110,7 @@ if print_seg
     fprintf('----------------------------------------------\n')
     fprintf('| d0 = [%s] | d1 = [%s] \n',sprintf('%i ', obj.d0),sprintf('%i ', d1));        
     fprintf('----------------------------------------------\n')
-    fprintf('%s %i %s %i %s %i %s %i %s %i \n','| new =',obj.new,'| ml =',obj.ml,'| uniform =',obj.uniform,'| do_bf =',obj.do_bf,'| do_def =',obj.do_def);            
+    fprintf('%s %i %s %i %s %i %s %i %s %i \n','| new =',obj.new,'| ml =',obj.do_ml,'| uniform =',obj.uniform,'| do_bf =',obj.do_bf,'| do_def =',obj.do_def);            
     fprintf('----------------------------------------------\n')
     fprintf('%s %i %s %i %s %.1f %s %.1f %s %.7f \n','| s =',obj.s,'| iter =',obj.iter,'| t1 (s) =',t1,'| t2 (s) =',t2,'| ll =',obj.ll);        
     fprintf('==============================================\n')

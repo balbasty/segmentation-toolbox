@@ -1,7 +1,6 @@
 function gmm = init_gmm(obj,N,buf,vr0,mn,mx)
 kmeans_dist = obj.kmeans_dist;
 init_clust  = obj.init_clust;
-ix_subj     = obj.s;
 uniform     = obj.uniform;
 K_lab       = obj.K_lab;
 Kb          = numel(K_lab{1});
@@ -12,7 +11,7 @@ K           = numel(K_lab{1}) + numel(K_lab{2});
 
 gmm     = obj.gmm;
 gmm.vr0 = vr0;
-gmm.ml  = obj.ml;
+gmm.ml  = obj.do_ml;
 
 if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
     % Compute moments
@@ -20,7 +19,7 @@ if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
     if uniform
         % Uniform template provided, use the k-means algorithm to comppute
         % moments
-        mom = kmeans2mom(buf,Kb,ix_subj,mn,mx,init_clust,kmeans_dist);
+        mom = kmeans2mom(buf,Kb,mn,mx,init_clust,kmeans_dist);
     else       
         % Use template to compute moments
         mom = compute_moments(buf,Kb);

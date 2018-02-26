@@ -1,4 +1,4 @@
-function mom = kmeans2mom(buf,K,ix_subj,mn,mx,init_clust,kmeans_dist)
+function mom = kmeans2mom(buf,K,mn,mx,init_clust,kmeans_dist)
 N = numel(buf(1).f);
 d = [size(buf(1).msk{1}) numel(buf)];
 
@@ -47,10 +47,8 @@ elseif strcmp(init_clust,'total')
     
 elseif strcmp(init_clust,'random')
     % Randomise sufficient statistics
-    %--------------------------------------------------------------------------
-    rng(ix_subj);
-    ix = randperm(K);
-    rng(1);
+    %--------------------------------------------------------------------------    
+    ix = randperm(K);    
 else
     error('Wrong init!')
 end

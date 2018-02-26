@@ -5,9 +5,7 @@ if ~isempty(fig)
     dz  = floor(nz/2) + 1;
     d   = [size(buf(1).msk{1}) nz];        
     Kb  = max(lkp);
-    K   = numel(lkp);  
-    
-    slice = NaN(d(1:2));
+    K   = numel(lkp);      
     
     prob_colmap = [zeros(128,1), linspace(0,1,128)', linspace(1,0,128)';
                    linspace(0,1,128)', linspace(1,0,128)', zeros(128,1)];
@@ -31,15 +29,15 @@ if ~isempty(fig)
         for k=1:K              
             subplot(3,K,k);
             slice = Q(:,:,floor(d(3)/2) + 1,k);
-            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(pink);               
+            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(gray);               
             
             subplot(3,K,K + k);
             slice = permute(Q(:,floor(d(2)/2) + 1,:,k),[3 1 2]);
-            imagesc(slice); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(pink);   
+            imagesc(slice); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(gray);   
             
             subplot(3,K,2*K + k);
             slice = permute(Q(floor(d(1)/2) + 1,:,:,k),[2 3 1]);
-            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(pink);   
+            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(gray);   
         end 
     end
     
@@ -50,17 +48,20 @@ if ~isempty(fig)
         N = numel(buf(dz).f);
         for n=1:N
             subplot(N,3,n); 
+    	    slice = NaN(d(1:2));
             slice(buf(dz).msk{n}) = buf(dz).f{n};   
             if strcmp(modality,'CT'), imagesc(slice',clims_CT); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
             else                      imagesc(slice'); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
             end
             
-            subplot(N,3,N + n);            
+            subplot(N,3,N + n);    
+    	    slice = NaN(d(1:2));        
             slice(buf(dz).msk{n}) = buf(dz).bf{n};
             imagesc(slice'); axis image xy off; colormap(gray); colorbar;
             title(['B, n=' num2str(n)]);
             
-            subplot(N,3,2*N + n);            
+            subplot(N,3,2*N + n);   
+    	    slice = NaN(d(1:2));         
             slice(buf(dz).msk{n}) = buf(dz).bf{n}.*buf(dz).f{n};
             if strcmp(modality,'CT'), imagesc(slice',clims_CT); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
             else                      imagesc(slice'); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
@@ -86,15 +87,15 @@ if ~isempty(fig)
         for k=1:Kb             
             subplot(3,Kb,k);
             slice = Q(:,:,floor(d(3)/2) + 1,k);
-            imagesc(slice'); axis image xy off; title(['k=' num2str(lkp(k))]); colormap(pink);               
+            imagesc(slice'); axis image xy off; title(['k=' num2str(k)]); colormap(gray);               
             
             subplot(3,Kb,Kb + k);
             slice = permute(Q(:,floor(d(2)/2) + 1,:,k),[3 1 2]);
-            imagesc(slice); axis image xy off; title(['wp=' num2str(round(wp(k),2))]); colormap(pink);   
+            imagesc(slice); axis image xy off; title(['wp=' num2str(round(wp(k),2))]); colormap(gray);   
             
             subplot(3,Kb,2*Kb + k);
             slice = permute(Q(floor(d(1)/2) + 1,:,:,k),[2 3 1]);
-            imagesc(slice'); axis image xy off; colormap(pink);   
+            imagesc(slice'); axis image xy off; colormap(gray);   
         end 
     end
 

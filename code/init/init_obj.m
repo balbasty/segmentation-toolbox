@@ -1,4 +1,4 @@
-function [obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,uniform,do_show_seg,do_show_results,pars,TESTING)
+function [obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,pth_prior,uniform,do_show_seg,do_show_results,pars,dt,TESTING)
 M = numel(V);
 
 %--------------------------------------------------------------------------
@@ -26,9 +26,9 @@ if do_show_seg
     drawnow
 end
 if niter>1
-    if do_show_results>0, fig{5} = figure(5); clf(figure(5)); end
-    if do_show_results>1, fig{6} = figure(6); clf(figure(6)); end
     if do_show_results>2, fig{7} = figure(7); clf(figure(7)); end
+    if do_show_results>1, fig{6} = figure(6); clf(figure(6)); end
+    if do_show_results>0, fig{5} = figure(5); clf(figure(5)); end        
     drawnow
 end
 
@@ -85,7 +85,7 @@ for m=1:M
         obj_s.biasreg      = 1e-3*(1/5)*ones(1,N);
         obj_s.biasfwhm     = 60*ones(1,N);  
         obj_s.modality     = modality;
-        obj_s.ml           = pars.ml;
+        obj_s.do_ml        = pars.do_ml;
         obj_s.do_bf        = pars.do_bf;
         obj_s.do_def       = pars.do_def;
         obj_s.do_wp        = pars.do_wp;
@@ -104,13 +104,16 @@ for m=1:M
         obj_s.gmm          = struct;
         obj_s.kmeans_dist  = pars.kmeans_dist;
         obj_s.init_clust   = init_clust;
+        
         obj_s.do_missing_data = pars.do_missing_data;
-        obj_s.do_write_res = pars.do_write_res;
-        obj_s.do_push_resp = pars.do_push_resp;
-        obj_s.do_old_segment = pars.do_old_segment;
-
+        obj_s.do_write_res    = pars.do_write_res;
+        obj_s.do_push_resp    = pars.do_push_resp;
+        obj_s.do_old_segment  = pars.do_old_segment;
+        obj_s.dt              = dt;
+        
         if strcmp(modality,'CT')
-            obj_s.do_bf = false;
+            obj_s.do_bf   = false;
+            obj_s.cleanup = false;
         end
         
         %------------------------------------------------------------------
@@ -138,9 +141,9 @@ for m=1:M
         
         %------------------------------------------------------------------
         if TESTING
-            obj_s.nsubit = 3;
-            obj_s.nitgmm = 10;
-            obj_s.niter  = 6;   
+            obj_s.nsubit = 8;
+            obj_s.nitgmm = 20;
+            obj_s.niter  = 30;   
         
             obj_s.do_push_resp = true; 
             
@@ -152,15 +155,16 @@ for m=1:M
             obj_s.write_df          = false(1,2);
         end
         
-        %------------------------------------------------------------------   
-%         if ~obj_s.ml
-%             pr.m   = zeros(N,Kb);
-%             pr.b   = ones(1,Kb);
-%             pr.n   = (N - .999)*ones(1,Kb);
-%             pr.W   = repmat(eye(N,N),[1 1 Kb]);
-% 
-%             obj_s.gmm.pr = pr;
-%         end
+        %------------------------------------------------------------------  
+        if ~isempty(pth_prior) && ~obj_s.do_ml
+%                 pr.m   = zeros(N,Kb);
+%                 pr.b   = ones(1,Kb);
+%                 pr.n   = (N - .999)*ones(1,Kb);
+%                 pr.W   = repmat(eye(N,N),[1 1 Kb]);
+
+            tmp          = load(pth_prior,'-mat');
+            obj_s.gmm.pr = tmp.pr;
+        end
         
         %------------------------------------------------------------------        
         dir_resp = fullfile(dir_s,'resp'); 

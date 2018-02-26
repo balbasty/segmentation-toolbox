@@ -175,6 +175,8 @@ for z=1:length(x3)
 end
 clear tpm x1 x2 x3 o Coeff chan msk
 
+% debug_view(Q,666);
+
 % Adjust stuff so that warped data (and deformations) have the
 % desired bounding box and voxel sizes, instead of being the same
 % as those of the tissue probability maps.
@@ -200,10 +202,10 @@ for k1=1:Kb
     if k1==1
         % Calculate bounding box from count image
         bb_push     = compute_bb(c,obj.pth_resp{k1},M1);        
-        x1        = bb_push(1,1):bb_push(1,2);
+        rngx        = bb_push(1,1):bb_push(1,2);
         rngy        = bb_push(2,1):bb_push(2,2);
         rngz        = bb_push(3,1):bb_push(3,2);
-        dm_bb       = [numel(x1) numel(rngy) numel(rngz)];
+        dm_bb       = [numel(rngx) numel(rngy) numel(rngz)];
         obj.bb_push = bb_push;
         
         % Allocate sufficient statistics
@@ -214,47 +216,37 @@ for k1=1:Kb
     if (exist(fname,'file')==2), delete(fname); end
     
     Nii         = nifti;
-    Nii.dat     = file_array(fname,dm_bb,'float32',0,1,0);                    
+    Nii.dat     = file_array(fname,dm_bb,obj.dt,0,1,0);                    
     Nii.mat     = M1;    
     Nii.mat0    = M1;    
     Nii.descrip = ['Pushed responsibilities ' num2str(k1)];        
     create(Nii);
     
-    t(:,:,:,k1)    = t1(x1,rngy,rngz);    
+    t(:,:,:,k1)    = t1(rngx,rngy,rngz);    
     Nii.dat(:,:,:) = t(:,:,:,k1);    
 end
 clear Q y Nii t1 c
+
+% debug_view(t,667);
 
 % Prepare computing template gradient and Hessian
 %--------------------------------------------------------------------------
 Nii = nifti(pth_template);
 d   = [dm_bb,Kb,1,1,1];
-
-% Only d(4)-1 fields need to be estimated because sum(a,4) = 0.  This matrix
-% is used to rotate out the null space
-R = null(ones(1,d(4)));
-
-% Read a responsibility and log(wp)      
+R   = null(ones(1,d(4)));    
 lwp = reshape(log(obj.wp),1,1,d(4));
-
-% Re-organise sufficient statistics to a form that is easier to work with
-% t = max(t,eps('single'));
-s = sum(t,4);
-% for k=1:d(4)
-%     t(:,:,:,k) = t(:,:,:,k)./s;
-% end
+s   = sum(t,4);
 
 % Compute gradients and Hessian
 %--------------------------------------------------------------------------
 W   = zeros([d(1:3) round(((d(4)-1)*d(4))/2)],'single'); % 2nd derivatives
-gr  = zeros([d(1:3),d(4)-1],'single');                   % 1st derivatives
-dgr = size(gr);
+gr  = zeros([d(1:3),d(4)-1],'single');    
 
-ll = 0;
+ll  = 0;
 for z=1:d(3), % Loop over planes
 
     % Log of template
-    sz = squeeze(double(Nii.dat(x1,rngy,rngz(z),:)));    
+    sz = squeeze(Nii.dat(rngx,rngy,rngz(z),:));    
     
     a = zeros([d(1:2) 1 d(4) - 1],'single');
     for j1=1:(d(4)-1),
@@ -262,19 +254,20 @@ for z=1:d(3), % Loop over planes
         for j2=1:d(4),
             az = az + R(j2,j1)*sz(:,:,j2); % Note the rotation
         end
-        a(:,:,1,j1) = az;
+        a(:,:,:,j1) = az;
     end
 
     % Compute softmax for this plane
     mu = double(reshape(sftmax(a,R,lwp),[d(1:2),d(4)]));
 
     % -ve log likelihood of the likelihood
-    ll  = ll - sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d(1:2),d(4)]),3).*s(:,:,z)));
-
+    ll0 = sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d(1:2),d(4)]),3).*s(:,:,z)));
+    ll  = ll - ll0;
+    
     % Compute first derivatives (d(4)-1) x 1 
     grz = bsxfun(@times,mu,s(:,:,z)) - double(reshape(t(:,:,z,:),[d(1:2),d(4)]));
     for j1=1:(d(4)-1),
-        gr1 = zeros([dgr(1:2) 1 dgr(4)],'single');
+        gr1 = zeros([d(1:2) 1 d(4) - 1],'single');
         for j2=1:d(4),
             gr1(:,:,1,j1) = gr1(:,:,1,j1) + R(j2,j1)*grz(:,:,j2); % Note the rotation
         end
@@ -345,7 +338,7 @@ for k1=1:d(4)
     if (exist(fname,'file')==2), delete(fname); end
     
     Nii      = nifti;
-    Nii.dat  = file_array(fname,d(1:3),'float32',0,1,0);
+    Nii.dat  = file_array(fname,d(1:3),obj.dt,0,1,0);
     Nii.mat  = M1;
     Nii.mat0 = M1;
     Nii.descrip = ['Template gradients ' num2str(k1)];
@@ -363,7 +356,7 @@ for k1=1:d(4)
     if (exist(fname,'file')==2), delete(fname); end
     
     Nii      = nifti;
-    Nii.dat  = file_array(fname,d(1:3),'float32',0,1,0);
+    Nii.dat  = file_array(fname,d(1:3),obj.dt,0,1,0);
     Nii.mat  = M1;
     Nii.mat0 = M1;
     Nii.descrip = ['Template Hessian ' num2str(k1)];
@@ -402,9 +395,9 @@ return;
 %==========================================================================
 
 %==========================================================================
-function sig = sftmax(a,R,log_wp)
+function sig = sftmax(a,R,lwp)
 % Softmax function
-if nargin<3, log_wp = 0; end
+if nargin<3, lwp = 0; end
 
 d   = [size(a) 1 1 1];
 sig = zeros([d(1:3),d(4)+1],'single');
@@ -422,7 +415,7 @@ for j=1:size(a,3), % Loop over planes
     end
 
     % Compute safe softmax
-    sj           = bsxfun(@plus,sj,log_wp);
+    sj           = bsxfun(@plus,sj,lwp);
     mx_sj        = max(sj,[],3);
     sj           = exp(bsxfun(@minus,sj,mx_sj));
     s            = sum(sj,3);
@@ -464,3 +457,24 @@ bb = sort(bb,2);
 
 delete(nfname); 
 %==========================================================================
+
+%==========================================================================
+function debug_view(Q,fix)
+figure(fix)
+dm = size(Q);
+K  = dm(4);
+for k=1:K              
+    subplot(3,K,k);
+    slice = Q(:,:,floor(dm(3)/2) + 1,k);
+    imagesc(slice'); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);               
+
+    subplot(3,K,K + k);
+    slice = permute(Q(:,floor(dm(2)/2) + 1,:,k),[3 1 2]);
+    imagesc(slice); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
+
+    subplot(3,K,2*K + k);
+    slice = permute(Q(floor(dm(1)/2) + 1,:,:,k),[2 3 1]);
+    imagesc(slice'); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
+end
+drawnow
+%==========================================================================   

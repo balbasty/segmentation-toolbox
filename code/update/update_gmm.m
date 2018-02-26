@@ -9,13 +9,7 @@ for subit=1:nitgmm
     
     % Compute responsibilities and moments
     [mom,dll,mgm] = compute_moments(buf,K,mg,gmm,wp,lkp,K_lab);        
-    ll            = ll + dll; 
-    
-    % Compute missing data and VB components of ll
-    dll = spm_VBGaussiansFromSuffStats(mom,gmm);
-    ll  = ll + sum(sum(dll));
-    
-    L{1}(end + 1) = ll;
+    ll            = ll + dll;     
     
     % Add up 0:th moment
     s0 = 0;
@@ -29,9 +23,6 @@ for subit=1:nitgmm
         wp = wp/sum(wp);
     end
     
-    wp(K_lab{2}) = eps;
-    wp           = wp/sum(wp);
-    
     % Update mixing proportions
     for k=1:K
         tmp   = s0(lkp==lkp(k));
@@ -39,9 +30,11 @@ for subit=1:nitgmm
     end
         
     % Update means and variances
-    [~,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);
+    [dll,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);
+    ll        = ll + sum(sum(dll));  
 
     my_fprintf('MOG:\t%g\t%g\t%g\n',ll,llr,llrb,print_ll);
+    L{1}(end + 1) = ll;
 
     if subit>1 || iter>1
         debug_view('convergence',fig{4},lkp,buf,L);

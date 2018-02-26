@@ -1,16 +1,22 @@
 function L = update_template(L,pth_template,obj,iter)
 
-sched = exp(linspace(5,0,25));
+s     = spm_shoot_defaults;
+sched = s.sched;
 
 Nii = nifti(pth_template);
 vx  = vxsize(Nii.mat);
-mu  = single(Nii.dat(:,:,:,:));
+mu0 = single(Nii.dat(:,:,:,:));
 
-sparam = [0.01 0.02 1]; 
-prm    = [vx, prod(vx)*[sparam(1) sched(min(iter,numel(sched)))*sparam(2:3)]];
+sparam = [0 2 0]; 
+scl    = sched(min(iter,numel(sched)));
+prm    = [vx, prod(vx)*[sparam(1) scl*sparam(2) sparam(3)]];
 
-[mu,L1] = spm_shoot_blur_wp_load(obj,mu,prm,iter);
+[mu,L1] = spm_shoot_blur_wp_load(obj,mu0,prm,iter,true);
 L       = [L,L1];
+
+if 0
+    [mu,L1] = spm_shoot_blur_wp(obj,mu0,prm,iter,12,true);
+end
 
 if sum(~isfinite(mu(:))) || ~isfinite(L1), error('sum(~isfinite(logtpm(:))) || ~isfinite(dL)'); end
 

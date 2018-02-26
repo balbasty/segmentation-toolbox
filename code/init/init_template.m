@@ -1,4 +1,4 @@
-function [pth_template,uniform] = init_template(pth_template,V,K,dir_output,do_avg_template_dim,vx_tpm)
+function [pth_template,uniform,dt] = init_template(pth_template,V,K,dir_template,do_avg_template_dim,vx_tpm)
 if nargin<6, vx_tpm = 1.5; end
 
 if isempty(pth_template)
@@ -64,8 +64,9 @@ if isempty(pth_template)
         if spm_flip_analyze_images, M = diag([-1 1 1 1])*M; end
     end
 
-    % Create and write TPMs to disk
-    dir_template = fullfile(dir_output,'template');
+    dt = [spm_type('float32') spm_platform('bigend')];
+    
+    % Create and write TPMs to disk    
     if exist(dir_template,'dir'), rmdir(dir_template,'s'); end; mkdir(dir_template);    
 
     pth_template  = fullfile(dir_template,'template.nii');   
@@ -75,14 +76,14 @@ if isempty(pth_template)
     vols = cell(K,1);
     for k=1:K    
         vols{k} = fullfile(pth,[nam num2str(k) ext]);
-        create_nii(vols{k},img,M,16,'template');
+        create_nii(vols{k},img,M,dt,'template');
     end
     clear img
 
     matlabbatch                       = cell(1,1);
     matlabbatch{1}.spm.util.cat.vols  = vols;
-    matlabbatch{1}.spm.util.cat.name  = pth_template;
-    matlabbatch{1}.spm.util.cat.dtype = 16;
+    matlabbatch{1}.spm.util.cat.name  = pth_template;    
+    matlabbatch{1}.spm.util.cat.dtype = 0;
     spm_jobman('run',matlabbatch);
 
     delete(fullfile(pth,[nam '.mat']));

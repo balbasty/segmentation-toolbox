@@ -2,7 +2,7 @@ function [buf,chan,llrb] = init_bf(buf,N,obj,V,x0,y0,z0,ff)
 kron      = @(a,b) spm_krutil(a,b);
 avg_bf_dc = obj.avg_bf_dc;
 tot_S     = obj.tot_S;
-ml        = obj.ml;
+ml        = obj.do_ml;
 
 cl   = cell(N,1);
 args = {'C',cl,'B1',cl,'B2',cl,'B3',cl,'T',cl,'ll',cl};

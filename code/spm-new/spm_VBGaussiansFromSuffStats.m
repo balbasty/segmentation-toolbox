@@ -76,22 +76,10 @@ else
     if ~isfield(gmm,'pr')
         mom1 = mom_John2Bishop(mom);
                
-%         vr2 = zeros(N,N);
-%         for k=1:K
-%             vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
-%         end
-%         vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);
-        
-        m0            = mom1(end).s1;
-        beta0         = ones(1,K);
-        nu0           = N*ones(1,K);
-        W0            = 1/N*repmat(eye(N),[1 1 K]);
-%         beta0         = 1e-4*mom1(end).s0;
-%         nu0           = 1e-4*mom1(end).s0 + N - 1;                                   
-%         W0            = zeros(N,N,K);
-%         for k=1:K
-%             W0(:,:,k) = inv(vr2)/nu0(k);
-%         end
+        m0    = bsxfun(@times,ones(N,K),mean(mom1(end).s1,2));
+        beta0 = ones(1,K);
+        nu0   = N*ones(1,K);
+        W0    = 1/N*repmat(eye(N),[1 1 K]);
 
         gmm.pr.n = nu0;
         gmm.pr.W = W0;

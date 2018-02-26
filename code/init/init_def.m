@@ -25,7 +25,7 @@ MT = [sk(1) 0 0 (1-sk(1));0 sk(2) 0 (1-sk(2)); 0 0 sk(3) (1-sk(3));0 0 0 1];
 sk4 = reshape(sk,[1 1 1 3]);
 
 if ~(exist(pth_vel,'file')==2)
-    create_nii(pth_vel,zeros([d 3],'single'),eye(4),'float32','vel'); 
+    create_nii(pth_vel,zeros([d 3],'single'),eye(4),obj.dt,'vel'); 
 end
 
 Nii   = nifti(pth_vel);

@@ -1,6 +1,5 @@
-function obj = update_intensity_prior(obj,pth_template)
-M   = numel(obj);
-pth = fileparts(pth_template);
+function obj = update_intensity_prior(obj,dir_template,iter)
+M = numel(obj);
 for m=1:M
     pr = do_update(obj{m});    
     
@@ -13,8 +12,10 @@ for m=1:M
     pth1 = strsplit(pth1,'/');
     pth1 = pth1{end - 1};
     
-    fname = fullfile(pth,['prior-' pth1 '.mat']);
+    fname = fullfile(dir_template,['prior-' pth1 '.mat']);
     save(fname,'pr');
+    
+    for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end    
 end
 %==========================================================================
 

@@ -27,7 +27,6 @@ if nargin<5, verbose = false; end
 d    = [size(mu),1,1,1];
 rits = [1 1]; % No. cycles and no. relaxation iterations
 
-tot_subj = 0;
 ll       = 0;
 W        = zeros([d(1:3) round(((d(4)-1)*d(4))/2)],'single'); % 2nd derivatives
 gr       = zeros([d(1:3),d(4)-1],'single');                   % 1st derivatives
@@ -50,14 +49,11 @@ for m=1:numel(obj)
                 W(rngx,rngy,rngz,k) = W(rngx,rngy,rngz,k) + single(Nii.dat(:,:,:));
             end
             
-            ll       = ll + obj{m}{s}.ll_template;            
-            tot_subj = tot_subj + 1;            
+            ll       = ll + obj{m}{s}.ll_template; 
         end
     end
 end
 clear obj Nii
-        
-prm(4) = prm(4) + tot_subj*d(4)*1e-6;
 
 % Only d(4)-1 fields need to be estimated because sum(a,4) = 0.  This matrix
 % is used to rotate out the null space
@@ -81,25 +77,23 @@ end
 % At convergence, the derivatives from the likelihood term should match those
 % from the prior (regularisation) term.
 % ss1 = sum(sum(sum(sum(gr.^2))));
+
 gr1 = spm_field('vel2mom',a,prm);     % 1st derivative of the prior term
 ll1 = 0.5*sum(sum(sum(sum(gr1.*a)))); % -ve log probability of the prior term
 gr  = gr + gr1;                       % Combine the derivatives of the two terms
 ss2 = sum(sum(sum(sum(gr.^2))));      % This should approach zero at convergence
-mx  = max(max(max(sum(gr.^2,4))));
 
 if verbose
-    fprintf('%2d %8.7f %8.7f %8.7f %8.7f\n',iter,ll/prod(d(1:3)),ll1/prod(d(1:3)),(ll + ll1)/prod(d(1:3)),(ss2)/prod(d(1:3)));
+    fprintf('%2d | %8.7f %8.7f %8.7f %8.7f\n',iter,ll/prod(d(1:3)),ll1/prod(d(1:3)),(ll + ll1)/prod(d(1:3)),(ss2)/prod(d(1:3)));
 end
 
-reg = double(0.01*sqrt(mx)*d(4));
-%reg = double(0.1*sqrt(ss2/prod(d(1:3))));
-a   = a - spm_field(W,gr,[prm(1:3) prm(4)+reg prm(5:6) rits]); % Gauss-Newton update  
+a   = a - spm_field(W,gr,[prm(1:3) prm(4) prm(5:6) rits]); % Gauss-Newton update  
     
 mu = rotate_back(a,R);
 L  = -(ll + ll1);
-%________________________________________________________
+%%==========================================================================
 
-%________________________________________________________
+%==========================================================================
 function sig = rotate_back(a,R)
 d   = [size(a) 1 1 1];
 sig = zeros([d(1:3),d(4) + 1],'single');
@@ -118,4 +112,4 @@ for j=1:size(a,3), % Loop over planes
 
     sig(:,:,j,:) = sj;
 end
-%________________________________________________________
+%==========================================================================
