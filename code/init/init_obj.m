@@ -49,6 +49,16 @@ rand_subjs = cell(1,M);
 cnt        = 1;
 for m=1:M
     S             = numel(V{m});       
+    
+    if pars.do_preproc    
+        dir_preproc          = fileparts(V{m}{1}(1).fname);
+        dir_preproc          = strsplit(dir_preproc,filesep);
+        dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc'];
+        dir_preproc          = fullfile('/',dir_preproc{2:end - 1});
+
+        if exist(dir_preproc,'dir'), rmdir(dir_preproc,'s'); end; mkdir(dir_preproc);           
+    end
+
     rand_subjs{m} = randperm(S,min(S0,S));   
     obj{m}        = cell(1,S);
     for s=1:S
@@ -69,8 +79,9 @@ for m=1:M
         [~,nam]   = fileparts(obj_s.image(1).fname);
         
         %------------------------------------------------------------------
+        obj_s.do_segment   = pars.do_segment;
         obj_s.s            = cnt;
-        obj_s.iter         = 0;
+        obj_s.iter         = 1;
         obj_s.tot_S        = tot_subj;
         obj_s.bb           = NaN(2,3);
         obj_s.vox          = NaN;
@@ -104,7 +115,20 @@ for m=1:M
         obj_s.gmm          = struct;
         obj_s.kmeans_dist  = pars.kmeans_dist;
         obj_s.init_clust   = init_clust;
-        
+
+        obj_s.do_preproc = pars.do_preproc;
+        if obj_s.do_preproc                              
+            dir_s1 = fileparts(V{m}{s}(1).fname);
+            dir_s1 = strsplit(dir_s1,filesep);
+            dir_s1 = fullfile(dir_preproc,dir_s1{end});          
+            mkdir(dir_s1);               
+            obj_s.dir_preproc = dir_s1;
+        end                
+        obj_s.preproc.reg_and_reslice = pars.preproc.reg_and_reslice;
+        obj_s.preproc.realign2mni     = pars.preproc.realign2mni;
+        obj_s.preproc.crop            = pars.preproc.crop;
+        obj_s.preproc.rem_neck        = pars.preproc.rem_neck;
+
         obj_s.do_missing_data = pars.do_missing_data;
         obj_s.do_write_res    = pars.do_write_res;
         obj_s.do_push_resp    = pars.do_push_resp;

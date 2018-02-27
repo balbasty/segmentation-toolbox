@@ -1,91 +1,116 @@
 function obj = update_subject(obj,pth_template,fig) 
-do_write_res   = obj.do_write_res;
-do_push_resp   = obj.do_push_resp;
-iter           = obj.iter;
-build_template = obj.tot_S>1;
-print_seg      = obj.print_seg;
-do_old_segment = obj.do_old_segment;
 
-% Some random numbers are used, so initialise random number generators to
-% give the same results each time.
-%-----------------------------------------------------------------------
-rng('default');
-rng(obj.s);
-
-try
-    if ~build_template || iter==2      
-        % Affine registration
-        %------------------------------------------------------------------
-        tpm = spm_load_logpriors(pth_template);
-
-        M = obj.image(1).mat;
-        c = (obj.image(1).dim+1)/2;
-        obj.image(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
-        [Affine1,ll1]    = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
-        Affine1          = Affine1*(obj.image(1).mat/M);
-        obj.image(1).mat = M;
-
-        % Run using the origin from the header
-        [Affine2,ll2] = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
-
-        % Pick the result with the best fit
-        if ll1>ll2, obj.Affine  = Affine1; else obj.Affine  = Affine2; end
-
-        % Initial affine registration.
-        obj.Affine = spm_maff_new(obj.image(1),obj.samp,(obj.fwhm+1)*16,tpm, obj.Affine, obj.affreg); % Closer to rigid
-        obj.Affine = spm_maff_new(obj.image(1),obj.samp, obj.fwhm,      tpm, obj.Affine, obj.affreg);        
-        clear tpm 
+if obj.do_preproc && obj.iter==1
+    % Preprocessing
+    %--------------------------------------------------------------          
+    
+    % Make copies (in order to not modify original data)
+    N = numel(obj.image);
+    for n=1:N
+        fname              = obj.image(n).fname;
+        copyfile(fname,obj.dir_preproc);
+        [~,nam,ext]        = fileparts(fname);
+        nfname             = fullfile(obj.dir_preproc,[nam ext]);
+        obj.image(n).fname = nfname;
+    end
+    
+    if obj.preproc.reg_and_reslice
+        obj.image = spm_impreproc('reg_and_reslice',obj.image);
+    end
+    
+    if obj.preproc.crop
+        obj.image = spm_impreproc('crop',obj.image,obj.preproc.rem_neck);       
     end    
+    
+    if obj.preproc.realign2mni
+        obj.image = spm_impreproc('realign2mni',obj.image);       
+    end    
+end
 
-    if ~do_old_segment
-        % Run the new SPM segmentation routine
-        %------------------------------------------------------------------   
-        tic;    
-        obj = spm_segment(obj,pth_template,fig);    
-        t1  = toc;    
+if obj.do_segment    
+    % Segmentation
+    %--------------------------------------------------------------
+            
+    rng('default');
+    rng(obj.s);
 
-        % Push responsibilities to template space
-        %------------------------------------------------------------------
-        t2 = 0;
-        if do_push_resp
-            tic;    
-            obj = push_resp(obj,pth_template,obj.bb,obj.vox);    
-            t2  = toc;                            
-        end
+    try
+        build_template = obj.tot_S>1;
+        
+        if ~build_template || obj.iter==2      
+            % Affine registration
+            %--------------------------------------------------------------
+            tpm = spm_load_logpriors(pth_template);
 
-        % Write results
-        %------------------------------------------------------------------
-        if do_write_res      
-            write_res(obj,pth_template,obj.write_tc,obj.write_bf,obj.write_df,obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write); 
+            M = obj.image(1).mat;
+            c = (obj.image(1).dim+1)/2;
+            obj.image(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
+            [Affine1,ll1]    = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
+            Affine1          = Affine1*(obj.image(1).mat/M);
+            obj.image(1).mat = M;
+
+            % Run using the origin from the header
+            [Affine2,ll2] = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,[],obj.affreg); % Closer to rigid
+
+            % Pick the result with the best fit
+            if ll1>ll2, obj.Affine  = Affine1; else obj.Affine  = Affine2; end
+
+            % Initial affine registration.
+            obj.Affine = spm_maff_new(obj.image(1),obj.samp,(obj.fwhm+1)*16,tpm, obj.Affine, obj.affreg); % Closer to rigid
+            obj.Affine = spm_maff_new(obj.image(1),obj.samp, obj.fwhm,      tpm, obj.Affine, obj.affreg);        
+            clear tpm 
         end    
 
-        % Verbose
-        %------------------------------------------------------------------  
-        fprintf_obj(print_seg,obj,t1,t2,pth_template);   
-    
-    else
-        % Run the old SPM segmentation algorithm (for comparison)
-        %------------------------------------------------------------------
-        res = spm_preproc8_def(obj,pth_template);        
+        if ~obj.do_old_segment
+            % Run the new SPM segmentation routine
+            %--------------------------------------------------------------  
+            tic;    
+            obj = spm_segment(obj,pth_template,fig);    
+            t1  = toc;    
 
-        spm_preproc_write8_def(res,obj.write_tc,obj.write_bf,obj.write_df,obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write);
+            % Push responsibilities to template space
+            %--------------------------------------------------------------
+            t2 = 0;
+            if obj.do_push_resp
+                tic;    
+                obj = push_resp(obj,pth_template,obj.bb,obj.vox);    
+                t2  = toc;                            
+            end
+
+            % Write results
+            %--------------------------------------------------------------
+            if obj.do_write_res      
+                write_res(obj,pth_template,obj.write_tc,obj.write_bf,obj.write_df,obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write); 
+            end    
+
+            % Verbose
+            %--------------------------------------------------------------
+            fprintf_obj(obj,t1,t2,pth_template);   
+
+        else
+            % Run the old SPM segmentation algorithm (for comparison)
+            %--------------------------------------------------------------
+            res = spm_preproc8_def(obj,pth_template);        
+
+            spm_preproc_write8_def(res,obj.write_tc,obj.write_bf,obj.write_df,obj.mrf,obj.cleanup,obj.bb,obj.vox,obj.dir_write);
+        end
+
+        obj.status = 0; % success
+    catch ME            
+        fprintf(['Error for image: ' obj.image(1).fname '\n'])
+        for i=1:numel(ME.stack)
+            disp([ME.stack(i).name ', line ' num2str(ME.stack(i).line)]);
+        end
+        disp(ME.message)    
+
+        obj.status = 1; % fail
     end
-    
-    obj.status = 0; % success
-catch ME            
-    fprintf(['Error for image: ' obj.image(1).fname '\n'])
-    for i=1:numel(ME.stack)
-        disp([ME.stack(i).name ', line ' num2str(ME.stack(i).line)]);
-    end
-    disp(ME.message)    
-    
-    obj.status = 1; % fail
 end
 %==========================================================================
 
 %==========================================================================
-function fprintf_obj(print_seg,obj,t1,t2,pth_template)
-if print_seg
+function fprintf_obj(obj,t1,t2,pth_template)
+if obj.print_seg
     V  = spm_vol(pth_template);
     d1 = V(1).dim;
 

@@ -6,13 +6,16 @@ function build_template
 %    decreasing ll...
 %  --include missing ll for ml
 %
-% -Add spm_preproc_img (introduces negative values!)
 % -Clean up repo + add readme
-% -Introduce aux
 % -Labelled resps
 % -Improved registration: diffeo + reparameterise + average correct
 %
 % TODO
+% -Add denoising
+% -Add superres
+% -Add remove corruped
+% -Add DICOM convert
+% -Introduce aux
 % -Use K - 1 classes for template?
 % -Investigate shoot_template prm
 % -Create pars.seg.
@@ -23,28 +26,30 @@ function build_template
 % -Same results, cluster vs non-cluster
 %
 
+%--------------------------------------------------------------------------
 addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing/')
+addpath('/cherhome/mbrud/dev/auxiliary-functions/')
 
 %--------------------------------------------------------------------------
-NAME    = 'CT-lesion';
+NAME    = 'CT-lesion-local';
 TESTING = 0;
 
 %-------------------------------------------------------------------------- 
 im = {};
          
 if TESTING
-    if     TESTING==1, S = 1;
-    elseif TESTING>1,  S = 8; 
+    if     TESTING==1 || TESTING==4, S = 1;
+    elseif TESTING>1,                S = 8; 
     end
     
     K           = 6;               
-%     im{end + 1} = {'/data/mbrud/images/IXI-noneck/',...
-%                    S,'MRI',[],4,'mean',''};             
+    im{end + 1} = {'/data/mbrud/images/IXI-subjects/',...
+                   S,'MRI',[],4,'mean',''};   
 %     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
 %                    S,'MRI',[],4,'mean',''};                  
-    im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
-                   S,'CT',[],4,'mean',''};                 
+%     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
+%                    S,'CT',[],4,'mean',''};                 
 else
     K           = 8;
     im{end + 1} = {'/data/mbrud/images/CT-CHROMIS-noneck-den/',...
@@ -52,9 +57,7 @@ else
     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
                    Inf,'CT',[],2,'mean',''};                        
 %     im{end + 1} = {'/data/mbrud/images/CT-big-lesions/',...
-%                    Inf,'CT',[],3,'total',''};        
-%     im{end + 1} = {'/data/mbrud/images/IXI-noneck/',...
-%                    30,'MRI',[],3,'total',''};
+%                    Inf,'CT',[],3,'total',''};
 %     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
 %                    30,'MRI',[],3,'total',''};                  
 end
@@ -64,6 +67,8 @@ if TESTING==1 || TESTING==2
     NAME = 'test-local';
 elseif TESTING==3
     NAME = 'test-holly';
+elseif TESTING==4
+    NAME = 'test-preproc';    
 end
 
 dir_output                = '/data-scratch/mbrud/data/';
@@ -78,16 +83,18 @@ holly.server.login  = 'mbrud';
 holly.server.folder = fullfile('/scratch',dir_output(15:end),'cluster');
 holly.client.folder = fullfile(dir_output,'cluster');
 
-% holly.server.ip      = '';   
-% holly.client.workers = Inf;
-
-if TESTING==1 || TESTING==2
+if TESTING==1 || TESTING==2 || TESTING==4
     holly.server.ip  = '';   
     
-    if     TESTING==1, holly.client.workers = 0;
-    elseif TESTING==2, holly.client.workers = Inf;
+    if TESTING==1 || TESTING==4, 
+        holly.client.workers = 0;
+    elseif TESTING==2
+        holly.client.workers = Inf;
     end
 end
+
+holly.server.ip      = '';   
+holly.client.workers = Inf;
 
 holly.matlab.bin    = '/share/apps/matlab';
 holly.matlab.addsub = '/home/mbrud/dev/build-template';
@@ -103,6 +110,8 @@ holly.job.mem       = '6G';
 holly.job.use_dummy = true;
 
 %--------------------------------------------------------------------------
+pars.do_segment      = true;
+pars.do_preproc      = false;
 pars.do_ml           = false;
 pars.do_bf           = true;
 pars.do_def          = true;
@@ -111,6 +120,16 @@ pars.do_write_res    = false;
 pars.do_push_resp    = false;
 pars.do_missing_data = false;
 pars.do_old_segment  = false;
+
+if TESTING==4
+    pars.do_preproc = true;
+    pars.do_segment = false;
+end
+
+pars.preproc.reg_and_reslice = true;
+pars.preproc.realign2mni     = true;
+pars.preproc.crop            = true;
+pars.preproc.rem_neck        = true;
 
 pars.kmeans_dist     = 'cityblock';
 pars.niter           = 50;

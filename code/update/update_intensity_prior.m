@@ -9,7 +9,7 @@ for m=1:M
     end
     
     pth1 = fileparts(obj{m}{1}.image(1).fname);
-    pth1 = strsplit(pth1,'/');
+    pth1 = strsplit(pth1,filesep);
     pth1 = pth1{end - 1};
     
     fname = fullfile(dir_template,['prior-' pth1 '.mat']);
