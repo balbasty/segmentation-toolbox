@@ -82,7 +82,12 @@ else
         end
         vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);                
         
-        m0            = linspace_vec(gmm.min,gmm.max,K);
+        if strcmp(gmm.init_clust,'mean')
+            m0 = linspace_vec(gmm.min,gmm.max,K);
+        else
+            m0 = bsxfun(@times,ones(N,K),mean(mom1(end).s1,2));
+        end
+                
         beta0         = ones(1,K);
         nu0           = 1e3*ones(1,K);
         W0            = zeros(N,N,K);

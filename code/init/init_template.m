@@ -1,4 +1,15 @@
 function pars = init_template(V,K,pars)
+
+if exist(pars.dir_template,'dir'), rmdir(pars.dir_template,'s'); end; mkdir(pars.dir_template);    
+
+if ~pars.do_segment
+    pars.pth_template = fullfile(spm('dir'),'tpm','TPM.nii');  
+    V1                = spm_vol(pars.pth_template); 
+    pars.uniform      = false;
+    pars.dt           = V1.dt;
+    return
+end
+
 if isempty(pars.pth_template)
     pars.uniform = true;
     
@@ -56,9 +67,6 @@ if isempty(pars.pth_template)
 
     pars.dt = [spm_type('float32') spm_platform('bigend')];
     
-    % Create and write TPMs to disk    
-    if exist(pars.dir_template,'dir'), rmdir(pars.dir_template,'s'); end; mkdir(pars.dir_template);    
-
     pars.pth_template = fullfile(pars.dir_template,'template.nii');   
     [pth,nam,ext]     = fileparts(pars.pth_template);
 

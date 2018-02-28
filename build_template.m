@@ -1,5 +1,6 @@
 function build_template
 
+%--------------------------------------------------------------------------
 % PRIO
 % Add back missing 
 %  --problem with convergence of bf (when lkp>1?), probably due to
@@ -23,33 +24,43 @@ function build_template
 % -Reintroduce split?
 % -Same results, cluster vs non-cluster
 %
-
 %--------------------------------------------------------------------------
+
 addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing')
 addpath('/cherhome/mbrud/dev/auxiliary-functions')
 
-%--------------------------------------------------------------------------
 pars            = [];
-pars.name       = 'CT-preproc';
-pars.test_level = 2;
+pars.name       = 'build-template';
+pars.test_level = 3;
 
-%-------------------------------------------------------------------------- 
+%--------------------------------------------------------------------------
+% Set directories to input images as well as where to write output
+%--------------------------------------------------------------------------
+
 im = {};       
 if pars.test_level
-    if     pars.test_level==1, S = 1;
-    elseif pars.test_level>1,  S = 8; 
+    if     pars.test_level==1,                        S = 1;
+    elseif pars.test_level==3,                        S = 32; 
+    elseif pars.test_level==2 || pars.test_level==4,  S = 8;     
     end
     
-    K           = 6;               
-%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-preproc/',...
-%                    S,'MRI',[],4,'mean','',''};   
+    K           = 10;               
 %     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
 %                    S,'MRI',[],4,'mean','',''};                  
 %     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
 %                    S,'CT',[],4,'mean','',''};    
+%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc/',...
+%                    S,'CT',[],4,'mean','',''};                   
+
+    im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc/',...
+                   8,'CT',[5],2,'random','',''};  
+    im{end + 1} = {'/data/mbrud/images/CT/aged-preproc/',...
+                   8,'CT',[5],2,'random','',''};                 
     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc/',...
-                   S,'CT',[],4,'mean','',''};                                                 
+                   32,'CT',[],2,'random','',''};   
+    im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-noneck/',...
+                   32,'MRI',[5],3,'mean','',''};                  
 else
     K           = 8;
 %     im{end + 1} = {'/data/mbrud/images/CT-CHROMIS-noneck-den/',...
@@ -59,16 +70,19 @@ else
 %     im{end + 1} = {'/data/mbrud/images/CT-big-lesions/',...
 %                    Inf,'CT',[],3,'mean','',''};
 %     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
-%                    30,'MRI',[],3,'mean','',''};             
-    im{end + 1} = {'/data/mbrud/images/CT/healthy/',...
-                   Inf,'CT',[],4,'mean','',''};  
-    im{end + 1} = {'/data/mbrud/images/CT/aged/',...
-                   Inf,'CT',[],4,'mean','',''};                 
-    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS/',...
-                   Inf,'CT',[],4,'mean','',''};                 
+%                    30,'MRI',[],3,'mean','',''};       
+
+%     im{end + 1} = {'/data/mbrud/images/CT/healthy/',...
+%                    Inf,'CT',[],4,'mean','',''};  
+%     im{end + 1} = {'/data/mbrud/images/CT/aged/',...
+%                    Inf,'CT',[],4,'mean','',''};                 
+%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS/',...
+%                    Inf,'CT',[],4,'mean','',''};   
+               
+%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1/',...
+%                    Inf,'MRI',[],4,'mean','',''};                 
 end
 
-%--------------------------------------------------------------------------
 if pars.test_level==1 || pars.test_level==2, pars.name = 'test-local';
 elseif pars.test_level==3,                   pars.name = 'test-holly';
 elseif pars.test_level==4                    pars.name = 'test-preproc';    
@@ -79,13 +93,17 @@ pars.dir_template = '/data/mbrud/templates/';
 pars              = append_dir(pars);
 
 %--------------------------------------------------------------------------
+% Set-up parallel options
+%--------------------------------------------------------------------------
+
 holly               = struct;
 holly.server.ip     = 'holly';
 holly.server.login  = 'mbrud';
 holly.server.folder = fullfile('/scratch',pars.dir_output(15:end),'cluster');
 holly.client.folder = fullfile(pars.dir_output,'cluster');
 holly.matlab.bin    = '/share/apps/matlab';
-holly.matlab.addsub = '/home/mbrud/dev/build-template';
+holly.matlab.addsub = '/home/mbrud/dev/build-template-new';
+holly.matlab.add    = '/home/mbrud/dev/auxiliary-functions';
 holly.translate     = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
 holly.restrict      = 'char';
 holly.clean         = true;
@@ -106,11 +124,14 @@ if pars.test_level==1 || pars.test_level==2 || pars.test_level==4
 end
 
 % holly.server.ip      = '';   
-% holly.client.workers = 0;
+% holly.client.workers = Inf;
 
 holly = distribute_default(holly);
 
 %--------------------------------------------------------------------------
+% Set parameters
+%--------------------------------------------------------------------------
+
 pars.do_segment          = true;
 pars.do_preproc          = false;
 pars.niter               = 50;
@@ -159,6 +180,9 @@ elseif pars.test_level==2
 end
 
 %--------------------------------------------------------------------------
+% Init
+%--------------------------------------------------------------------------
+
 V = cell(1,numel(im));
 for m=1:numel(im) 
     V{m} = read_images(im{m},pars); 
@@ -173,6 +197,9 @@ pars = init_template(V,K,pars);
 [obj,pars,fig,rand_subjs] = init_obj(V,im,pars);
 
 %--------------------------------------------------------------------------
+% Start the algorithm
+%--------------------------------------------------------------------------
+
 print_algorithm_progress('started');
 
 L = -Inf;

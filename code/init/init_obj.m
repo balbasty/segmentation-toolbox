@@ -51,10 +51,14 @@ for m=1:M
     pth_prior  = im{m}{7};
         
     if pars.do_preproc    
-        dir_preproc          = fileparts(V{m}{1}(1).fname);
-        dir_preproc          = strsplit(dir_preproc,filesep);
-        dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc'];
-        dir_preproc          = fullfile('/',dir_preproc{2:end - 1});
+        dir_preproc = fileparts(V{m}{1}(1).fname);
+        dir_preproc = strsplit(dir_preproc,filesep);
+        if pars.preproc.rem_neck
+            dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc-noneck'];
+        else
+            dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc-neck'];
+        end
+        dir_preproc = fullfile('/',dir_preproc{2:end - 1});
 
         if exist(dir_preproc,'dir'), rmdir(dir_preproc,'s'); end; mkdir(dir_preproc);           
     end

@@ -9,11 +9,12 @@ K           = numel(K_lab{1}) + numel(K_lab{2});
 % K_keep      = K_lab{1};
 % K_rem       = K_lab{2};
 
-gmm     = obj.gmm;
-gmm.vr0 = vr0;
-gmm.ml  = obj.do_ml;
-gmm.min = mn;
-gmm.max = mx;
+gmm            = obj.gmm;
+gmm.vr0        = vr0;
+gmm.ml         = obj.do_ml;
+gmm.min        = mn;
+gmm.max        = mx;
+gmm.init_clust = init_clust;
 
 if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
     % Compute moments
