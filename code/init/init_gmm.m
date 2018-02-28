@@ -12,6 +12,8 @@ K           = numel(K_lab{1}) + numel(K_lab{2});
 gmm     = obj.gmm;
 gmm.vr0 = vr0;
 gmm.ml  = obj.do_ml;
+gmm.min = mn;
+gmm.max = mx;
 
 if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
     % Compute moments

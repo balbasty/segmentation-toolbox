@@ -1,4 +1,5 @@
-function L = update_template(L,pth_template,obj,iter)
+function L = update_template(L,obj,iter)
+pth_template = obj{1}{1}.pth_template;
 
 s     = spm_shoot_defaults;
 sched = s.sched;

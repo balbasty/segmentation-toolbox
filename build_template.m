@@ -11,14 +11,12 @@ function build_template
 % -Improved registration: diffeo + reparameterise + average correct
 %
 % TODO
+% -DICOM convert
 % -Add denoising
 % -Add superres
-% -Add remove corruped
-% -Add DICOM convert
 % -Introduce aux
 % -Use K - 1 classes for template?
 % -Investigate shoot_template prm
-% -Create pars.seg.
 % -K.rem,K.keep,K.lkp
 %
 % CLUSTER
@@ -28,166 +26,159 @@ function build_template
 
 %--------------------------------------------------------------------------
 addpath(genpath('./code'))
-addpath('/cherhome/mbrud/dev/distributed-computing/')
-addpath('/cherhome/mbrud/dev/auxiliary-functions/')
+addpath('/cherhome/mbrud/dev/distributed-computing')
+addpath('/cherhome/mbrud/dev/auxiliary-functions')
 
 %--------------------------------------------------------------------------
-NAME    = 'CT-lesion-local';
-TESTING = 0;
+pars            = [];
+pars.name       = 'CT-preproc';
+pars.test_level = 2;
 
 %-------------------------------------------------------------------------- 
-im = {};
-         
-if TESTING
-    if     TESTING==1 || TESTING==4, S = 1;
-    elseif TESTING>1,                S = 8; 
+im = {};       
+if pars.test_level
+    if     pars.test_level==1, S = 1;
+    elseif pars.test_level>1,  S = 8; 
     end
     
     K           = 6;               
-    im{end + 1} = {'/data/mbrud/images/IXI-subjects/',...
-                   S,'MRI',[],4,'mean',''};   
+%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-preproc/',...
+%                    S,'MRI',[],4,'mean','',''};   
 %     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
-%                    S,'MRI',[],4,'mean',''};                  
+%                    S,'MRI',[],4,'mean','',''};                  
 %     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
-%                    S,'CT',[],4,'mean',''};                 
+%                    S,'CT',[],4,'mean','',''};    
+    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc/',...
+                   S,'CT',[],4,'mean','',''};                                                 
 else
     K           = 8;
-    im{end + 1} = {'/data/mbrud/images/CT-CHROMIS-noneck-den/',...
-                   Inf,'CT',[],2,'mean',''};    
-    im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
-                   Inf,'CT',[],2,'mean',''};                        
+%     im{end + 1} = {'/data/mbrud/images/CT-CHROMIS-noneck-den/',...
+%                    Inf,'CT',[],2,'mean','',''};    
+%     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
+%                    Inf,'CT',[],2,'mean','',''};                        
 %     im{end + 1} = {'/data/mbrud/images/CT-big-lesions/',...
-%                    Inf,'CT',[],3,'total',''};
+%                    Inf,'CT',[],3,'mean','',''};
 %     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
-%                    30,'MRI',[],3,'total',''};                  
+%                    30,'MRI',[],3,'mean','',''};             
+    im{end + 1} = {'/data/mbrud/images/CT/healthy/',...
+                   Inf,'CT',[],4,'mean','',''};  
+    im{end + 1} = {'/data/mbrud/images/CT/aged/',...
+                   Inf,'CT',[],4,'mean','',''};                 
+    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS/',...
+                   Inf,'CT',[],4,'mean','',''};                 
 end
 
 %--------------------------------------------------------------------------
-if TESTING==1 || TESTING==2
-    NAME = 'test-local';
-elseif TESTING==3
-    NAME = 'test-holly';
-elseif TESTING==4
-    NAME = 'test-preproc';    
+if pars.test_level==1 || pars.test_level==2, pars.name = 'test-local';
+elseif pars.test_level==3,                   pars.name = 'test-holly';
+elseif pars.test_level==4                    pars.name = 'test-preproc';    
 end
 
-dir_output                = '/data-scratch/mbrud/data/';
-dir_template              = '/data/mbrud/templates/';
-[dir_output,dir_template] = append_dir(dir_output,dir_template,NAME);
+pars.dir_output   = '/data-scratch/mbrud/data/';
+pars.dir_template = '/data/mbrud/templates/';
+pars              = append_dir(pars);
 
 %--------------------------------------------------------------------------
-holly = struct;
-
+holly               = struct;
 holly.server.ip     = 'holly';
 holly.server.login  = 'mbrud';
-holly.server.folder = fullfile('/scratch',dir_output(15:end),'cluster');
-holly.client.folder = fullfile(dir_output,'cluster');
-
-if TESTING==1 || TESTING==2 || TESTING==4
-    holly.server.ip  = '';   
-    
-    if TESTING==1 || TESTING==4, 
-        holly.client.workers = 0;
-    elseif TESTING==2
-        holly.client.workers = Inf;
-    end
-end
-
-holly.server.ip      = '';   
-holly.client.workers = Inf;
-
+holly.server.folder = fullfile('/scratch',pars.dir_output(15:end),'cluster');
+holly.client.folder = fullfile(pars.dir_output,'cluster');
 holly.matlab.bin    = '/share/apps/matlab';
 holly.matlab.addsub = '/home/mbrud/dev/build-template';
-
 holly.translate     = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
 holly.restrict      = 'char';
 holly.clean         = true;
 holly.verbose       = false;
-
 holly.job.est_mem   = true;
 holly.job.batch     = true;
 holly.job.mem       = '6G';
 holly.job.use_dummy = true;
 
-%--------------------------------------------------------------------------
-pars.do_segment      = true;
-pars.do_preproc      = false;
-pars.do_ml           = false;
-pars.do_bf           = true;
-pars.do_def          = true;
-pars.do_wp           = true;
-pars.do_write_res    = false;
-pars.do_push_resp    = false;
-pars.do_missing_data = false;
-pars.do_old_segment  = false;
-
-if TESTING==4
-    pars.do_preproc = true;
-    pars.do_segment = false;
+if pars.test_level==1 || pars.test_level==2 || pars.test_level==4
+    holly.server.ip  = '';   
+    
+    if pars.test_level==1  
+        holly.client.workers = 0;
+    elseif pars.test_level==2 || pars.test_level==4,
+        holly.client.workers = Inf;
+    end
 end
 
-pars.preproc.reg_and_reslice = true;
-pars.preproc.realign2mni     = true;
-pars.preproc.crop            = true;
-pars.preproc.rem_neck        = true;
+% holly.server.ip      = '';   
+% holly.client.workers = 0;
 
-pars.kmeans_dist     = 'cityblock';
-pars.niter           = 50;
-pars.dir_output      = dir_output;
-
-pars.print_ll        = false;
-pars.print_seg       = false;    
-
-do_shrink           = true;
-tol                 = 1e-4;
-do_avg_template_dim = true;
-
-do_show_seg     = false;   
-do_show_results = 3;
-if TESTING==1
-    do_show_seg    = true;
-    pars.print_ll  = true;
-    pars.print_seg = true;
-elseif TESTING==2
-    do_show_seg    = false;
-    pars.print_ll  = false;
-    pars.print_seg = false;    
-end
-
-%--------------------------------------------------------------------------
-M               = numel(im);
-V               = cell(1,M);
-for m=1:M, V{m} = get_V(im{m}); end
-
-%--------------------------------------------------------------------------
-pth_template = '';
-% pth_template = '/data-scratch/mbrud/data/build-template-ct/template/template.nii';
-
-% Uncomment below to use predefined templates
-% pth_template = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
-% pars.lkp     = [1 1 2 2 3 3 4 4 5 5 5 6 6];
-% pth_template = fullfile(get_pth_dropbox,'/PhD/Data/CB-TPM/BlaiottaTPM.nii');
-% pars.lkp     = [1 1 2 2 3 3 4 4 5 5 6 6 7 7];
-
-[pth_template,uniform,dt] = init_template(pth_template,V,K,dir_template,do_avg_template_dim); 
-
-%--------------------------------------------------------------------------
-pth_prior = '';
-% pth_prior = '/data-scratch/mbrud/data/build-template-ct/template/prior-CT-big-lesions.mat';
-
-%------------------------------------------------------
-[obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,pth_prior,uniform,do_show_seg,do_show_results,pars,dt,TESTING);
-
-%-------------------------------------------------------------------------- 
 holly = distribute_default(holly);
+
+%--------------------------------------------------------------------------
+pars.do_segment          = true;
+pars.do_preproc          = false;
+pars.niter               = 50;
+pars.tol                 = 1e-4;
+pars.verbose             = 3;
+pars.pth_template        = '';
+% pars.pth_template        = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
+% pars.pth_template        = fullfile(get_pth_dropbox,'/PhD/Data/CB-TPM/BlaiottaTPM.nii');
+pars.vx_tpm              = 1.5;
+if pars.test_level==4
+    pars.do_preproc      = true;
+    pars.do_segment      = false;
+end
+
+pars.preproc.do_rem_corrupted = true;
+pars.preproc.tol_dist         = 4;
+pars.preproc.tol_vx           = 5;
+pars.preproc.verbose          = false;
+pars.preproc.reg_and_reslice  = true;
+pars.preproc.realign2mni      = true;
+pars.preproc.crop             = true;
+pars.preproc.rem_neck         = true;
+
+pars.segment.do_ml           = false;
+pars.segment.do_bf           = true;
+pars.segment.do_def          = true;
+pars.segment.do_wp           = true;
+pars.segment.do_write_res    = false;
+pars.segment.do_push_resp    = false;
+pars.segment.do_missing_data = false;
+pars.segment.do_old_segment  = false;
+pars.segment.kmeans_dist     = 'cityblock';
+pars.segment.print_ll        = false;
+pars.segment.print_seg       = false;    
+pars.segment.verbose         = false;   
+% pars.segment.lkp             = [1 1 2 2 3 3 4 4 5 5 5 6 6];
+
+if pars.test_level==1
+    pars.segment.verbose   = true;
+    pars.segment.print_ll  = true;
+    pars.segment.print_seg = true;
+elseif pars.test_level==2
+    pars.segment.verbose   = false;
+    pars.segment.print_ll  = false;
+    pars.segment.print_seg = false;    
+end
+
+%--------------------------------------------------------------------------
+V = cell(1,numel(im));
+for m=1:numel(im) 
+    V{m} = read_images(im{m},pars); 
+end
+
+% for m=1:M, 
+%     V{m} = read_labels(V{m},im{m}); 
+% end
+
+pars = init_template(V,K,pars); 
+
+[obj,pars,fig,rand_subjs] = init_obj(V,im,pars);
 
 %--------------------------------------------------------------------------
 print_algorithm_progress('started');
 
 L = -Inf;
-for iter=1:niter        
+for iter=1:pars.niter        
     
-    if niter>1
+    if pars.niter>1
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
         %----------------------------------------------------------------------    
@@ -197,47 +188,47 @@ for iter=1:niter
     % Segment a bunch of subjects 
     %----------------------------------------------------------------------
     [obj,ix]    = unfold_cell(obj,2);
-    [holly,obj] = distribute(holly,'update_subject','inplace',obj,pth_template,fig);
+    [holly,obj] = distribute(holly,'update_subject','inplace',obj,fig);
     obj         = fold_cell(obj,ix);
 
     % Check if any subjects have status~=0
     %----------------------------------------------------------------------
     print_jobs_failed(obj);
     
-    if niter>1
+    if pars.niter>1
         % Update template
         %------------------------------------------------------------------
-        L = update_template(L,pth_template,obj,iter);                              
+        L = update_template(L,obj,iter);                              
     end        
     
-    if niter>1 && do_shrink
+    if pars.niter>1
         % Automatically decrease the size of the template based on bounding
         % boxes computed for each pushed responsibility image
         %------------------------------------------------------------------
-        shrink_template(pth_template,obj,iter);    
+        shrink_template(obj,iter);    
     end
     
-    if niter>1
+    if pars.niter>1
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
-        obj = update_intensity_prior(obj,dir_template,iter);
+        obj = update_intensity_prior(obj,iter);
     end
        
     % Save object file
     %----------------------------------------------------------------------
-    save(fullfile(dir_template,'obj.mat'),'obj')
+    save(fullfile(pars.dir_template,'obj.mat'),'obj')
     
-    if niter>1
+    if pars.niter>1
         % Some verbose
         %----------------------------------------------------------------------
-        if do_show_results>0, plot_ll(fig{5},L); end
-        if do_show_results>1, show_template(fig{6},pth_template); end
-        if do_show_results>2, show_resp(fig{7},obj,rand_subjs); end      
+        if pars.verbose>0, plot_ll(fig{5},L); end
+        if pars.verbose>1, show_template(fig{6},pars.pth_template); end
+        if pars.verbose>2, show_resp(fig{7},obj,rand_subjs); end      
 
-        tol1 = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
-        fprintf('%2d | L = %0.0f | diff = %0.7f | tol = %0.5f\n',iter,L(end),L(end) - L(end - 1),tol1);  
+        d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
+        fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
         
-        if tol1<tol
+        if d<pars.tol
            break 
         end
     end
@@ -300,8 +291,10 @@ end
 %==========================================================================
 
 %==========================================================================
-function shrink_template(pth_template,obj,iter,verbose)
-if nargin<4, verbose = true; end
+function shrink_template(obj,iter,verbose)
+if nargin<3, verbose = true; end
+
+pth_template = obj{1}{1}.pth_template;
 
 M   = numel(obj);
 bb  = [];
@@ -324,7 +317,7 @@ V0 = spm_vol(pth_template);
 od = V0(1).dim;
 
 for k=1:numel(V0)
-    subvol(V0(k),nbb','tmp');        
+    spm_impreproc('subvol',V0(k),nbb','tmp');        
 end
 
 delete(pth_template);
@@ -430,10 +423,9 @@ title('ll')
 %==========================================================================
 
 %==========================================================================
-function [dir_output,dir_template] = append_dir(dir_output,dir_template,name)
-pth        = fileparts(dir_output);
-dir_output = fullfile(pth,['build-template-' name]);
-
-pth          = fileparts(dir_template);
-dir_template = fullfile(pth,name);
+function pars = append_dir(pars)
+pth               = fileparts(pars.dir_output);
+pars.dir_output   = fullfile(pth,['build-template-' pars.name]);
+pth               = fileparts(pars.dir_template);
+pars.dir_template = fullfile(pth,pars.name);
 %==========================================================================

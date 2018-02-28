@@ -1,23 +1,31 @@
-function [cls,M1] = write_res(obj,pth_template,write_tc,write_bf,write_df,mrf,cleanup,bb,vx,odir)
-
+function [cls,M1] = write_res(obj)
 lkp             = obj.lkp;
 Kb              = max(lkp);
 N               = numel(obj.image);
 modality        = obj.modality;
 do_missing_data = obj.do_missing_data;
 
-if nargin<3, write_tc = true(Kb,4); end % native, import, warped, warped-mod
-if nargin<4, write_bf = false(N,2); end % field, corrected
-if nargin<5, write_df = false(1,2); end % inverse, forward
-if nargin<6, mrf = 1;         end % MRF parameter
-if nargin<7, cleanup = 1;     end % Run the ad hoc cleanup
-if nargin<8, bb = NaN(2,3);   end % Default to TPM bounding box
-if nargin<9, vx = NaN;        end % Default to TPM voxel size
-if nargin<10, odir = [];       end % Output directory
+if ~isfield(obj,'write_tc'),  obj.write_tc = true(Kb,4); end % native, import, warped, warped-mod
+if ~isfield(obj,'write_bf'),  obj.write_bf = false(N,2); end % field, corrected
+if ~isfield(obj,'write_df'),  obj.write_df = false(1,2); end % inverse, forward
+if ~isfield(obj,'mrf'),       obj.mrf = 1;         end % MRF parameter
+if ~isfield(obj,'cleanup'),   obj.cleanup = 1;     end % Run the ad hoc cleanup
+if ~isfield(obj,'bb'),        obj.bb = NaN(2,3);   end % Default to TPM bounding box
+if ~isfield(obj,'vx'),        obj.vx = NaN;        end % Default to TPM voxel size
+if ~isfield(obj,'dir_write'), obj.dir_write = [];       end % Output directory
+
+write_tc = obj.write_tc;
+write_bf = obj.write_bf;
+write_df = obj.write_df;
+mrf      = obj.mrf;
+cleanup  = obj.cleanup;
+bb       = obj.bb;
+vx       = obj.vx;
+odir     = obj.dir_write;
 
 % Load template
 %-----------------------------------------------------------------------
-tpm = spm_load_logpriors(pth_template);
+tpm = spm_load_logpriors(obj.pth_template);
 
 % Read essentials from tpm (it will be cleared later)
 d1  = size(tpm.dat{1});

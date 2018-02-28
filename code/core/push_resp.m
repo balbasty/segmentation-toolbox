@@ -1,17 +1,19 @@
-function obj = push_resp(obj,pth_template,bb,vx)
-if nargin<3, bb = NaN(2,3);   end % Default to TPM bounding box
-if nargin<4, vx = NaN;        end % Default to TPM voxel size
+function obj = push_resp(obj)
+if ~isfield(obj,'bb'), obj.bb = NaN(2,3); end % Default to TPM bounding box
+if ~isfield(obj,'vx'), obj.vx = NaN;      end % Default to TPM voxel size
 
+bb              = obj.bb;
+vx              = obj.vx;
 lkp             = obj.lkp;
-Kb              = max(lkp);
-N               = numel(obj.image);
 modality        = obj.modality;
 K_lab           = obj.K_lab;
 do_missing_data = obj.do_missing_data;
+Kb              = max(lkp);
+N               = numel(obj.image);
 
 % Load template
 %-----------------------------------------------------------------------
-tpm = spm_load_logpriors(pth_template);
+tpm = spm_load_logpriors(obj.pth_template);
 
 % Read essentials from tpm (it will be cleared later)
 %--------------------------------------------------------------------------
@@ -231,7 +233,7 @@ clear Q y Nii t1 c
 
 % Prepare computing template gradient and Hessian
 %--------------------------------------------------------------------------
-Nii = nifti(pth_template);
+Nii = nifti(obj.pth_template);
 d   = [dm_bb,Kb,1,1,1];
 R   = null(ones(1,d(4)));    
 lwp = reshape(log(obj.wp),1,1,d(4));

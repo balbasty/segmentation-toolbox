@@ -1,4 +1,4 @@
-function results = spm_preproc8_def(obj,pth_template)
+function results = spm_preproc8_def(obj)
 % Combined Segmentation and Spatial Normalisation
 %
 % FORMAT results = spm_preproc8(obj)
@@ -76,7 +76,7 @@ function results = spm_preproc8_def(obj,pth_template)
 wp_reg    = 1; % Bias wp towards 1
 
 Affine    = obj.Affine;
-tpm       = spm_load_priors8(pth_template);
+tpm       = spm_load_priors8(obj.pth_template);
 V         = obj.image;
 M         = tpm.M\Affine*V(1).mat;
 d0        = V(1).dim(1:3);

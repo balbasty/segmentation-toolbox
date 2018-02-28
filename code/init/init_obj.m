@@ -1,4 +1,4 @@
-function [obj,niter,fig,rand_subjs] = init_obj(V,im,pth_template,pth_prior,uniform,do_show_seg,do_show_results,pars,dt,TESTING)
+function [obj,pars,fig,rand_subjs] = init_obj(V,im,pars)
 M = numel(V);
 
 %--------------------------------------------------------------------------
@@ -13,24 +13,21 @@ for m=1:M
 end
 
 %--------------------------------------------------------------------------
-if tot_subj>1     
-    niter = pars.niter;    
-else    
-    niter = 1;    
+if ~(tot_subj>1 && pars.do_segment)   
+    pars.niter = 1; 
 end
 
 %--------------------------------------------------------------------------
 fig = cell(1,4);
-if do_show_seg
-    for i=1:numel(fig), fig{i} = figure(i); clf(figure(i)); end
-    drawnow
+if pars.segment.verbose
+    for i=1:numel(fig), fig{i} = figure(i); clf(figure(i)); end    
 end
-if niter>1
-    if do_show_results>2, fig{7} = figure(7); clf(figure(7)); end
-    if do_show_results>1, fig{6} = figure(6); clf(figure(6)); end
-    if do_show_results>0, fig{5} = figure(5); clf(figure(5)); end        
-    drawnow
+if pars.niter>1
+    if pars.verbose>2, fig{7} = figure(7); clf(figure(7)); end
+    if pars.verbose>1, fig{6} = figure(6); clf(figure(6)); end
+    if pars.verbose>0, fig{5} = figure(5); clf(figure(5)); end        
 end
+drawnow
 
 %--------------------------------------------------------------------------
 if M==1, S0 = 8;
@@ -38,7 +35,7 @@ else,    S0 = floor(8/M);
 end
 
 %--------------------------------------------------------------------------
-V1   = spm_vol(pth_template); 
+V1   = spm_vol(pars.pth_template); 
 d1   = [V1(1).dim numel(V1)];
 d_gr = [d1(1:3),d1(4) - 1];
 d_H  = [d1(1:3) round(((d1(4) - 1)*d1(4))/2)];
@@ -47,9 +44,12 @@ d_H  = [d1(1:3) round(((d1(4) - 1)*d1(4))/2)];
 obj        = cell(1,M);
 rand_subjs = cell(1,M);
 cnt        = 1;
-for m=1:M
-    S             = numel(V{m});       
-    
+for m=1:M           
+    modality   = im{m}{3}; 
+    samp       = im{m}{5};
+    init_clust = im{m}{6};
+    pth_prior  = im{m}{7};
+        
     if pars.do_preproc    
         dir_preproc          = fileparts(V{m}{1}(1).fname);
         dir_preproc          = strsplit(dir_preproc,filesep);
@@ -59,13 +59,10 @@ for m=1:M
         if exist(dir_preproc,'dir'), rmdir(dir_preproc,'s'); end; mkdir(dir_preproc);           
     end
 
+    S             = numel(V{m});
     rand_subjs{m} = randperm(S,min(S0,S));   
     obj{m}        = cell(1,S);
-    for s=1:S
-        modality   = im{m}{3}; 
-        samp       = im{m}{5};
-        init_clust = im{m}{6};
-        
+    for s=1:S                
         obj_s = struct;
              
         %------------------------------------------------------------------
@@ -96,16 +93,16 @@ for m=1:M
         obj_s.biasreg      = 1e-3*(1/5)*ones(1,N);
         obj_s.biasfwhm     = 60*ones(1,N);  
         obj_s.modality     = modality;
-        obj_s.do_ml        = pars.do_ml;
-        obj_s.do_bf        = pars.do_bf;
-        obj_s.do_def       = pars.do_def;
-        obj_s.do_wp        = pars.do_wp;
-        obj_s.print_seg    = pars.print_seg;
-        obj_s.print_ll     = pars.print_ll;        
+        obj_s.do_ml        = pars.segment.do_ml;
+        obj_s.do_bf        = pars.segment.do_bf;
+        obj_s.do_def       = pars.segment.do_def;
+        obj_s.do_wp        = pars.segment.do_wp;
+        obj_s.print_seg    = pars.segment.print_seg;
+        obj_s.print_ll     = pars.segment.print_ll;        
         obj_s.bf_dc        = zeros(1,N);
         obj_s.avg_bf_dc    = zeros(1,N);
         obj_s.ll_template  = 0;
-        obj_s.pth_template = pth_template;        
+        obj_s.pth_template = pars.pth_template;        
         obj_s.status       = 0;
         obj_s.true         = true;
         obj_s.nsubit       = 8;
@@ -113,15 +110,15 @@ for m=1:M
         obj_s.niter        = 30;            
         obj_s.tol1         = 1e-4;
         obj_s.gmm          = struct;
-        obj_s.kmeans_dist  = pars.kmeans_dist;
+        obj_s.kmeans_dist  = pars.segment.kmeans_dist;
         obj_s.init_clust   = init_clust;
-
+        obj_s.dir_template = pars.dir_template;
+        
         obj_s.do_preproc = pars.do_preproc;
         if obj_s.do_preproc                              
-            dir_s1 = fileparts(V{m}{s}(1).fname);
-            dir_s1 = strsplit(dir_s1,filesep);
-            dir_s1 = fullfile(dir_preproc,dir_s1{end});          
-            mkdir(dir_s1);               
+            dir_s1            = fileparts(V{m}{s}(1).fname);
+            dir_s1            = strsplit(dir_s1,filesep);
+            dir_s1            = fullfile(dir_preproc,dir_s1{end});                           
             obj_s.dir_preproc = dir_s1;
         end                
         obj_s.preproc.reg_and_reslice = pars.preproc.reg_and_reslice;
@@ -129,11 +126,12 @@ for m=1:M
         obj_s.preproc.crop            = pars.preproc.crop;
         obj_s.preproc.rem_neck        = pars.preproc.rem_neck;
 
-        obj_s.do_missing_data = pars.do_missing_data;
-        obj_s.do_write_res    = pars.do_write_res;
-        obj_s.do_push_resp    = pars.do_push_resp;
-        obj_s.do_old_segment  = pars.do_old_segment;
-        obj_s.dt              = dt;
+        obj_s.do_missing_data = pars.segment.do_missing_data;
+        obj_s.do_write_res    = pars.segment.do_write_res;
+        obj_s.do_push_resp    = pars.segment.do_push_resp;
+        obj_s.do_old_segment  = pars.segment.do_old_segment;
+        
+        obj_s.dt              = pars.dt;
         
         if strcmp(modality,'CT')
             obj_s.do_bf   = false;
@@ -141,10 +139,10 @@ for m=1:M
         end
         
         %------------------------------------------------------------------
-        obj_s.uniform = uniform;            
+        obj_s.uniform = pars.uniform;            
         Kb            = numel(V1);
-        if isfield(pars,'lkp')
-            obj_s.lkp = pars.lkp;
+        if isfield(pars.segment,'lkp')
+            obj_s.lkp = pars.segment.lkp;
             if Kb~=max(obj_s.lkp)
                error('Kb~=max(obj.lkp)') 
             end
@@ -164,7 +162,7 @@ for m=1:M
         obj_s.write_df = true(1,2);
         
         %------------------------------------------------------------------
-        if TESTING
+        if pars.test_level
             obj_s.nsubit = 8;
             obj_s.nitgmm = 20;
             obj_s.niter  = 30;   

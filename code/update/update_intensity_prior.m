@@ -1,4 +1,6 @@
-function obj = update_intensity_prior(obj,dir_template,iter)
+function obj = update_intensity_prior(obj,iter)
+dir_template = obj{1}{1}.dir_template;
+
 M = numel(obj);
 for m=1:M
     pr = do_update(obj{m});    
