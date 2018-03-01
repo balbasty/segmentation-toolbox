@@ -7,7 +7,8 @@ do_rem_corrupted = pars.preproc.do_rem_corrupted;
 tol_dist         = pars.preproc.tol_dist;
 tol_vx           = pars.preproc.tol_vx;
 verbose          = pars.preproc.verbose;
-    
+trunc_ct         = pars.segment.trunc_ct;
+
 if do_rem_corrupted, num_workers = Inf;
 else                 num_workers = 0;
 end
@@ -37,7 +38,7 @@ parfor (s=1:S,num_workers)
         V{s}(n) = spm_vol(fullfile(folder,files(n).name));
         
         if do_rem_corrupted            
-            [sd(n,s),v(n,s),sint(n,s),vx(n,s)] = compute_img_stats(V{s}(n).fname,modality);                     
+            [sd(n,s),v(n,s),sint(n,s),vx(n,s)] = compute_img_stats(V{s}(n).fname,modality,trunc_ct);                     
         end
     end        
 end 
@@ -102,12 +103,12 @@ fprintf('Loaded data from %d subject(s) having %d channel(s) each\n',S,N);
 %==========================================================================
 
 %==========================================================================
-function [sd,v,sint,vx] = compute_img_stats(pth,modality)
+function [sd,v,sint,vx] = compute_img_stats(pth,modality,trunc_ct)
 
 % Get image and mask
 Nii     = nifti(pth);
 f       = single(Nii.dat(:,:,:));
-msk     = msk_modality(f,modality);
+msk     = msk_modality(f,modality,trunc_ct);
 f(~msk) = NaN;
 clear msk
 

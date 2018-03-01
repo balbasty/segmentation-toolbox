@@ -58,20 +58,10 @@ if obj.do_segment
             if ll1>ll2, obj.Affine = Affine1; else obj.Affine = Affine2; end
 
             % Initial affine registration.
-            obj.Affine     = spm_maff_new(obj.image(1),4,(obj.fwhm+1)*16,tpm,obj.Affine,obj.affreg);
-            if ~do_template
-                obj.Affine = spm_maff_new(obj.image(1),4,obj.fwhm,tpm,obj.Affine,obj.affreg);        
-            end
+            obj.Affine = spm_maff_new(obj.image(1),4,(obj.fwhm+1)*16,tpm,obj.Affine,obj.affreg);            
+            obj.Affine = spm_maff_new(obj.image(1),4,obj.fwhm,tpm,obj.Affine,obj.affreg);        
             clear tpm 
-        end    
-        
-        if obj.iter==3     
-            % Affine registration
-            %--------------------------------------------------------------
-            tpm        = spm_load_logpriors(obj.pth_template);
-            obj.Affine = spm_maff_new(obj.image(1),4,obj.fwhm,tpm,obj.Affine,obj.affreg);      
-            clear tpm 
-        end   
+        end  
 
         if ~obj.do_old_segment
             % Run the new SPM segmentation routine

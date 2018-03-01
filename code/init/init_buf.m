@@ -74,7 +74,7 @@ for z=1:length(z0)
     fz = cell(1,N);
     for n=1:N
         fz{n}         = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
-        buf(z).msk{n} = msk_modality(fz{n},modality);
+        buf(z).msk{n} = msk_modality(fz{n},modality,obj.trunc_ct);
         buf(z).nm(n)  = nnz(buf(z).msk{n});
     end        
   

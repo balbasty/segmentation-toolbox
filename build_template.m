@@ -12,6 +12,7 @@ function build_template
 % -Improved registration: diffeo + reparameterise + average correct
 %
 % TODO
+% -Test including MRA images (requires missing data to work well)
 % -DICOM convert
 % -Add denoising
 % -Add superres
@@ -30,9 +31,13 @@ addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing')
 addpath('/cherhome/mbrud/dev/auxiliary-functions')
 
-pars            = [];
-pars.name       = 'build-template';
-pars.test_level = 3;
+pars              = [];
+pars.name         = 'CT-lesion-local';
+pars.test_level   = 0;
+% pars.dir_output   = '/data-scratch/mbrud/data/';
+% pars.dir_template = '/data/mbrud/templates/';
+pars.dir_output   = '/home/mbrud/Data/temp-data/';
+pars.dir_template = '/home/mbrud/Data/template/';
 
 %--------------------------------------------------------------------------
 % Set directories to input images as well as where to write output
@@ -45,42 +50,29 @@ if pars.test_level
     elseif pars.test_level==2 || pars.test_level==4,  S = 8;     
     end
     
-    K           = 10;               
-%     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
-%                    S,'MRI',[],4,'mean','',''};                  
-%     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
-%                    S,'CT',[],4,'mean','',''};    
-%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc/',...
-%                    S,'CT',[],4,'mean','',''};                   
-
-    im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc/',...
-                   8,'CT',[5],2,'random','',''};  
-    im{end + 1} = {'/data/mbrud/images/CT/aged-preproc/',...
-                   8,'CT',[5],2,'random','',''};                 
-    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc/',...
-                   32,'CT',[],2,'random','',''};   
-    im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-noneck/',...
-                   32,'MRI',[5],3,'mean','',''};                  
+    K           = 6;               
+    im{end + 1} = {'/home/mbrud/Data/IXI-T1-preproc-noneck/',...
+                   S,'MRI',[],3,'mean','',''};  
 else
-    K           = 8;
-%     im{end + 1} = {'/data/mbrud/images/CT-CHROMIS-noneck-den/',...
-%                    Inf,'CT',[],2,'mean','',''};    
-%     im{end + 1} = {'/data/mbrud/images/CT-healthy-noneck-den/',...
-%                    Inf,'CT',[],2,'mean','',''};                        
-%     im{end + 1} = {'/data/mbrud/images/CT-big-lesions/',...
-%                    Inf,'CT',[],3,'mean','',''};
-%     im{end + 1} = {'/data/mbrud/images/OASIS-long-noneck/',...
-%                    30,'MRI',[],3,'mean','',''};       
-
-%     im{end + 1} = {'/data/mbrud/images/CT/healthy/',...
-%                    Inf,'CT',[],4,'mean','',''};  
-%     im{end + 1} = {'/data/mbrud/images/CT/aged/',...
-%                    Inf,'CT',[],4,'mean','',''};                 
-%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS/',...
-%                    Inf,'CT',[],4,'mean','',''};   
+    K           = 8;  
+    
+%     im{end + 1} = {'/data/mbrud/images/CT/aged-preproc-noneck/',...
+%                    50,'CT',[1 4],2,'random','',''};  
+%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-noneck/',...
+%                    150,'CT',[1],2,'random','',''};  
+%     im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-noneck/',...
+%                    50,'CT',[1 4],2,'random','',''};  
+%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-noneck/',...
+%                    120,'MRI',[4],3,'mean','',''};           
                
-%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1/',...
-%                    Inf,'MRI',[],4,'mean','',''};                 
+    im{end + 1} = {'/home/mbrud/Data/aged-preproc-noneck/',...
+                   40,'CT',[1 4],2,'mean','',''};  
+    im{end + 1} = {'/home/mbrud/Data/CT-big-lesions/',...
+                   Inf,'CT',[1],2,'mean','',''};  
+    im{end + 1} = {'/home/mbrud/Data/CT-healthy-preproc-noneck/',...
+                   40,'CT',[1 4],2,'mean','',''};  
+    im{end + 1} = {'/home/mbrud/Data/IXI-T1-preproc-noneck/',...
+                   100,'MRI',[4],3,'mean','',''};               
 end
 
 if pars.test_level==1 || pars.test_level==2, pars.name = 'test-local';
@@ -88,9 +80,7 @@ elseif pars.test_level==3,                   pars.name = 'test-holly';
 elseif pars.test_level==4                    pars.name = 'test-preproc';    
 end
 
-pars.dir_output   = '/data-scratch/mbrud/data/';
-pars.dir_template = '/data/mbrud/templates/';
-pars              = append_dir(pars);
+pars = append_dir(pars);
 
 %--------------------------------------------------------------------------
 % Set-up parallel options
@@ -102,7 +92,7 @@ holly.server.login  = 'mbrud';
 holly.server.folder = fullfile('/scratch',pars.dir_output(15:end),'cluster');
 holly.client.folder = fullfile(pars.dir_output,'cluster');
 holly.matlab.bin    = '/share/apps/matlab';
-holly.matlab.addsub = '/home/mbrud/dev/build-template-new';
+holly.matlab.addsub = '/home/mbrud/dev/build-template';
 holly.matlab.add    = '/home/mbrud/dev/auxiliary-functions';
 holly.translate     = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
 holly.restrict      = 'char';
@@ -123,8 +113,8 @@ if pars.test_level==1 || pars.test_level==2 || pars.test_level==4
     end
 end
 
-% holly.server.ip      = '';   
-% holly.client.workers = Inf;
+holly.server.ip      = '';   
+holly.client.workers = Inf;
 
 holly = distribute_default(holly);
 
@@ -146,7 +136,7 @@ if pars.test_level==4
     pars.do_segment      = false;
 end
 
-pars.preproc.do_rem_corrupted = true;
+pars.preproc.do_rem_corrupted = false;
 pars.preproc.tol_dist         = 4;
 pars.preproc.tol_vx           = 5;
 pars.preproc.verbose          = false;
@@ -167,6 +157,7 @@ pars.segment.kmeans_dist     = 'cityblock';
 pars.segment.print_ll        = false;
 pars.segment.print_seg       = false;    
 pars.segment.verbose         = false;   
+pars.segment.trunc_ct        = true;   
 % pars.segment.lkp             = [1 1 2 2 3 3 4 4 5 5 5 6 6];
 
 if pars.test_level==1
@@ -287,15 +278,18 @@ for m=1:M
 
         if iter==2
             obj{m}{s}.nsubit  = 8;
-            obj{m}{s}.nitgmm  = 20;    
+            obj{m}{s}.nitgmm  = 20;  
+            
             if strcmp(obj{m}{s}.modality,'MRI')
                 obj{m}{s}.do_bf = true;            
             end
+            
             obj{m}{s}.uniform = false;
+            
+            obj{m}{s}.do_def = true; 
         end
 
-        if iter>=3
-            obj{m}{s}.do_def = true;         
+        if iter>=2                  
             obj{m}{s}.reg    = obj{m}{s}.reg0;            
             scal             = 2^max(11 - iter,0);       
             %prm([5 7 8]) = param([5 7 8])*scal;
