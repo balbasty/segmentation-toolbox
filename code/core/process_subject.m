@@ -1,4 +1,4 @@
-function obj = update_subject(obj,fig) 
+function obj = process_subject(obj,fig) 
 
 if obj.do_preproc && obj.iter==1
     % Preprocessing
@@ -15,8 +15,8 @@ if obj.do_preproc && obj.iter==1
         obj.image(n).fname = nfname;
     end
     
-    if obj.preproc.reg_and_reslice
-        obj.image = spm_impreproc('reg_and_reslice',obj.image);
+    if obj.preproc.coreg_and_reslice
+        obj.image = spm_impreproc('coreg_and_reslice',obj.image,obj.preproc.do_reslice);
     end
     
     if obj.preproc.realign2mni
@@ -25,7 +25,11 @@ if obj.do_preproc && obj.iter==1
     
     if obj.preproc.crop
         obj.image = spm_impreproc('crop',obj.image,obj.preproc.rem_neck);       
-    end            
+    end         
+    
+    if obj.preproc.skull_strip
+        spm_impreproc('skullstrip',obj.image);       
+    end         
 end
 
 if obj.do_segment    

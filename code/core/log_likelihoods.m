@@ -1,5 +1,5 @@
-function L = log_likelihoods(f,bf,mg,gmm,msk,code,K_lab,cr)
-if nargin<8, cr = []; end
+function L = log_likelihoods(f,bf,mg,gmm,msk,code,K_lab,lkp,cr)
+if nargin<9, cr = []; end
 
 K = numel(mg);
 N = numel(f);
@@ -31,7 +31,7 @@ for n=2:2^N
     ind                  = find(code==msk0*(2.^(0:(N - 1))'));
     if ~isempty(ind)
         for k=1:K
-            if any(K_lab{2}==k)
+            if any(K_lab{2}==lkp(k))
                 L(ind,k) = -Inf;
             else
                 if gmm.ml

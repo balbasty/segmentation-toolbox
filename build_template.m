@@ -1,21 +1,28 @@
 function build_template
 
 %--------------------------------------------------------------------------
+%
+% Qs
+% -Is something wrong with shrinking? (not shrinking after iter=1...)
+%
 % PRIO
-% Add back missing 
-%  --problem with convergence of bf (when lkp>1?), probably due to
-%    decreasing ll...
-%  --include missing ll for ml
+% -Add back missing 
+%   --problem with convergence of bf (when lkp>1?), probably due to
+%     decreasing ll...
+%   --include missing ll for ml
 %
 % -Clean up repo + add readme
 % -Labelled resps
 % -Improved registration: diffeo + reparameterise + average correct
 %
 % TODO
+% -do_reslice not working
+% -impreproc -> overwrite or not
+% -Init parameters in a better way
 % -Test including MRA images (requires missing data to work well)
 % -DICOM convert
 % -Add denoising
-% -Add superres
+% -Add superres (spm_imquality)
 % -Introduce aux
 % -Use K - 1 classes for template?
 % -Investigate shoot_template prm
@@ -24,6 +31,7 @@ function build_template
 % CLUSTER
 % -Reintroduce split?
 % -Same results, cluster vs non-cluster
+% -If same result, try to sum to one gr and H
 %
 %--------------------------------------------------------------------------
 
@@ -31,53 +39,44 @@ addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing')
 addpath('/cherhome/mbrud/dev/auxiliary-functions')
 
+TEST_LEVEL = 0;
+
 pars              = [];
-pars.name         = 'CT-lesion-local';
-pars.test_level   = 0;
-% pars.dir_output   = '/data-scratch/mbrud/data/';
-% pars.dir_template = '/data/mbrud/templates/';
-pars.dir_output   = '/home/mbrud/Data/temp-data/';
-pars.dir_template = '/home/mbrud/Data/template/';
+pars.name         = 'CT-lesion-holly';
+pars.dir_output   = '/data-scratch/mbrud/data/';
+pars.dir_template = '/data/mbrud/templates/';
+% pars.dir_output   = '/home/mbrud/Data/temp-data/';
+% pars.dir_template = '/home/mbrud/Data/template/';
 
 %--------------------------------------------------------------------------
 % Set directories to input images as well as where to write output
 %--------------------------------------------------------------------------
 
 im = {};       
-if pars.test_level
-    if     pars.test_level==1,                        S = 1;
-    elseif pars.test_level==3,                        S = 32; 
-    elseif pars.test_level==2 || pars.test_level==4,  S = 8;     
+if TEST_LEVEL
+    if TEST_LEVEL<3, S = 1;
+    else             S = 8;
     end
     
-    K           = 6;               
-    im{end + 1} = {'/home/mbrud/Data/IXI-T1-preproc-noneck/',...
-                   S,'MRI',[],3,'mean','',''};  
-else
-    K           = 8;  
-    
-%     im{end + 1} = {'/data/mbrud/images/CT/aged-preproc-noneck/',...
-%                    50,'CT',[1 4],2,'random','',''};  
-%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-noneck/',...
-%                    150,'CT',[1],2,'random','',''};  
-%     im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-noneck/',...
-%                    50,'CT',[1 4],2,'random','',''};  
-%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-noneck/',...
-%                    120,'MRI',[4],3,'mean','',''};           
-               
-    im{end + 1} = {'/home/mbrud/Data/aged-preproc-noneck/',...
-                   40,'CT',[1 4],2,'mean','',''};  
-    im{end + 1} = {'/home/mbrud/Data/CT-big-lesions/',...
-                   Inf,'CT',[1],2,'mean','',''};  
-    im{end + 1} = {'/home/mbrud/Data/CT-healthy-preproc-noneck/',...
-                   40,'CT',[1 4],2,'mean','',''};  
-    im{end + 1} = {'/home/mbrud/Data/IXI-T1-preproc-noneck/',...
-                   100,'MRI',[4],3,'mean','',''};               
-end
+%     pars.K      = 6;  
+%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-rn/',...
+%                    S,'MRI',[],3,'','',''};    
 
-if pars.test_level==1 || pars.test_level==2, pars.name = 'test-local';
-elseif pars.test_level==3,                   pars.name = 'test-holly';
-elseif pars.test_level==4                    pars.name = 'test-preproc';    
+    pars.K      = 8;            
+    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
+                   8,'CT',[],3,'','',''};  
+    im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-rn-ss/',...
+                   8,'CT',[7],3,'','',''};      
+               
+    if TEST_LEVEL<4, pars.name = 'test-local';
+    else             pars.name = 'test-holly';   
+    end               
+else    
+    pars.K      = 8;            
+    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
+                   200,'CT',[],3,'','',''};  
+    im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-rn-ss/',...
+                   Inf,'CT',[7],3,'','',''};                   
 end
 
 pars = append_dir(pars);
@@ -96,25 +95,24 @@ holly.matlab.addsub = '/home/mbrud/dev/build-template';
 holly.matlab.add    = '/home/mbrud/dev/auxiliary-functions';
 holly.translate     = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
 holly.restrict      = 'char';
-holly.clean         = true;
+holly.clean         = false;
+holly.clean_init    = true;
 holly.verbose       = false;
 holly.job.est_mem   = true;
 holly.job.batch     = true;
 holly.job.mem       = '6G';
 holly.job.use_dummy = true;
 
-if pars.test_level==1 || pars.test_level==2 || pars.test_level==4
+if TEST_LEVEL>0 && TEST_LEVEL<4
     holly.server.ip  = '';   
     
-    if pars.test_level==1  
-        holly.client.workers = 0;
-    elseif pars.test_level==2 || pars.test_level==4,
-        holly.client.workers = Inf;
+    if TEST_LEVEL<3, holly.client.workers = 0;
+    else             holly.client.workers = Inf;
     end
 end
 
-holly.server.ip      = '';   
-holly.client.workers = Inf;
+% holly.server.ip      = '';   
+% holly.client.workers = Inf;
 
 holly = distribute_default(holly);
 
@@ -131,19 +129,22 @@ pars.pth_template        = '';
 % pars.pth_template        = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
 % pars.pth_template        = fullfile(get_pth_dropbox,'/PhD/Data/CB-TPM/BlaiottaTPM.nii');
 pars.vx_tpm              = 1.5;
-if pars.test_level==4
+pars.sparam              = [0.01 2 0]; 
+if TEST_LEVEL==2
     pars.do_preproc      = true;
     pars.do_segment      = false;
 end
 
-pars.preproc.do_rem_corrupted = false;
-pars.preproc.tol_dist         = 4;
-pars.preproc.tol_vx           = 5;
-pars.preproc.verbose          = false;
-pars.preproc.reg_and_reslice  = true;
-pars.preproc.realign2mni      = true;
-pars.preproc.crop             = true;
-pars.preproc.rem_neck         = true;
+pars.preproc.do_rem_corrupted  = false;
+pars.preproc.tol_dist          = 4;
+pars.preproc.tol_vx            = 5;
+pars.preproc.verbose           = false;
+pars.preproc.coreg_and_reslice = true;
+pars.preproc.do_reslice        = true;
+pars.preproc.realign2mni       = true;
+pars.preproc.crop              = true;
+pars.preproc.rem_neck          = true;
+pars.preproc.skull_strip       = true;
 
 pars.segment.do_ml           = false;
 pars.segment.do_bf           = true;
@@ -157,17 +158,14 @@ pars.segment.kmeans_dist     = 'cityblock';
 pars.segment.print_ll        = false;
 pars.segment.print_seg       = false;    
 pars.segment.verbose         = false;   
-pars.segment.trunc_ct        = true;   
-% pars.segment.lkp             = [1 1 2 2 3 3 4 4 5 5 5 6 6];
+pars.segment.trunc_ct        = [-Inf Inf];   
+pars.segment.nlkp            = 2;
+pars.segment.lkp             = reshape(repmat(1:pars.K,2,1),1,[]);
 
-if pars.test_level==1
+if TEST_LEVEL==1
     pars.segment.verbose   = true;
     pars.segment.print_ll  = true;
     pars.segment.print_seg = true;
-elseif pars.test_level==2
-    pars.segment.verbose   = false;
-    pars.segment.print_ll  = false;
-    pars.segment.print_seg = false;    
 end
 
 %--------------------------------------------------------------------------
@@ -183,7 +181,7 @@ end
 %     V{m} = read_labels(V{m},im{m}); 
 % end
 
-pars = init_template(V,K,pars); 
+pars = init_template(V,pars); 
 
 [obj,pars,fig,rand_subjs] = init_obj(V,im,pars);
 
@@ -200,13 +198,13 @@ for iter=1:pars.niter
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
         %----------------------------------------------------------------------    
-        obj = modify_obj(obj,iter);
+        obj = modify_obj(obj,pars,iter);
     end       
     
     % Segment a bunch of subjects 
     %----------------------------------------------------------------------
     [obj,ix]    = unfold_cell(obj,2);
-    [holly,obj] = distribute(holly,'update_subject','inplace',obj,fig);
+    [holly,obj] = distribute(holly,'process_subject','inplace',obj,fig);
     obj         = fold_cell(obj,ix);
 
     % Check if any subjects have status~=0
@@ -216,7 +214,7 @@ for iter=1:pars.niter
     if pars.niter>1
         % Update template
         %------------------------------------------------------------------
-        L = update_template(L,obj,iter);                              
+        L = update_template(L,obj,pars.sparam,iter);                              
     end        
     
     if pars.niter>1
@@ -256,7 +254,10 @@ print_algorithm_progress('finished',iter);
 %==========================================================================
 
 %==========================================================================
-function obj = modify_obj(obj,iter)
+function obj = modify_obj(obj,pars,iter)
+K    = pars.K;
+nlkp = pars.segment.nlkp;
+
 M = numel(obj);    
 for m=1:M
     S         = numel(obj{m});    
@@ -266,6 +267,7 @@ for m=1:M
         obj{m}{s}.iter = iter;
         
         if iter==1 
+            obj{m}{s}.lkp          = 1:K;
             obj{m}{s}.do_def       = false;
             obj{m}{s}.do_bf        = false;
             obj{m}{s}.do_push_resp = true;
@@ -277,16 +279,12 @@ for m=1:M
         end
 
         if iter==2
+            obj{m}{s}.lkp     = reshape(repmat(1:K,nlkp,1),1,[]);
             obj{m}{s}.nsubit  = 8;
             obj{m}{s}.nitgmm  = 20;  
-            
-            if strcmp(obj{m}{s}.modality,'MRI')
-                obj{m}{s}.do_bf = true;            
-            end
-            
-            obj{m}{s}.uniform = false;
-            
-            obj{m}{s}.do_def = true; 
+            obj{m}{s}.do_bf   = true;                
+            obj{m}{s}.uniform = false;            
+            obj{m}{s}.do_def  = true; 
         end
 
         if iter>=2                  

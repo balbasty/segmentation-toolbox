@@ -51,12 +51,14 @@ for m=1:M
     pth_prior  = im{m}{7};
         
     if pars.do_preproc    
-        dir_preproc = fileparts(V{m}{1}(1).fname);
-        dir_preproc = strsplit(dir_preproc,filesep);
+        dir_preproc          = fileparts(V{m}{1}(1).fname);
+        dir_preproc          = strsplit(dir_preproc,filesep);
+        dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc'];
         if pars.preproc.rem_neck
-            dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc-noneck'];
-        else
-            dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc-neck'];
+            dir_preproc{end - 1} = [dir_preproc{end - 1} '-rn'];
+        end
+        if pars.preproc.skull_strip
+            dir_preproc{end - 1} = [dir_preproc{end - 1} '-ss'];
         end
         dir_preproc = fullfile('/',dir_preproc{2:end - 1});
 
@@ -87,7 +89,11 @@ for m=1:M
         obj_s.bb           = NaN(2,3);
         obj_s.vox          = NaN;
         obj_s.cleanup      = true;
-        obj_s.mrf          = 2;
+        
+        if isfield(pars.segment,'mrf'), obj_s.mrf = pars.segment.mrf;
+        else                            obj_s.mrf = 2;
+        end
+        
         obj_s.affreg       = 'mni';
         obj_s.reg          = [0 0.001 0.5 0.05 0.2]*0.1;
         obj_s.reg0         = obj_s.reg;
@@ -108,7 +114,6 @@ for m=1:M
         obj_s.ll_template  = 0;
         obj_s.pth_template = pars.pth_template;        
         obj_s.status       = 0;
-        obj_s.true         = true;
         obj_s.nsubit       = 8;
         obj_s.nitgmm       = 20;
         obj_s.niter        = 30;            
@@ -125,11 +130,15 @@ for m=1:M
             dir_s1            = strsplit(dir_s1,filesep);
             dir_s1            = fullfile(dir_preproc,dir_s1{end});                           
             obj_s.dir_preproc = dir_s1;
-        end                
-        obj_s.preproc.reg_and_reslice = pars.preproc.reg_and_reslice;
-        obj_s.preproc.realign2mni     = pars.preproc.realign2mni;
-        obj_s.preproc.crop            = pars.preproc.crop;
-        obj_s.preproc.rem_neck        = pars.preproc.rem_neck;
+            
+            obj_s.preproc.coreg_and_reslice = pars.preproc.coreg_and_reslice;
+            obj_s.preproc.do_reslice        = pars.preproc.do_reslice;
+            obj_s.preproc.realign2mni       = pars.preproc.realign2mni;
+            obj_s.preproc.crop              = pars.preproc.crop;
+            obj_s.preproc.crop              = pars.preproc.crop;
+            obj_s.preproc.rem_neck          = pars.preproc.rem_neck;
+            obj_s.preproc.skull_strip       = pars.preproc.skull_strip;
+        end                        
 
         obj_s.do_missing_data = pars.segment.do_missing_data;
         obj_s.do_write_res    = pars.segment.do_write_res;
@@ -139,7 +148,7 @@ for m=1:M
         obj_s.dt              = pars.dt;
         
         if strcmp(modality,'CT')
-            obj_s.do_bf   = false;
+%             obj_s.do_bf   = false;
             obj_s.cleanup = false;
         end
         
@@ -162,25 +171,10 @@ for m=1:M
         obj_s.K_lab = {K_keep,K_rem};
         
         %------------------------------------------------------------------
-        obj_s.write_tc = true(max(obj_s.lkp),4);
-        obj_s.write_bf = true(N,2);
-        obj_s.write_df = true(1,2);
-        
-        %------------------------------------------------------------------
-        if pars.test_level
-            obj_s.nsubit = 8;
-            obj_s.nitgmm = 20;
-            obj_s.niter  = 30;   
-        
-            obj_s.do_push_resp = true; 
-            
-            obj_s.do_write_res      = true;             
-            obj_s.cleanup           = false;
-            obj_s.mrf               = 0;            
-            obj_s.write_tc(:,2:end) = false;
-            obj_s.write_bf          = false(N,2);
-            obj_s.write_df          = false(1,2);
-        end
+        obj_s.write_tc        = true(max(obj_s.lkp),4);        
+        obj_s.write_tc(:,2:4) = false;
+        obj_s.write_bf        = false(N,2);
+        obj_s.write_df        = false(1,2);
         
         %------------------------------------------------------------------  
         if ~isempty(pth_prior) && ~obj_s.do_ml

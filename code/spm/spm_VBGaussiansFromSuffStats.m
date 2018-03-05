@@ -76,30 +76,21 @@ else
     if ~isfield(gmm,'pr')
         mom1 = mom_John2Bishop(mom);
                        
-        vr2 = zeros(N,N);
-        for k=1:K
-            vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
-        end
-        vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);                
+%         vr2 = zeros(N,N);
+%         for k=1:K
+%             vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
+%         end
+%         vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);                
         
-        if strcmp(gmm.init_clust,'mean')
-            m0 = linspace_vec(gmm.min,gmm.max,K);
-        else
-            m0 = bsxfun(@times,ones(N,K),mean(mom1(end).s1,2));
-        end
-                
-        beta0         = ones(1,K);
-        nu0           = 1e3*ones(1,K);
-        W0            = zeros(N,N,K);
-        for k=1:K
-            W0(:,:,k) = inv(vr2)/nu0(k);
-        end
-                
-%         m0    = bsxfun(@times,ones(N,K),mean(mom1(end).s1,2));
-%         beta0 = ones(1,K);
-%         nu0   = 1e2*N*ones(1,K);
-%         W0    = 1/N*repmat(eye(N),[1 1 K]);
-
+        m0    = mom1(end).s1;                
+        beta0 = ones(1,K);
+        nu0   = N*ones(1,K);
+        W0    = repmat(eye(N),1,1,K);  
+%         W0    = zeros(N,N,K);
+%         for k=1:K
+%             W0(:,:,k) = inv(vr2)/nu0(k);
+%         end
+        
         gmm.pr.n = nu0;
         gmm.pr.W = W0;
         gmm.pr.b = beta0;
@@ -123,10 +114,10 @@ else
         beta  = gmm.po.b;
         m     = gmm.po.m;
     else
-        nu    = nu0;
-        W     = W0;
-        beta  = beta0;
-        m     = m0;            
+        m    = repmat(median(mom1(end).s1,2),[1 K]);                
+        beta = ones(1,K);
+        nu   = N*ones(1,K);
+        W    = repmat(eye(N),1,1,K);        
     end
     
     out_L = zeros(4,K);

@@ -3,6 +3,7 @@ Kb              = numel(tpm.V);
 d               = [size(x0) length(z0)];
 modality        = obj.modality;
 do_missing_data = obj.do_missing_data;
+uniform         = obj.uniform;
 
 if isfield(obj,'msk') && ~isempty(obj.msk)
     VM = spm_vol(obj.msk);
@@ -44,7 +45,7 @@ mom1 = zeros(1,N);
 mom2 = zeros(1,N);
 
 cl   = cell(length(z0),1);
-buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl);
+buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'img',cl);
 for z=1:length(z0)
     if tot_S==1
         % Load only those voxels that are more than 5mm up
@@ -71,13 +72,26 @@ for z=1:length(z0)
     end
     
     % Load the data
-    fz = cell(1,N);
+    fz  = cell(1,N);
+    msk = true;
     for n=1:N
         fz{n}         = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
         buf(z).msk{n} = msk_modality(fz{n},modality,obj.trunc_ct);
         buf(z).nm(n)  = nnz(buf(z).msk{n});
-    end        
-  
+                
+        if uniform
+            buf(z).img{n} = single(V(n).private.dat(:,:,z));
+            msk           = msk & msk_modality(buf(z).img{n},modality,obj.trunc_ct);
+        end
+    end              
+    
+    if uniform
+        for n=1:N
+            buf(z).img{n}(~msk) = [];
+            buf(z).img{n}       = buf(z).img{n}(:);
+        end
+    end
+    
     if ~do_missing_data
         msk = true;
         for n=1:N

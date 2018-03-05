@@ -1,4 +1,4 @@
-function gmm = init_gmm(obj,N,buf,vr0,mn,mx)
+function [gmm,buf] = init_gmm(obj,N,buf,vr0,mn,mx)
 kmeans_dist = obj.kmeans_dist;
 init_clust  = obj.init_clust;
 uniform     = obj.uniform;
@@ -23,6 +23,7 @@ if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
         % Uniform template provided, use the k-means algorithm to comppute
         % moments
         mom = kmeans2mom(buf,Kb,mn,mx,init_clust,kmeans_dist);
+        buf = rmfield(buf,'img');
     else       
         % Use template to compute moments
         mom = compute_moments(buf,Kb);

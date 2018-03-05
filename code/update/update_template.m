@@ -1,4 +1,4 @@
-function L = update_template(L,obj,iter)
+function L = update_template(L,obj,sparam,iter)
 pth_template = obj{1}{1}.pth_template;
 
 s     = spm_shoot_defaults;
@@ -8,7 +8,6 @@ Nii = nifti(pth_template);
 vx  = vxsize(Nii.mat);
 mu0 = single(Nii.dat(:,:,:,:));
 
-sparam = [0 2 0]; 
 scl    = sched(min(iter,numel(sched)));
 prm    = [vx, prod(vx)*[sparam(1) scl*sparam(2) sparam(3)]];
 

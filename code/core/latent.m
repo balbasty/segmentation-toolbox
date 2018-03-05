@@ -2,7 +2,7 @@ function [Q,ll] = latent(f,bf,mg,gmm,B,lkp,wp,msk,code,K_lab,cr)
 if nargin<11, cr = []; end
 
 B  = log_spatial_priors(B,wp);
-Q  = log_likelihoods(f,bf,mg,gmm,msk,code,K_lab,cr);
+Q  = log_likelihoods(f,bf,mg,gmm,msk,code,K_lab,lkp,cr);
 
 Kb   = max(lkp);
 msk1 = code>0;

@@ -14,7 +14,7 @@ if gmm.ml
         if ~buf(z).Nm, continue; end       
            
         % Compute likelihoods, and save them in buf.dat        
-        qt       = log_likelihoods(buf(z).f,buf(z).bf,mg,gmm,buf(z).msk,buf(z).code,K_lab);
+        qt       = log_likelihoods(buf(z).f,buf(z).bf,mg,gmm,buf(z).msk,buf(z).code,K_lab,lkp);
         max_qt   = nanmax(qt,[],2);
         ll_const = ll_const + nansum(max_qt);
         B        = bsxfun(@times,double(buf(z).dat),wp);

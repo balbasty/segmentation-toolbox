@@ -1,4 +1,4 @@
-function pars = init_template(V,K,pars)
+function pars = init_template(V,pars)
 
 if exist(pars.dir_template,'dir'), rmdir(pars.dir_template,'s'); end; mkdir(pars.dir_template);    
 
@@ -12,6 +12,7 @@ end
 
 if isempty(pars.pth_template)
     pars.uniform = true;
+    K            = pars.K;
     
     % Compute average dimensions and orientation matrix so that template 
     % will cover all images    
@@ -89,7 +90,9 @@ if isempty(pars.pth_template)
     for k=1:K
         delete(vols{k});
     end
-else
+else        
+    V1           = spm_vol(pars.pth_template); 
     pars.uniform = false;
+    pars.dt      = V1.dt;
 end
 %==========================================================================

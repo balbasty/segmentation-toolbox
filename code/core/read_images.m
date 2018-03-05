@@ -3,11 +3,13 @@ pth      = im{1};
 S        = im{2};
 modality = im{3};
 
-do_rem_corrupted = pars.preproc.do_rem_corrupted;
-tol_dist         = pars.preproc.tol_dist;
-tol_vx           = pars.preproc.tol_vx;
-verbose          = pars.preproc.verbose;
-trunc_ct         = pars.segment.trunc_ct;
+trunc_ct = pars.segment.trunc_ct;
+
+if isfield(pars,'preproc')
+    do_rem_corrupted = pars.preproc.do_rem_corrupted;
+else
+    do_rem_corrupted = false;
+end
 
 if do_rem_corrupted, num_workers = Inf;
 else                 num_workers = 0;
@@ -30,7 +32,7 @@ v    = zeros(N,S);
 sint = zeros(N,S);
 vx   = zeros(N,S);
 
-spm_parfor('manage_parpool',num_workers);
+% spm_parfor('manage_parpool',num_workers);
 parfor (s=1:S,num_workers) 
     folder = fullfile(pth,subfolder(s).name);
     files  = dir(fullfile(folder,'*.nii'));
@@ -44,6 +46,10 @@ parfor (s=1:S,num_workers)
 end 
 
 if do_rem_corrupted
+    tol_dist = pars.preproc.tol_dist;
+    tol_vx   = pars.preproc.tol_vx;
+    verbose  = pars.preproc.verbose;
+
     % Standardise the data (zero mean and unit variance)
     X = [sd(:) v(:) sint(:)];
     X = bsxfun(@minus,X,mean(X));
@@ -119,6 +125,11 @@ sint = nansum(f(:));
 vx              = vxsize(Nii.mat);
 [gx,gy,gz]      = spm_imcalc('grad',f,vx);
 f(~isfinite(f)) = [];
+
+f  = f(:);
+gx = gx(:);
+gy = gy(:);
+gz = gz(:);
 
 vx = round(vx);
 vx = max(vx,1);

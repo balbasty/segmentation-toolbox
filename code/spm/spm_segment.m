@@ -48,7 +48,10 @@ else,                 wp = ones(1,Kb)/Kb;
 end
         
 if isfield(obj,'mg')
-    mg  = obj.mg;     
+    mg = obj.mg;   
+    if numel(mg)~=numel(lkp)
+        lkp = 1:Kb;       
+    end
 else              
     mg  = ones(Kb,1);
     lkp = 1:Kb;   
@@ -64,7 +67,7 @@ end
 
 % Initialise GMM
 %-----------------------------------------------------------------------
-gmm = init_gmm(obj,N,buf,vr0,mn,mx);                               
+[gmm,buf] = init_gmm(obj,N,buf,vr0,mn,mx);                               
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Start iterating
@@ -264,9 +267,9 @@ else
         
         vr0           = inv(n0(k)*W0(:,:,k));
         pr0           = inv(vr0*(1 - w));                        
-        b(lkp==k)     = b0(k);
+        b(lkp==k)     = b0(k)/kk;
         m(:,lkp==k)   = sqrtm(vr0)*randn(N,kk)*w + repmat(m0(:,k),[1,kk]);
-        n(lkp==k)     = n0(k);
+        n(lkp==k)     = n0(k)/kk;
         W(:,:,lkp==k) = repmat(pr0/n0(k),[1 1 kk]);   
     end
     
