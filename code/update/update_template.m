@@ -8,10 +8,10 @@ Nii = nifti(pth_template);
 vx  = vxsize(Nii.mat);
 mu0 = single(Nii.dat(:,:,:,:));
 
-scl    = sched(min(iter,numel(sched)));
-prm    = [vx, prod(vx)*[sparam(1) scl*sparam(2) sparam(3)]];
+scl = sched(min(iter,numel(sched)));
+prm = [vx, prod(vx)*[sparam(1) scl*sparam(2) sparam(3)]];
 
-[mu,L1] = spm_shoot_blur_wp_load(obj,mu0,prm,iter,true);
+[mu,L1] = spm_shoot_blur_wp_load(obj,mu0,prm,iter);
 L       = [L,L1];
 
 if 0

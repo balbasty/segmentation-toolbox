@@ -3,9 +3,19 @@ dir_template = obj{1}{1}.dir_template;
 
 M = numel(obj);
 for m=1:M
-    pr = do_update(obj{m});    
     
-    S = numel(obj{m});
+    S    = numel(obj{m});
+    obj1 = {};
+    cnt  = 1;
+    for s=1:S
+        if obj{m}{s}.status==0
+            obj1{cnt}.gmm = obj{m}{s}.gmm;
+            cnt           = cnt + 1;
+        end
+    end
+    
+    pr = do_update(obj1);    
+        
     for s=1:S
         obj{m}{s}.gmm.pr = pr;   
     end

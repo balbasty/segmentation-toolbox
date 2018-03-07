@@ -123,6 +123,7 @@ for m=1:M
         obj_s.init_clust   = init_clust;
         obj_s.dir_template = pars.dir_template;
         obj_s.trunc_ct     = pars.segment.trunc_ct;
+        obj_s.aff_done     = 0;
         
         obj_s.do_preproc = pars.do_preproc;
         if obj_s.do_preproc                              

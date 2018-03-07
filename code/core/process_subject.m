@@ -42,8 +42,8 @@ if obj.do_segment
     try
         do_template = obj.tot_S>1;
         
-        if (~do_template || obj.iter==2) && ~obj.uniform     
-            % Affine registration (just rigid for building template)
+        if ~do_template && ~obj.uniform     
+            % Affine registration
             %--------------------------------------------------------------
             tpm = spm_load_logpriors(obj.pth_template);
 
@@ -65,8 +65,24 @@ if obj.do_segment
             obj.Affine = spm_maff_new(obj.image(1),4,(obj.fwhm+1)*16,tpm,obj.Affine,obj.affreg);            
             obj.Affine = spm_maff_new(obj.image(1),4,obj.fwhm,tpm,obj.Affine,obj.affreg);        
             clear tpm 
-        end  
-
+        end 
+        
+        if do_template && obj.aff_done==0 && ~obj.uniform  
+            % Affine registration (just rigid for building template)
+            %--------------------------------------------------------------
+            tpm          = spm_load_logpriors(obj.pth_template);            
+            obj.Affine   = spm_maff_new(obj.image(1),4,(obj.fwhm + 1)*16,tpm,obj.Affine,obj.affreg); 
+            obj.aff_done = 1;
+            clear tpm          
+        elseif do_template && obj.aff_done==1 && ~obj.uniform  
+            % Affine registration (just rigid for building template)
+            %--------------------------------------------------------------
+            tpm          = spm_load_logpriors(obj.pth_template);                     
+            obj.Affine   = spm_maff_new(obj.image(1),3,obj.fwhm,tpm,obj.Affine,obj.affreg);  
+            obj.aff_done = 2;
+            clear tpm 
+        end 
+        
         if ~obj.do_old_segment
             % Run the new SPM segmentation routine
             %--------------------------------------------------------------  

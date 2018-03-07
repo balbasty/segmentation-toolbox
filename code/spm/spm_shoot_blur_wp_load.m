@@ -22,17 +22,33 @@ function [mu,L] = spm_shoot_blur_wp_load(obj,mu,prm,iter,verbose)
 % John Ashburner
 % $Id: spm_shoot_blur.m 5485 2013-05-09 15:51:24Z john $
 
-if nargin<5, verbose = false; end
+if nargin<5, verbose = 1; end
 
 d    = [size(mu),1,1,1];
 rits = [1 1]; % No. cycles and no. relaxation iterations
 
-ll       = 0;
-W        = zeros([d(1:3) round(((d(4)-1)*d(4))/2)],'single'); % 2nd derivatives
-gr       = zeros([d(1:3),d(4)-1],'single');                   % 1st derivatives
+ll = 0;
+W  = zeros([d(1:3) round(((d(4)-1)*d(4))/2)],'single'); % 2nd derivatives
+gr = zeros([d(1:3),d(4)-1],'single');                   % 1st derivatives
+
 for m=1:numel(obj)
+    
     S = numel(obj{m}); 
+    if verbose, fprintf(1,'Loading derivatives from subject (m=%d, S=%d) -    ',m,S); end
     for s=1:S
+        
+        if verbose                
+            if s<10
+                fprintf(1,'\b%d',s);
+            elseif s<100
+                fprintf(1,'\b\b%d',s);
+            elseif s<1000
+                fprintf(1,'\b\b\b%d',s);
+            elseif s<10000
+                fprintf(1,'\b\b\b\b%d',s);
+            end                
+        end
+        
         if obj{m}{s}.status==0
             bb_push = obj{m}{s}.bb_push;
             rngx    = bb_push(1,1):bb_push(1,2);
@@ -52,6 +68,7 @@ for m=1:numel(obj)
             ll       = ll + obj{m}{s}.ll_template; 
         end
     end
+    fprintf(' | DONE!\n')    
 end
 clear obj Nii
 
@@ -83,7 +100,7 @@ ll1 = 0.5*sum(sum(sum(sum(gr1.*a)))); % -ve log probability of the prior term
 gr  = gr + gr1;                       % Combine the derivatives of the two terms
 ss2 = sum(sum(sum(sum(gr.^2))));      % This should approach zero at convergence
 
-if verbose
+if verbose>1
     fprintf('%2d | %8.7f %8.7f %8.7f %8.7f\n',iter,ll/prod(d(1:3)),ll1/prod(d(1:3)),(ll + ll1)/prod(d(1:3)),(ss2)/prod(d(1:3)));
 end
 

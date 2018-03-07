@@ -42,11 +42,11 @@ addpath('/cherhome/mbrud/dev/auxiliary-functions')
 TEST_LEVEL = 0;
 
 pars              = [];
-pars.name         = 'CT-lesion-holly';
-pars.dir_output   = '/data-scratch/mbrud/data/';
-pars.dir_template = '/data/mbrud/templates/';
-% pars.dir_output   = '/home/mbrud/Data/temp-data/';
-% pars.dir_template = '/home/mbrud/Data/template/';
+pars.name         = 'CHROMIS';
+% pars.dir_output   = '/data-scratch/mbrud/data/';
+% pars.dir_template = '/data/mbrud/templates/';
+pars.dir_output   = '/home/mbrud/Data/temp-data/';
+pars.dir_template = '/home/mbrud/Data/template/';
 
 %--------------------------------------------------------------------------
 % Set directories to input images as well as where to write output
@@ -58,25 +58,27 @@ if TEST_LEVEL
     else             S = 8;
     end
     
-%     pars.K      = 6;  
-%     im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-rn/',...
-%                    S,'MRI',[],3,'','',''};    
-
-    pars.K      = 8;            
-    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
-                   8,'CT',[],3,'','',''};  
-    im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-rn-ss/',...
-                   8,'CT',[7],3,'','',''};      
+    pars.K      = 6;  
+    im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-rn/',...
+                   S,'MRI',[],3,'','',''};    
+%     im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-rn-ss/',...
+%                    S,'CT',[],3,'total','',''};        
+%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
+%                    S,'CT',[],2,'total','',''};  
+               
+%     pars.K      = 8;            
+%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
+%                    S,'CT',[],3,'total','',''};     
                
     if TEST_LEVEL<4, pars.name = 'test-local';
     else             pars.name = 'test-holly';   
     end               
 else    
-    pars.K      = 8;            
+    pars.K      = 8;  
     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
-                   200,'CT',[],3,'','',''};  
+                   200,'CT',[],2,'total','',''};  
     im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-rn-ss/',...
-                   Inf,'CT',[7],3,'','',''};                   
+                   Inf,'CT',[3],2,'total','',''};                   
 end
 
 pars = append_dir(pars);
@@ -111,8 +113,8 @@ if TEST_LEVEL>0 && TEST_LEVEL<4
     end
 end
 
-% holly.server.ip      = '';   
-% holly.client.workers = Inf;
+holly.server.ip      = '';   
+holly.client.workers = Inf;
 
 holly = distribute_default(holly);
 
@@ -159,8 +161,8 @@ pars.segment.print_ll        = false;
 pars.segment.print_seg       = false;    
 pars.segment.verbose         = false;   
 pars.segment.trunc_ct        = [-Inf Inf];   
-pars.segment.nlkp            = 2;
-pars.segment.lkp             = reshape(repmat(1:pars.K,2,1),1,[]);
+pars.segment.nlkp            = 1;
+pars.segment.lkp             = reshape(repmat(1:pars.K,1,1),1,[]);
 
 if TEST_LEVEL==1
     pars.segment.verbose   = true;
@@ -283,14 +285,13 @@ for m=1:M
             obj{m}{s}.nsubit  = 8;
             obj{m}{s}.nitgmm  = 20;  
             obj{m}{s}.do_bf   = true;                
-            obj{m}{s}.uniform = false;            
-            obj{m}{s}.do_def  = true; 
+            obj{m}{s}.uniform = false;                        
         end
 
-        if iter>=2                  
+        if iter>=3
+            obj{m}{s}.do_def = true; 
             obj{m}{s}.reg    = obj{m}{s}.reg0;            
-            scal             = 2^max(11 - iter,0);       
-            %prm([5 7 8]) = param([5 7 8])*scal;
+            scal             = 2^max(12 - iter,0);                  
             obj{m}{s}.reg(3) = obj{m}{s}.reg(3)*scal;
         end
         
