@@ -1,8 +1,8 @@
-function L = update_template(L,obj,sparam,iter)
+function L = update_template(L,obj,pars,iter)
 pth_template = obj{1}{1}.pth_template;
-
-s     = spm_shoot_defaults;
-sched = s.sched;
+sparam       = pars.sparam;
+s            = spm_shoot_defaults;
+sched        = s.sched;
 
 Nii = nifti(pth_template);
 vx  = vxsize(Nii.mat);

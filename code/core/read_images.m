@@ -1,111 +1,109 @@
-function V = read_images(im,pars)
-pth      = im{1};
-S        = im{2};
-modality = im{3};
-
-trunc_ct = pars.segment.trunc_ct;
-
-if isfield(pars,'preproc')
-    do_rem_corrupted = pars.preproc.do_rem_corrupted;
-else
-    do_rem_corrupted = false;
-end
-
-if do_rem_corrupted, num_workers = Inf;
-else                 num_workers = 0;
-end
-
-folder    = dir(pth);  % folder with subfolders containing multi-channel data of subjects
-folder    = folder(3:end);
-dirflag   = [folder.isdir];
-subfolder = folder(dirflag); % subfolders (S1,S2,...)
-S1        = numel(subfolder);
-if S>S1
-    S = S1;
-end
-files     = dir(fullfile(pth,subfolder(1).name,'*.nii'));
-N         = numel(files);
-
-V    = cell(1,S);
-sd   = zeros(N,S);
-v    = zeros(N,S);
-sint = zeros(N,S);
-vx   = zeros(N,S);
-
-% spm_parfor('manage_parpool',num_workers);
-parfor (s=1:S,num_workers) 
-    folder = fullfile(pth,subfolder(s).name);
-    files  = dir(fullfile(folder,'*.nii'));
-    for n=1:N
-        V{s}(n) = spm_vol(fullfile(folder,files(n).name));
+function pars = read_images(pars)
+M = numel(pars.dat);
+for m=1:M
+    pth              = pars.dat{m}.dir_data;
+    S                = pars.dat{m}.S;
+    modality         = pars.dat{m}.modality;
+    trunc_ct         = pars.dat{m}.segment.trunc_ct;
+    do_rem_corrupted = pars.dat{m}.preproc.do_rem_corrupted;
+    tol_dist         = pars.dat{m}.preproc.tol_dist;
+    tol_vx           = pars.dat{m}.preproc.tol_vx;
+    verbose          = pars.dat{m}.preproc.verbose;
         
-        if do_rem_corrupted            
-            [sd(n,s),v(n,s),sint(n,s),vx(n,s)] = compute_img_stats(V{s}(n).fname,modality,trunc_ct);                     
-        end
-    end        
-end 
-
-if do_rem_corrupted
-    tol_dist = pars.preproc.tol_dist;
-    tol_vx   = pars.preproc.tol_vx;
-    verbose  = pars.preproc.verbose;
-
-    % Standardise the data (zero mean and unit variance)
-    X = [sd(:) v(:) sint(:)];
-    X = bsxfun(@minus,X,mean(X));
-    X = bsxfun(@rdivide,X,sqrt(var(X)));            
-    
-    ix = zeros(1,S);
-    f  = cell(1,S);
-    for i=1:size(X,2)
-
-        % Fit a Gaussian to the data
-        mu = mean(X(:,i))';
-        C  = cov(X(:,i));
-
-        if verbose==2
-            dm  = zeros(1,size(X,1));
-            for s=1:size(X,1)
-                x     = X(s,i)';
-                dm(s) = dist_Mahalanobis(x,mu,C);
-            end
-            figure;
-            scatter(X(:,i)',dm)
-            drawnow
-        end
-
-        cnt = 1;
-        for s=1:S
-            for n=1:N
-                x  = X(cnt,i)';
-                DM = dist_Mahalanobis(x,mu,C);
-                if DM>tol_dist || vx(n,s)>tol_vx                               
-                    ix(s) = s;
-                    f{s}  = V{s}(n).fname;
-                end
-                cnt = cnt + 1;
-            end
-        end
+    if do_rem_corrupted, num_workers = Inf;
+    else                 num_workers = 0;
     end
 
-    % Remove 'outliers'
-    ix(ix==0) = [];
-    V(ix)     = [];
-    S         = S - numel(ix);
+    folder    = dir(pth);  % folder with subfolders containing multi-channel data of subjects
+    folder    = folder(3:end);
+    dirflag   = [folder.isdir];
+    subfolder = folder(dirflag); % subfolders (S1,S2,...)
+    S1        = numel(subfolder);
+    if S>S1
+        S = S1;
+    end
+    files     = dir(fullfile(pth,subfolder(1).name,'*.nii'));
+    N         = numel(files);
 
-    if numel(ix)>0
-        f = f(~cellfun('isempty',f));
+    V    = cell(1,S);
+    sd   = zeros(N,S);
+    v    = zeros(N,S);
+    sint = zeros(N,S);
+    vx   = zeros(N,S);
 
-        if verbose, spm_check_registration(char(f')); end
+    % spm_parfor('manage_parpool',num_workers);
+    parfor (s=1:S,num_workers) 
+        folder = fullfile(pth,subfolder(s).name);
+        files  = dir(fullfile(folder,'*.nii'));
+        for n=1:N
+            V{s}(n) = spm_vol(fullfile(folder,files(n).name));
 
-        for s=1:numel(f)
-           disp(['Removing image ' f{s}]) ;
+            if do_rem_corrupted            
+                [sd(n,s),v(n,s),sint(n,s),vx(n,s)] = compute_img_stats(V{s}(n).fname,modality,trunc_ct);                     
+            end
+        end        
+    end 
+
+    if do_rem_corrupted        
+        % Standardise the data (zero mean and unit variance)
+        X = [sd(:) v(:) sint(:)];
+        X = bsxfun(@minus,X,mean(X));
+        X = bsxfun(@rdivide,X,sqrt(var(X)));            
+
+        ix = zeros(1,S);
+        f  = cell(1,S);
+        for i=1:size(X,2)
+
+            % Fit a Gaussian to the data
+            mu = mean(X(:,i))';
+            C  = cov(X(:,i));
+
+            if verbose==2
+                dm  = zeros(1,size(X,1));
+                for s=1:size(X,1)
+                    x     = X(s,i)';
+                    dm(s) = dist_Mahalanobis(x,mu,C);
+                end
+                figure;
+                scatter(X(:,i)',dm)
+                drawnow
+            end
+
+            cnt = 1;
+            for s=1:S
+                for n=1:N
+                    x  = X(cnt,i)';
+                    DM = dist_Mahalanobis(x,mu,C);
+                    if DM>tol_dist || vx(n,s)>tol_vx                               
+                        ix(s) = s;
+                        f{s}  = V{s}(n).fname;
+                    end
+                    cnt = cnt + 1;
+                end
+            end
         end
-        fprintf('%d subjects remaining\n',S)
-    end    
-end
 
-fprintf('Loaded data from %d subject(s) having %d channel(s) each\n',S,N); 
+        % Remove 'outliers'
+        ix(ix==0) = [];
+        V(ix)     = [];
+        S         = S - numel(ix);
+
+        if numel(ix)>0
+            f = f(~cellfun('isempty',f));
+
+            if verbose, spm_check_registration(char(f')); end
+
+            for s=1:numel(f)
+               disp(['Removing image ' f{s}]) ;
+            end
+            fprintf('%d subjects remaining\n',S)
+        end    
+    end
+
+    fprintf('Loaded data from %d subject(s) having %d channel(s) each\n',S,N); 
+    
+    pars.dat{m}.V = V;
+end
 %==========================================================================
 
 %==========================================================================

@@ -6,19 +6,17 @@ function build_template
 % -Is something wrong with shrinking? (not shrinking after iter=1...)
 %
 % PRIO
+% -labels
 % -Add back missing 
 %   --problem with convergence of bf (when lkp>1?), probably due to
 %     decreasing ll...
 %   --include missing ll for ml
-%
 % -Clean up repo + add readme
-% -Labelled resps
 % -Improved registration: diffeo + reparameterise + average correct
 %
 % TODO
 % -do_reslice not working
 % -impreproc -> overwrite or not
-% -Init parameters in a better way
 % -Test including MRA images (requires missing data to work well)
 % -DICOM convert
 % -Add denoising
@@ -39,56 +37,55 @@ addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing')
 addpath('/cherhome/mbrud/dev/auxiliary-functions')
 
-TEST_LEVEL = 0;
+test_level = 1;
 
-pars              = [];
+%--------------------------------------------------------------------------
+% Set algorithm parameters
+%--------------------------------------------------------------------------
+
+pars              = struct;
 pars.name         = 'CHROMIS';
 % pars.dir_output   = '/data-scratch/mbrud/data/';
 % pars.dir_template = '/data/mbrud/templates/';
 pars.dir_output   = '/home/mbrud/Data/temp-data/';
 pars.dir_template = '/home/mbrud/Data/template/';
+pars.dat          = {};
+
+m = 1;
+pars.dat{m}.dir_data = '/data/mbrud/images/MRI/IXI-T1-preproc-rn/';
+
+m = 2;
+pars.dat{m}.dir_data = '/data/mbrud/images/CT/healthy-preproc-rn/';
+pars.dat{m}.modality = 'CT';
+
+% pars.K = 8;  
+% 
+% pars.dat{1}.dir_data = '/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/';
+% pars.dat{1}.S        = 200;
+% pars.dat{1}.modality = 'CT';
+% pars.dat{1}.segment.samp       = 2;
+% pars.dat{1}.segment.init_clust = 'total';
+% 
+% pars.dat{2}.dir_data = '/data/mbrud/images/CT/healthy-preproc-rn-ss/';
+% pars.dat{2}.S        = Inf;
+% pars.dat{2}.modality = 'CT';
+% pars.dat{2}.segment.samp       = 2;
+% pars.dat{2}.segment.init_clust = 'total';
+% pars.dat{2}.segment.K_rem      = [3];            
+
+% pars.pth_template        = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
+% pars.pth_template        = fullfile(get_pth_dropbox,'/PhD/Data/CB-TPM/BlaiottaTPM.nii');
+
+pars = pars_default(pars,test_level);
 
 %--------------------------------------------------------------------------
-% Set directories to input images as well as where to write output
-%--------------------------------------------------------------------------
-
-im = {};       
-if TEST_LEVEL
-    if TEST_LEVEL<3, S = 1;
-    else             S = 8;
-    end
-    
-    pars.K      = 6;  
-    im{end + 1} = {'/data/mbrud/images/MRI/IXI-T1-preproc-rn/',...
-                   S,'MRI',[],3,'','',''};    
-%     im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-rn-ss/',...
-%                    S,'CT',[],3,'total','',''};        
-%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
-%                    S,'CT',[],2,'total','',''};  
-               
-%     pars.K      = 8;            
-%     im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
-%                    S,'CT',[],3,'total','',''};     
-               
-    if TEST_LEVEL<4, pars.name = 'test-local';
-    else             pars.name = 'test-holly';   
-    end               
-else    
-    pars.K      = 8;  
-    im{end + 1} = {'/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/',...
-                   200,'CT',[],2,'total','',''};  
-    im{end + 1} = {'/data/mbrud/images/CT/healthy-preproc-rn-ss/',...
-                   Inf,'CT',[3],2,'total','',''};                   
-end
-
-pars = append_dir(pars);
-
-%--------------------------------------------------------------------------
-% Set-up parallel options
+% Set distribute options
 %--------------------------------------------------------------------------
 
 holly               = struct;
 holly.server.ip     = 'holly';
+% holly.server.ip      = '';   
+% holly.client.workers = Inf;
 holly.server.login  = 'mbrud';
 holly.server.folder = fullfile('/scratch',pars.dir_output(15:end),'cluster');
 holly.client.folder = fullfile(pars.dir_output,'cluster');
@@ -100,92 +97,26 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = false;
-holly.job.est_mem   = true;
-holly.job.batch     = true;
 holly.job.mem       = '6G';
 holly.job.use_dummy = true;
 
-if TEST_LEVEL>0 && TEST_LEVEL<4
+if test_level==1 || test_level==2
     holly.server.ip  = '';   
     
-    if TEST_LEVEL<3, holly.client.workers = 0;
+    if test_level<2, holly.client.workers = 0;
     else             holly.client.workers = Inf;
     end
 end
 
-holly.server.ip      = '';   
-holly.client.workers = Inf;
-
 holly = distribute_default(holly);
 
 %--------------------------------------------------------------------------
-% Set parameters
+% Initialise algorithm
 %--------------------------------------------------------------------------
 
-pars.do_segment          = true;
-pars.do_preproc          = false;
-pars.niter               = 50;
-pars.tol                 = 1e-4;
-pars.verbose             = 3;
-pars.pth_template        = '';
-% pars.pth_template        = '/home/mbrud/Dropbox/PhD/Data/log-template/logTPM.nii';
-% pars.pth_template        = fullfile(get_pth_dropbox,'/PhD/Data/CB-TPM/BlaiottaTPM.nii');
-pars.vx_tpm              = 1.5;
-pars.sparam              = [0.01 2 0]; 
-if TEST_LEVEL==2
-    pars.do_preproc      = true;
-    pars.do_segment      = false;
-end
-
-pars.preproc.do_rem_corrupted  = false;
-pars.preproc.tol_dist          = 4;
-pars.preproc.tol_vx            = 5;
-pars.preproc.verbose           = false;
-pars.preproc.coreg_and_reslice = true;
-pars.preproc.do_reslice        = true;
-pars.preproc.realign2mni       = true;
-pars.preproc.crop              = true;
-pars.preproc.rem_neck          = true;
-pars.preproc.skull_strip       = true;
-
-pars.segment.do_ml           = false;
-pars.segment.do_bf           = true;
-pars.segment.do_def          = true;
-pars.segment.do_wp           = true;
-pars.segment.do_write_res    = false;
-pars.segment.do_push_resp    = false;
-pars.segment.do_missing_data = false;
-pars.segment.do_old_segment  = false;
-pars.segment.kmeans_dist     = 'cityblock';
-pars.segment.print_ll        = false;
-pars.segment.print_seg       = false;    
-pars.segment.verbose         = false;   
-pars.segment.trunc_ct        = [-Inf Inf];   
-pars.segment.nlkp            = 1;
-pars.segment.lkp             = reshape(repmat(1:pars.K,1,1),1,[]);
-
-if TEST_LEVEL==1
-    pars.segment.verbose   = true;
-    pars.segment.print_ll  = true;
-    pars.segment.print_seg = true;
-end
-
-%--------------------------------------------------------------------------
-% Init
-%--------------------------------------------------------------------------
-
-V = cell(1,numel(im));
-for m=1:numel(im) 
-    V{m} = read_images(im{m},pars); 
-end
-
-% for m=1:M, 
-%     V{m} = read_labels(V{m},im{m}); 
-% end
-
-pars = init_template(V,pars); 
-
-[obj,pars,fig,rand_subjs] = init_obj(V,im,pars);
+pars       = read_images(pars); 
+pars       = init_template(pars); 
+[obj,pars] = init_obj(pars);
 
 %--------------------------------------------------------------------------
 % Start the algorithm
@@ -206,7 +137,7 @@ for iter=1:pars.niter
     % Segment a bunch of subjects 
     %----------------------------------------------------------------------
     [obj,ix]    = unfold_cell(obj,2);
-    [holly,obj] = distribute(holly,'process_subject','inplace',obj,fig);
+    [holly,obj] = distribute(holly,'process_subject','inplace',obj,pars.fig);
     obj         = fold_cell(obj,ix);
 
     % Check if any subjects have status~=0
@@ -216,7 +147,7 @@ for iter=1:pars.niter
     if pars.niter>1
         % Update template
         %------------------------------------------------------------------
-        L = update_template(L,obj,pars.sparam,iter);                              
+        L = update_template(L,obj,pars,iter);                              
     end        
     
     if pars.niter>1
@@ -239,9 +170,9 @@ for iter=1:pars.niter
     if pars.niter>1
         % Some verbose
         %----------------------------------------------------------------------
-        if pars.verbose>0, plot_ll(fig{5},L); end
-        if pars.verbose>1, show_template(fig{6},pars.pth_template); end
-        if pars.verbose>2, show_resp(fig{7},obj,rand_subjs); end      
+        if pars.verbose>0, plot_ll(pars.fig{5},L); end
+        if pars.verbose>1, show_template(pars.fig{6},pars); end
+        if pars.verbose>2, show_resp(pars.fig{7},obj,pars); end      
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
@@ -257,9 +188,7 @@ print_algorithm_progress('finished',iter);
 
 %==========================================================================
 function obj = modify_obj(obj,pars,iter)
-K    = pars.K;
-nlkp = pars.segment.nlkp;
-
+K = pars.K;
 M = numel(obj);    
 for m=1:M
     S         = numel(obj{m});    
@@ -281,7 +210,7 @@ for m=1:M
         end
 
         if iter==2
-            obj{m}{s}.lkp     = reshape(repmat(1:K,nlkp,1),1,[]);
+            obj{m}{s}.lkp     = reshape(repmat(1:K,pars.dat{m}.segment.nlkp,1),1,[]);
             obj{m}{s}.nsubit  = 8;
             obj{m}{s}.nitgmm  = 20;  
             obj{m}{s}.do_bf   = true;                
@@ -369,8 +298,10 @@ end
 %==========================================================================
 
 %==========================================================================
-function show_template(fig,pth_template)
+function show_template(fig,pars)
 set(0,'CurrentFigure',fig);     
+
+pth_template = pars.pth_template;
 
 Nii = nifti(pth_template);
 b   = exp(Nii.dat(:,:,:,:));
@@ -394,10 +325,12 @@ drawnow
 %==========================================================================
 
 %==========================================================================
-function show_resp(fig,obj,rand_subjs)
-M = numel(obj);
+function show_resp(fig,obj,pars)
 set(0,'CurrentFigure',fig);       
 
+rand_subjs = pars.rand_subjs;
+
+M   = numel(obj);
 cnt = 1;    
 for m=1:M                
     for s=rand_subjs{m} 
@@ -440,12 +373,4 @@ set(0,'CurrentFigure',fig);
 plot(0:numel(L(3:end)) - 1,L(3:end),'b-','LineWidth',1);   hold on            
 plot(0:numel(L(3:end)) - 1,L(3:end),'b.','markersize',10); hold off  
 title('ll')
-%==========================================================================
-
-%==========================================================================
-function pars = append_dir(pars)
-pth               = fileparts(pars.dir_output);
-pars.dir_output   = fullfile(pth,['build-template-' pars.name]);
-pth               = fileparts(pars.dir_template);
-pars.dir_template = fullfile(pth,pars.name);
 %==========================================================================

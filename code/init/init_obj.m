@@ -1,5 +1,5 @@
-function [obj,pars,fig,rand_subjs] = init_obj(V,im,pars)
-M = numel(V);
+function [obj,pars] = init_obj(pars)
+M = numel(pars.dat);
 
 %--------------------------------------------------------------------------
 dir_subjects = fullfile(pars.dir_output,'subjects');
@@ -8,18 +8,19 @@ if exist(dir_subjects,'dir'), rmdir(dir_subjects,'s'); end; mkdir(dir_subjects);
 %--------------------------------------------------------------------------
 tot_subj = 0;
 for m=1:M
-    S = numel(V{m});    
-    for s=1:S, tot_subj = tot_subj + 1; end
+    S = numel(pars.dat{m}.V);    
+    for s=1:S
+        tot_subj = tot_subj + 1; 
+    end
 end
 
-%--------------------------------------------------------------------------
 if ~(tot_subj>1 && pars.do_segment)   
     pars.niter = 1; 
 end
 
 %--------------------------------------------------------------------------
 fig = cell(1,4);
-if pars.segment.verbose
+if pars.dat{1}.segment.verbose
     for i=1:numel(fig), fig{i} = figure(i); clf(figure(i)); end    
 end
 if pars.niter>1
@@ -28,6 +29,8 @@ if pars.niter>1
     if pars.verbose>0, fig{5} = figure(5); clf(figure(5)); end        
 end
 drawnow
+
+pars.fig = fig;
 
 %--------------------------------------------------------------------------
 if M==1, S0 = 8;
@@ -45,27 +48,26 @@ obj        = cell(1,M);
 rand_subjs = cell(1,M);
 cnt        = 1;
 for m=1:M           
-    modality   = im{m}{3}; 
-    samp       = im{m}{5};
-    init_clust = im{m}{6};
-    pth_prior  = im{m}{7};
-        
-    if pars.do_preproc    
-        dir_preproc          = fileparts(V{m}{1}(1).fname);
-        dir_preproc          = strsplit(dir_preproc,filesep);
-        dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc'];
-        if pars.preproc.rem_neck
-            dir_preproc{end - 1} = [dir_preproc{end - 1} '-rn'];
-        end
-        if pars.preproc.skull_strip
-            dir_preproc{end - 1} = [dir_preproc{end - 1} '-ss'];
-        end
-        dir_preproc = fullfile('/',dir_preproc{2:end - 1});
+    do_preproc = pars.dat{m}.do_preproc;
+    V          = pars.dat{m}.V;
+    
+    %----------------------------------------------------------------------     
+    dir_preproc          = fileparts(V{1}(1).fname);
+    dir_preproc          = strsplit(dir_preproc,filesep);
+    dir_preproc{end - 1} = [dir_preproc{end - 1} '-preproc'];
+    if pars.dat{m}.preproc.rem_neck
+        dir_preproc{end - 1} = [dir_preproc{end - 1} '-rn'];
+    end
+    if pars.dat{m}.preproc.skull_strip
+        dir_preproc{end - 1} = [dir_preproc{end - 1} '-ss'];
+    end
+    dir_preproc = fullfile('/',dir_preproc{2:end - 1});
 
+    if do_preproc   
         if exist(dir_preproc,'dir'), rmdir(dir_preproc,'s'); end; mkdir(dir_preproc);           
     end
 
-    S             = numel(V{m});
+    S             = numel(V);
     rand_subjs{m} = randperm(S,min(S0,S));   
     obj{m}        = cell(1,S);
     for s=1:S                
@@ -77,113 +79,89 @@ for m=1:M
         obj_s.dir_s = dir_s;
         
         %------------------------------------------------------------------
-        N         = numel(V{m}{s});
-        obj_s.image = V{m}{s};
-        [~,nam]   = fileparts(obj_s.image(1).fname);
+        N           = numel(V{s});
+        obj_s.image = V{s};
+        [~,nam]     = fileparts(obj_s.image(1).fname);
         
         %------------------------------------------------------------------
         obj_s.do_segment   = pars.do_segment;
         obj_s.s            = cnt;
-        obj_s.iter         = 1;
+        obj_s.pth_template = pars.pth_template;                
         obj_s.tot_S        = tot_subj;
-        obj_s.bb           = NaN(2,3);
-        obj_s.vox          = NaN;
-        obj_s.cleanup      = true;
-        
-        if isfield(pars.segment,'mrf'), obj_s.mrf = pars.segment.mrf;
-        else                            obj_s.mrf = 2;
-        end
-        
-        obj_s.affreg       = 'mni';
-        obj_s.reg          = [0 0.001 0.5 0.05 0.2]*0.1;
-        obj_s.reg0         = obj_s.reg;
-        obj_s.fwhm         = 1;
-        obj_s.samp         = samp;
-        obj_s.Affine       = eye(4);
-        obj_s.biasreg      = 1e-3*(1/5)*ones(1,N);
-        obj_s.biasfwhm     = 60*ones(1,N);  
-        obj_s.modality     = modality;
-        obj_s.do_ml        = pars.segment.do_ml;
-        obj_s.do_bf        = pars.segment.do_bf;
-        obj_s.do_def       = pars.segment.do_def;
-        obj_s.do_wp        = pars.segment.do_wp;
-        obj_s.print_seg    = pars.segment.print_seg;
-        obj_s.print_ll     = pars.segment.print_ll;        
-        obj_s.bf_dc        = zeros(1,N);
-        obj_s.avg_bf_dc    = zeros(1,N);
-        obj_s.ll_template  = 0;
-        obj_s.pth_template = pars.pth_template;        
-        obj_s.status       = 0;
-        obj_s.nsubit       = 8;
-        obj_s.nitgmm       = 20;
-        obj_s.niter        = 30;            
-        obj_s.tol1         = 1e-4;
-        obj_s.gmm          = struct;
-        obj_s.kmeans_dist  = pars.segment.kmeans_dist;
-        obj_s.init_clust   = init_clust;
+        obj_s.dt           = pars.dt;        
+        obj_s.uniform      = pars.uniform;    
         obj_s.dir_template = pars.dir_template;
-        obj_s.trunc_ct     = pars.segment.trunc_ct;
-        obj_s.aff_done     = 0;
-        
-        obj_s.do_preproc = pars.do_preproc;
-        if obj_s.do_preproc                              
-            dir_s1            = fileparts(V{m}{s}(1).fname);
-            dir_s1            = strsplit(dir_s1,filesep);
-            dir_s1            = fullfile(dir_preproc,dir_s1{end});                           
-            obj_s.dir_preproc = dir_s1;
-            
-            obj_s.preproc.coreg_and_reslice = pars.preproc.coreg_and_reslice;
-            obj_s.preproc.do_reslice        = pars.preproc.do_reslice;
-            obj_s.preproc.realign2mni       = pars.preproc.realign2mni;
-            obj_s.preproc.crop              = pars.preproc.crop;
-            obj_s.preproc.crop              = pars.preproc.crop;
-            obj_s.preproc.rem_neck          = pars.preproc.rem_neck;
-            obj_s.preproc.skull_strip       = pars.preproc.skull_strip;
-        end                        
-
-        obj_s.do_missing_data = pars.segment.do_missing_data;
-        obj_s.do_write_res    = pars.segment.do_write_res;
-        obj_s.do_push_resp    = pars.segment.do_push_resp;
-        obj_s.do_old_segment  = pars.segment.do_old_segment;
-        
-        obj_s.dt              = pars.dt;
-        
-        if strcmp(modality,'CT')
-%             obj_s.do_bf   = false;
-            obj_s.cleanup = false;
-        end
         
         %------------------------------------------------------------------
-        obj_s.uniform = pars.uniform;            
-        Kb            = numel(V1);
-        if isfield(pars.segment,'lkp')
-            obj_s.lkp = pars.segment.lkp;
-            if Kb~=max(obj_s.lkp)
-               error('Kb~=max(obj.lkp)') 
-            end
-        else
-            obj_s.lkp = 1:Kb;   
-        end
+        obj_s.bf_dc       = zeros(1,N);
+        obj_s.avg_bf_dc   = zeros(1,N);
+        obj_s.ll_template = 0;
+        obj_s.status      = 0;
+        obj_s.iter        = 1;
+        obj_s.aff_done    = 0;
         
-        K1          = 1:Kb;
-        K_rem       = im{m}{4};
+        %------------------------------------------------------------------                              
+        dir_s1            = fileparts(V{s}(1).fname);
+        dir_s1            = strsplit(dir_s1,filesep);
+        dir_s1            = fullfile(dir_preproc,dir_s1{end});                           
+        obj_s.dir_preproc = dir_s1;
+            
+        obj_s.do_preproc                = do_preproc;                                                
+        obj_s.preproc.coreg_and_reslice = pars.dat{m}.preproc.coreg_and_reslice;
+        obj_s.preproc.do_reslice        = pars.dat{m}.preproc.do_reslice;
+        obj_s.preproc.realign2mni       = pars.dat{m}.preproc.realign2mni;
+        obj_s.preproc.crop              = pars.dat{m}.preproc.crop;
+        obj_s.preproc.crop              = pars.dat{m}.preproc.crop;
+        obj_s.preproc.rem_neck          = pars.dat{m}.preproc.rem_neck;
+        obj_s.preproc.skull_strip       = pars.dat{m}.preproc.skull_strip;
+        
+        %------------------------------------------------------------------
+        obj_s.bb              = pars.dat{m}.segment.bb;
+        obj_s.vox             = pars.dat{m}.segment.vox;
+        obj_s.cleanup         = pars.dat{m}.segment.cleanup;
+        obj_s.mrf             = pars.dat{m}.segment.mrf;
+        obj_s.affreg          = pars.dat{m}.segment.affreg;
+        obj_s.reg             = pars.dat{m}.segment.reg;
+        obj_s.reg0            = obj_s.reg;
+        obj_s.fwhm            = pars.dat{m}.segment.fwhm;
+        obj_s.samp            = pars.dat{m}.segment.samp;
+        obj_s.Affine          = pars.dat{m}.segment.Affine;
+        obj_s.biasreg         = pars.dat{m}.segment.biasreg*ones(1,N);
+        obj_s.biasfwhm        = pars.dat{m}.segment.biasfwhm*ones(1,N);  
+        obj_s.modality        = pars.dat{m}.modality;
+        obj_s.do_ml           = pars.dat{m}.segment.do_ml;
+        obj_s.do_bf           = pars.dat{m}.segment.do_bf;
+        obj_s.do_def          = pars.dat{m}.segment.do_def;
+        obj_s.do_wp           = pars.dat{m}.segment.do_wp;
+        obj_s.print_seg       = pars.dat{m}.segment.print_seg;
+        obj_s.print_ll        = pars.dat{m}.segment.print_ll;        
+        obj_s.nsubit          = pars.dat{m}.segment.nsubit;
+        obj_s.nitgmm          = pars.dat{m}.segment.nitgmm;
+        obj_s.niter           = pars.dat{m}.segment.niter;            
+        obj_s.tol1            = pars.dat{m}.segment.tol1;        
+        obj_s.kmeans_dist     = pars.dat{m}.segment.kmeans_dist;
+        obj_s.init_clust      = pars.dat{m}.segment.init_clust;        
+        obj_s.trunc_ct        = pars.dat{m}.segment.trunc_ct;                             
+        obj_s.do_missing_data = pars.dat{m}.segment.do_missing_data;
+        obj_s.do_write_res    = pars.dat{m}.segment.do_write_res;
+        obj_s.do_push_resp    = pars.dat{m}.segment.do_push_resp;
+        obj_s.do_old_segment  = pars.dat{m}.segment.do_old_segment;                
+        obj_s.lkp             = pars.dat{m}.segment.lkp;        
+        obj_s.write_tc        = pars.dat{m}.segment.write_tc;
+        obj_s.write_bf        = repmat(pars.dat{m}.segment.write_bf,N,1);        
+        obj_s.write_df        = pars.dat{m}.segment.write_df;
+        
+        %------------------------------------------------------------------
+        K1          = 1:pars.K;
+        K_rem       = pars.dat{m}.segment.K_rem ;
         msk         = ismember(K1,K_rem);
         K_keep      = K1(~msk);
         obj_s.K_lab = {K_keep,K_rem};
-        
+                
         %------------------------------------------------------------------
-        obj_s.write_tc        = true(max(obj_s.lkp),4);        
-        obj_s.write_tc(:,2:4) = false;
-        obj_s.write_bf        = false(N,2);
-        obj_s.write_df        = false(1,2);
-        
-        %------------------------------------------------------------------  
+        obj_s.gmm = struct;
+        pth_prior = pars.dat{m}.segment.pth_prior;
         if ~isempty(pth_prior) && ~obj_s.do_ml
-%                 pr.m   = zeros(N,Kb);
-%                 pr.b   = ones(1,Kb);
-%                 pr.n   = (N - .999)*ones(1,Kb);
-%                 pr.W   = repmat(eye(N,N),[1 1 Kb]);
-
             tmp          = load(pth_prior,'-mat');
             obj_s.gmm.pr = tmp.pr;
         end
@@ -192,8 +170,8 @@ for m=1:M
         dir_resp = fullfile(dir_s,'resp'); 
         mkdir(dir_resp); 
         
-        pth_resp = cell(1,Kb);
-        for k=1:Kb
+        pth_resp = cell(1,pars.K);
+        for k=1:pars.K
             fname       = fullfile(dir_resp,['resp-', num2str(k), '-' nam, '.nii']);
             pth_resp{k} = fname;  
         end
@@ -235,4 +213,6 @@ for m=1:M
         cnt = cnt + 1;
     end
 end
+
+pars.rand_subjs = rand_subjs;
 %==========================================================================
