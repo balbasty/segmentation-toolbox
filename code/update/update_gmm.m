@@ -1,4 +1,4 @@
-function [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,K_lab,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll)
+function [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab)
 tiny = eps*eps;
 K    = numel(mg);
 Kb   = numel(wp);
@@ -8,7 +8,7 @@ for subit=1:nitgmm
     ll  = llrb + llr;
     
     % Compute responsibilities and moments
-    [mom,dll,mgm] = compute_moments(buf,K,mg,gmm,wp,lkp,K_lab);        
+    [mom,dll,mgm] = compute_moments(buf,K,mg,gmm,wp,lkp,wp_lab);        
     ll            = ll + dll;     
     
     % Add up 0:th moment
@@ -18,14 +18,14 @@ for subit=1:nitgmm
     if do_wp
         % Update tissue weights
         for k1=1:Kb
-            wp(k1) = (sum(s0(lkp==k1)) + wp_reg*1)/(mgm(k1) + wp_reg*Kb); % bias the solution towards 1
+            wp(k1) = (sum(s0(lkp.part==k1)) + wp_reg*1)/(mgm(k1) + wp_reg*Kb); % bias the solution towards 1
         end
         wp = wp/sum(wp);
     end
     
     % Update mixing proportions
     for k=1:K
-        tmp   = s0(lkp==lkp(k));
+        tmp   = s0(lkp.part==lkp.part(k));
         mg(k) = (s0(k) + tiny)/sum(tmp + tiny);  % US eq. 27 (partly)
     end
         

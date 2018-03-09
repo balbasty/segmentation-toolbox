@@ -6,9 +6,8 @@ bb              = obj.bb;
 vx              = obj.vx;
 lkp             = obj.lkp;
 modality        = obj.modality;
-K_lab           = obj.K_lab;
 do_missing_data = obj.do_missing_data;
-Kb              = max(lkp);
+Kb              = max(lkp.part);
 N               = numel(obj.image);
 
 % Load template
@@ -137,7 +136,7 @@ for z=1:length(x3)
         nm = nm + nnz(msk{n});
     end    
     clear bfn
-    
+       
     % Compute the deformation (mapping voxels in image to voxels in TPM)
     [t1,t2,t3] = make_inv_deformation(Coef,z,obj.MT,prm,x1,x2,x3,M);
 
@@ -157,18 +156,31 @@ for z=1:length(x3)
     b    = spm_sample_logpriors(tpm,t1(msk1),t2(msk1),t3(msk1));
     clear t1 t2 t3
     
+    if isempty(lkp.lab)
+        labels = [];
+    else
+        tmp = uint8(obj.labels.private.dat(:,:,z));        
+        tmp = tmp(msk1);
+        
+        labels = zeros([numel(tmp) Kb],'uint8');        
+        for k=1:Kb
+            labels(:,k) = tmp==obj.lkp.lab(k) & obj.lkp.lab(k)~=0;             
+        end
+        clear tmp
+    end
+    
     B           = zeros([nnz(msk1) Kb]);
     for k1 = 1:Kb, 
         B(:,k1) = b{k1}(:); 
     end
     clear b msk1
     
-    q1 = latent(f,bf,obj.mg,obj.gmm,B,lkp,obj.wp,msk,code,K_lab);
+    q1 = latent(f,bf,obj.mg,obj.gmm,B,lkp,obj.wp,msk,code,labels,obj.wp_lab);
     clear B f bf
     
     q           = NaN([prod(d(1:2)) Kb]);  
     for k1=1:Kb
-        q(:,k1) = sum(q1(:,lkp==k1),2);
+        q(:,k1) = sum(q1(:,lkp.part==k1),2);
     end 
     clear q1 
     
@@ -233,11 +245,12 @@ clear Q y Nii t1 c
 
 % Prepare computing template gradient and Hessian
 %--------------------------------------------------------------------------
-Nii = nifti(obj.pth_template);
-d   = [dm_bb,Kb,1,1,1];
-R   = null(ones(1,d(4)));    
-lwp = reshape(log(obj.wp),1,1,d(4));
-s   = sum(t,4);
+Nii  = nifti(obj.pth_template);
+d    = [dm_bb,Kb,1,1,1];
+R    = null(ones(1,d(4)));    
+lwp  = reshape(log(obj.wp),1,1,d(4));
+lwp1 = reshape(log(obj.wp),1,1,1,d(4));
+s    = sum(t,4);
 
 % Compute gradients and Hessian
 %--------------------------------------------------------------------------
@@ -247,10 +260,17 @@ gr  = zeros([d(1:3),d(4)-1],'single');
 ll  = 0;
 for z=1:d(3), % Loop over planes
 
-    % Log of template
-    sz = squeeze(Nii.dat(rngx,rngy,rngz(z),:));    
+    % Log of template    
+    sz = Nii.dat(rngx,rngy,rngz(z),:);
     
-    a = zeros([d(1:2) 1 d(4) - 1],'single');
+    % log-likelihood (using log-sum-exp)
+    sm0 = bsxfun(@plus,sz,lwp1);
+    sm1 = sum(t(:,:,z,:).*sm0,4);
+    sm2 = logsumexp(sm0,4).*s(:,:,z);
+    ll0 = sum(sum(sm1 - sm2));                        
+    
+    sz = reshape(sz,d(1),d(2),d(4));
+    a  = zeros([d(1:2) 1 d(4) - 1],'single');
     for j1=1:(d(4)-1),
         az = zeros(d(1:2));
         for j2=1:d(4),
@@ -262,10 +282,11 @@ for z=1:d(3), % Loop over planes
     % Compute softmax for this plane
     mu = double(reshape(sftmax(a,R,lwp),[d(1:2),d(4)]));
 
-    % -ve log likelihood of the likelihood
-    ll0 = sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d(1:2),d(4)]),3).*s(:,:,z)));
-    ll  = ll - ll0;
+%     % -ve log likelihood of the likelihood
+%     ll0 = sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d(1:2),d(4)]),3).*s(:,:,z)));    
     
+    ll  = ll - ll0;
+
     % Compute first derivatives (d(4)-1) x 1 
     grz = bsxfun(@times,mu,s(:,:,z)) - double(reshape(t(:,:,z,:),[d(1:2),d(4)]));
     for j1=1:(d(4)-1),
@@ -346,9 +367,14 @@ for k1=1:d(4)
     Nii.descrip = ['Template gradients ' num2str(k1)];
     create(Nii);
     
-    Nii.dat(:,:,:) = gr(:,:,:,k1);    
+    Nii.dat(:,:,:) = gr(:,:,:,k1);   
+    
+    if obj.sum_temp_der
+       Nii1                        = nifti(obj.pth_sgr); 
+       Nii1.dat(rngx,rngy,rngz,k1) = Nii1.dat(rngx,rngy,rngz,k1) + gr(:,:,:,k1);
+    end
 end
-clear Nii gr
+clear Nii Nii1 gr
 
 % Save Hessian
 %--------------------------------------------------------------------------
@@ -365,8 +391,13 @@ for k1=1:d(4)
     create(Nii);
     
     Nii.dat(:,:,:) = W(:,:,:,k1);    
+    
+    if obj.sum_temp_der
+       Nii1                        = nifti(obj.pth_sH); 
+       Nii1.dat(rngx,rngy,rngz,k1) = Nii1.dat(rngx,rngy,rngz,k1) + W(:,:,:,k1);
+    end
 end
-clear Nii W
+clear Nii Nii1 W
 %==========================================================================
 
 %==========================================================================

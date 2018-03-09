@@ -70,7 +70,7 @@ for m=1:numel(obj)
     end
     fprintf(' | DONE!\n')    
 end
-clear obj Nii
+clear Nii
 
 % Only d(4)-1 fields need to be estimated because sum(a,4) = 0.  This matrix
 % is used to rotate out the null space
@@ -104,10 +104,14 @@ if verbose>1
     fprintf('%2d | %8.7f %8.7f %8.7f %8.7f\n',iter,ll/prod(d(1:3)),ll1/prod(d(1:3)),(ll + ll1)/prod(d(1:3)),(ss2)/prod(d(1:3)));
 end
 
-a   = a - spm_field(W,gr,[prm(1:3) prm(4) prm(5:6) rits]); % Gauss-Newton update  
+a  = a - spm_field(W,gr,[prm(1:3) prm(4) prm(5:6) rits]); % Gauss-Newton update  
     
 mu = rotate_back(a,R);
 L  = -(ll + ll1);
+
+if sum(~isfinite(a(:))) || ~isfinite(L), 
+    error('sum(~isfinite(a(:))) || ~isfinite(L)'); 
+end
 %%==========================================================================
 
 %==========================================================================

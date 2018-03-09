@@ -1,6 +1,6 @@
 function [cls,M1] = write_res(obj)
 lkp             = obj.lkp;
-Kb              = max(lkp);
+Kb              = max(lkp.part);
 N               = numel(obj.image);
 modality        = obj.modality;
 do_missing_data = obj.do_missing_data;
@@ -259,7 +259,7 @@ for z=1:length(x3)
             end
             
             for k1=1:Kb
-                tmp                 = sum(q1(:,:,lkp==k1),3);
+                tmp                 = sum(q1(:,:,lkp.part==k1),3);
                 tmp(~isfinite(tmp)) = 1e-3;
                 q(:,:,k1)           = tmp.*(b{k1}./s);
             end

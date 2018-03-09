@@ -1,9 +1,9 @@
-function [ll,llr,buf,Twarp,L,armijo] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,K_lab,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,tot_S,armijo)
+function [ll,llr,buf,Twarp,L,armijo] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,tot_S,armijo,wp_lab)
 tiny = eps*eps;
 nz   = numel(buf);
 N    = numel(buf(1).f);
-K    = numel(lkp);
-Kb   = max(lkp);
+K    = numel(lkp.part);
+Kb   = max(lkp.part);
 d    = size(buf(1).msk{1});
 
 ll_const = 0;
@@ -14,7 +14,7 @@ if gmm.ml
         if ~buf(z).Nm, continue; end       
            
         % Compute likelihoods, and save them in buf.dat        
-        qt       = log_likelihoods(buf(z).f,buf(z).bf,mg,gmm,buf(z).msk,buf(z).code,K_lab,lkp);
+        qt       = log_likelihoods(buf(z).f,buf(z).bf,mg,gmm,buf(z).msk,buf(z).code,lkp);
         max_qt   = nanmax(qt,[],2);
         ll_const = ll_const + nansum(max_qt);
         B        = bsxfun(@times,double(buf(z).dat),wp);
@@ -23,7 +23,7 @@ if gmm.ml
         msk1 = buf(z).code>0;
         q    = zeros(buf(z).Nm,Kb);
         for k1=1:Kb
-            for k=find(lkp==k1)
+            for k=find(lkp.part==k1)
                 q(:,k1) = q(:,k1) + exp(qt(msk1,k) - max_qt(msk1));
             end
             buf1(z).dat(:,k1) = single(q(:,k1));
@@ -82,10 +82,10 @@ for z=1:nz
     
     if ~gmm.ml
         % Compute responsibilties        
-        qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,K_lab);        
+        qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab);        
         q  = zeros(buf(z).Nm,Kb,'single');
         for k1=1:Kb
-            for k=find(lkp==k1)
+            for k=find(lkp.part==k1)
                 q(:,k1) = q(:,k1) + qt(msk1,k);
             end
         end
@@ -182,7 +182,7 @@ for line_search=1:12
             cr                             = NaN(numel(buf(z).msk),N);
             for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end 
 
-            [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,K_lab,cr);
+            [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
             ll1     = ll1 + dll;
 
             mom = spm_SuffStats(cr,q,mom,buf(z).code);

@@ -6,8 +6,7 @@ tpm = spm_load_logpriors(obj.pth_template);
 
 % Parameters, etc.
 %-----------------------------------------------------------------------
-Affine    = obj.Affine;
-V         = obj.image;
+V         = obj.image; 
 N         = numel(V);
 d0        = V(1).dim(1:3);
 vx        = sqrt(sum(V(1).mat(1:3,1:3).^2));
@@ -16,10 +15,10 @@ sk        = max([1 1 1],round(obj.samp*[1 1 1]./vx));
 z0        = 1:sk(3):d0(3);
 d         = [size(x0) length(z0)];
 lkp       = obj.lkp;
-Kb        = max(obj.lkp);
-K_lab     = obj.K_lab;
+Kb        = max(lkp.part);
 tol1      = obj.tol1;
 wp_reg    = 1;
+wp_lab    = obj.wp_lab;
 modality  = obj.modality;
 niter     = obj.niter;
 nitgmm    = obj.nitgmm;
@@ -30,6 +29,7 @@ do_def    = obj.do_def;
 do_wp     = obj.do_wp;
 print_ll  = obj.print_ll;
 pth_vel   = obj.pth_vel;
+Affine    = obj.Affine;
 M         = tpm.M\Affine*V(1).mat;
 tot_S     = obj.tot_S;
 
@@ -47,14 +47,15 @@ if isfield(obj,'wp'), wp = obj.wp;
 else,                 wp = ones(1,Kb)/Kb;
 end
         
+part0 = lkp.part;
 if isfield(obj,'mg')
     mg = obj.mg;   
-    if numel(mg)~=numel(lkp)
-        lkp = 1:Kb;       
+    if numel(mg)~=numel(lkp.part)
+        lkp.part = 1:Kb;       
     end
 else              
-    mg  = ones(Kb,1);
-    lkp = 1:Kb;   
+    mg       = ones(Kb,1);
+    lkp.part = 1:Kb;   
 end
 
 % Initialise bias field
@@ -63,7 +64,7 @@ end
 
 % Initialise deformation and template
 %-----------------------------------------------------------------------
-[buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,lkp,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M);
+[buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M);
 
 % Initialise GMM
 %-----------------------------------------------------------------------
@@ -81,9 +82,9 @@ for iter=1:niter
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Estimate cluster parameters
         %------------------------------------------------------------
-        [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,K_lab,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll);
+        [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab);
  
-        debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,K_lab);
+        debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_lab);
         
         if subit > 1 && ~((ll-ooll)>2*tol1*nm), break; end
         ooll = ll;
@@ -96,7 +97,7 @@ for iter=1:niter
             % The aim is to save memory, and maybe make the computations
             % faster.
             %------------------------------------------------------------
-            [ll,llrb,buf,chan,L,armijo(1)] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,K_lab,chan,fig,L,print_ll,armijo(1));
+            [ll,llrb,buf,chan,L,armijo(1)] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_lab);
         
             debug_view('bf',fig{2},lkp,buf,modality);
         end
@@ -107,11 +108,11 @@ for iter=1:niter
             spm_plot_convergence('Clear');
             spm_plot_convergence('Init','Processing','Log-likelihood','Iteration');
 
-            if numel(obj.lkp) ~= numel(lkp)
-                lkp      = obj.lkp;
-                K        = numel(lkp);
-                Kb       = max(lkp);
-                [gmm,mg] = more_gmms(gmm,lkp,K,Kb);
+            if numel(lkp.part) ~= numel(part0)
+                lkp.part = part0;
+                K        = numel(lkp.part);
+                Kb       = max(lkp.part);
+                [gmm,mg] = more_gmms(gmm,lkp.part,K,Kb);
             end
         end
     end
@@ -121,9 +122,9 @@ for iter=1:niter
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Estimate cluster parameters
             %------------------------------------------------------------
-            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,K_lab,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll);
+            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab);
 
-            debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,K_lab);
+            debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_lab);
 
             if subit > 1 && ~((ll-oll)>2*tol1*nm), break; end
             oll = ll;
@@ -131,7 +132,7 @@ for iter=1:niter
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Estimate deformations
             %------------------------------------------------------------
-            [ll,llr,buf,Twarp,L,armijo(2)] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,K_lab,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,tot_S,armijo(2));
+            [ll,llr,buf,Twarp,L,armijo(2)] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,tot_S,armijo(2),wp_lab);
         end    
     end
 
@@ -191,9 +192,8 @@ ff   = prod(4*pi*(s./vx./sk).^2 + 1)^(1/2);
 %=======================================================================
 
 %=======================================================================
-function [gmm,mg] = more_gmms(gmm,lkp,K,Kb)
+function [gmm,mg] = more_gmms(gmm,part,K,Kb)
 mg = ones(K,1)/K;
-
 if gmm.ml
     mn1 = gmm.mn;
     vr1 = gmm.vr;
@@ -208,13 +208,13 @@ if gmm.ml
         % A crude heuristic to replace a single Gaussian by a bunch of Gaussians
         % If there is only one Gaussian, then it should be the same as the
         % original distribution.
-        kk  = sum(lkp==k);
+        kk  = sum(part==k);
         w   = 1./(1+exp(-(kk-1)*0.25))-0.5;
         
-        mn(:,lkp==k)   = sqrtm(vr1(:,:,k))*randn(N,kk)*w + repmat(mn1(:,k),[1,kk]);
-        vr(:,:,lkp==k) = repmat(vr1(:,:,k)*(1-w),[1,1,kk]);
+        mn(:,part==k)   = sqrtm(vr1(:,:,k))*randn(N,kk)*w + repmat(mn1(:,k),[1,kk]);
+        vr(:,:,part==k) = repmat(vr1(:,:,k)*(1-w),[1,1,kk]);
         
-        mg(lkp==k)     = 1/kk;
+        mg(part==k)     = 1/kk;
     end
 
     gmm.mn = mn;
@@ -233,13 +233,13 @@ else
     W = zeros(size(W0));
     
     for k=1:Kb
-        kk            = sum(lkp==k);
-        b(lkp==k)     = b0(k);
-        m(:,lkp==k)   = repmat(m0(:,k),[1,kk]);
-        n(lkp==k)     = n0(k);
-        W(:,:,lkp==k) = repmat(W0(:,:,k),[1 1 kk]); 
+        kk            = sum(part==k);
+        b(part==k)     = b0(k);
+        m(:,part==k)   = repmat(m0(:,k),[1,kk]);
+        n(part==k)     = n0(k);
+        W(:,:,part==k) = repmat(W0(:,:,k),[1 1 kk]); 
         
-        mg(lkp==k) = 1/kk;
+        mg(part==k) = 1/kk;
     end
     
     gmm.pr.m = m;
@@ -262,15 +262,15 @@ else
     N = size(m,1);
     
     for k=1:Kb
-        kk  = sum(lkp==k);
+        kk  = sum(part==k);
         w   = 1./(1+exp(-(kk-1)*0.25))-0.5;
         
         vr0           = inv(n0(k)*W0(:,:,k));
         pr0           = inv(vr0*(1 - w));                        
-        b(lkp==k)     = b0(k)/kk;
-        m(:,lkp==k)   = sqrtm(vr0)*randn(N,kk)*w + repmat(m0(:,k),[1,kk]);
-        n(lkp==k)     = n0(k)/kk;
-        W(:,:,lkp==k) = repmat(pr0/n0(k),[1 1 kk]);   
+        b(part==k)     = b0(k)/kk;
+        m(:,part==k)   = sqrtm(vr0)*randn(N,kk)*w + repmat(m0(:,k),[1,kk]);
+        n(part==k)     = n0(k)/kk;
+        W(:,:,part==k) = repmat(pr0/n0(k),[1 1 kk]);   
     end
     
     gmm.po.m = m;

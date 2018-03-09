@@ -1,6 +1,6 @@
-function [buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,lkp,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M)
+function [buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M)
 nz      = numel(buf);
-Kb      = max(lkp);
+Kb      = max(obj.lkp.part);
 pth_vel = obj.pth_vel;
 
 spm_diffeo('boundary',1);
@@ -46,5 +46,5 @@ for z=1:nz
     for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
 end
 
-debug_view('template',fig{3},lkp,buf,wp);  
+debug_view('template',fig{3},obj.lkp,buf,wp);  
 %=======================================================================

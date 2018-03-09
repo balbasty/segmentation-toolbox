@@ -1,34 +1,29 @@
-function pars = init_template(V,pars)
-
-if exist(pars.dir_template,'dir'), rmdir(pars.dir_template,'s'); end; mkdir(pars.dir_template);    
+function pars = init_template(pars)
 
 if ~pars.do_segment
-    pars.pth_template = fullfile(spm('dir'),'tpm','TPM.nii');  
-    V1                = spm_vol(pars.pth_template); 
-    pars.uniform      = false;
-    pars.dt           = V1.dt;
     return
 end
 
+if exist(pars.dir_template,'dir'), rmdir(pars.dir_template,'s'); end; mkdir(pars.dir_template);
+
 if isempty(pars.pth_template)
-    pars.uniform = true;
-    K            = pars.K;
+    K = pars.K;
     
     % Compute average dimensions and orientation matrix so that template 
     % will cover all images    
     %----------------------------------------------------------------------
 
     % Collect orientation matrices and dimensions from all input images
-    M    = numel(V);
+    M    = numel(pars.dat);
     mats = [];
     dms  = [];    
     for m=1:M
-        S = numel(V{m});
-        N = numel(V{m}{1});
+        S = numel(pars.dat{m}.V);
+        N = numel(pars.dat{m}.V{1});
 
          for s=1:S
             for n=1:N
-                Nii = nifti(V{m}{s}(n).fname);
+                Nii = nifti(pars.dat{m}.V{s}(n).fname);
                 M   = Nii.mat;
                 mats = cat(3,mats,M);
 
@@ -64,9 +59,7 @@ if isempty(pars.pth_template)
     d = ceil((M\[mx 1]')');
     d = d(1:3);
 
-    if spm_flip_analyze_images, M = diag([-1 1 1 1])*M; end    
-
-    pars.dt = [spm_type('float32') spm_platform('bigend')];
+    if spm_flip_analyze_images, M = diag([-1 1 1 1])*M; end       
     
     pars.pth_template = fullfile(pars.dir_template,'template.nii');   
     [pth,nam,ext]     = fileparts(pars.pth_template);

@@ -4,8 +4,8 @@ if ~isempty(fig)
     nz  = numel(buf);
     dz  = floor(nz/2) + 1;
     d   = [size(buf(1).msk{1}) nz];        
-    Kb  = max(lkp);
-    K   = numel(lkp);      
+    Kb  = max(lkp.part);
+    K   = numel(lkp.part);      
     
     prob_colmap = [zeros(128,1), linspace(0,1,128)', linspace(1,0,128)';
                    linspace(0,1,128)', linspace(1,0,128)', zeros(128,1)];
@@ -15,29 +15,29 @@ if ~isempty(fig)
     
     % Responsibilities
     if strcmp(type,'responsibilities')
-        gmm   = varargin{2}; 
-        mg    = varargin{3}; 
-        wp    = varargin{4}; 
-        K_lab = varargin{5};
+        gmm     = varargin{2}; 
+        mg      = varargin{3}; 
+        wp      = varargin{4}; 
+        wp_lab  = varargin{5};
         
         Q = zeros([d K],'single');
         for z=1:nz
-            q          = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,K_lab);            
+            q          = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab);            
             Q(:,:,z,:) = reshape(single(q),[d(1:2) 1 K]);
         end        
                  
         for k=1:K              
             subplot(3,K,k);
             slice = Q(:,:,floor(d(3)/2) + 1,k);
-            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(gray);               
+            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp.part(k))]); colormap(gray);               
             
             subplot(3,K,K + k);
             slice = permute(Q(:,floor(d(2)/2) + 1,:,k),[3 1 2]);
-            imagesc(slice); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(gray);   
+            imagesc(slice); axis image xy off; title(['q, k=' num2str(lkp.part(k))]); colormap(gray);   
             
             subplot(3,K,2*K + k);
             slice = permute(Q(floor(d(1)/2) + 1,:,:,k),[2 3 1]);
-            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp(k))]); colormap(gray);   
+            imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp.part(k))]); colormap(gray);   
         end 
     end
     
@@ -72,7 +72,7 @@ if ~isempty(fig)
         
     % Template
     if strcmp(type,'template')    
-        wp    = varargin{2};
+        wp = varargin{2};
         
         Q = zeros([prod(d(1:2)) 1 Kb],'single');
         for z=1:nz

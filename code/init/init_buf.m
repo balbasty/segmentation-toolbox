@@ -1,5 +1,5 @@
 function [buf,nm,vr0,mn,mx] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
-Kb              = numel(tpm.V);
+Kb              = max(obj.lkp.part);
 d               = [size(x0) length(z0)];
 modality        = obj.modality;
 do_missing_data = obj.do_missing_data;
@@ -45,7 +45,7 @@ mom1 = zeros(1,N);
 mom2 = zeros(1,N);
 
 cl   = cell(length(z0),1);
-buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'img',cl);
+buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'img',cl,'labels',cl);
 for z=1:length(z0)
     if tot_S==1
         % Load only those voxels that are more than 5mm up
@@ -102,7 +102,7 @@ for z=1:length(z0)
             buf(z).msk{n} = msk;
             buf(z).nm(n)  = nnz(buf(z).msk{n});
         end
-    end
+    end    
     
     code            = zeros([numel(buf(z).msk{1}) 1],typ);
     for n=1:N, code = bitor(code,bitshift(feval(cast,buf(z).msk{n}(:)),(n - 1))); end
@@ -110,8 +110,29 @@ for z=1:length(z0)
 
     buf(z).Nm = nnz(code);
     nm        = nm + buf(z).Nm; 
+        
+    % Prepare labels (if provided)
+    %----------------------------------------------------------------------
+    if isempty(obj.lkp.lab)
+        buf(z).labels = [];
+    else
+        msk = code>0;
+        tmp = uint8(spm_sample_vol(obj.labels,x0,y0,o*z0(z),0));        
+        tmp = tmp(msk);
+        clear msk
+        
+        nlabels = zeros([numel(tmp) Kb],'uint8');
+        for k=1:Kb
+            nlabels(:,k) = tmp==obj.lkp.lab(k) & obj.lkp.lab(k)~=0;             
+        end
+        clear tmp
+        
+        buf(z).labels = nlabels;
+        clear nlabels
+    end
     
     % Eliminate unwanted voxels
+    %----------------------------------------------------------------------
     for n=1:N
         if scrand(n)
             % Data is an integer type, so to prevent aliasing in the histogram, small

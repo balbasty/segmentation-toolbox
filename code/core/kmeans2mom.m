@@ -1,12 +1,11 @@
 function mom = kmeans2mom(buf,K,mn,mx,init_clust,kmeans_dist)
-N = numel(buf(1).f);
-d = [size(buf(1).msk{1}) numel(buf)];
+N = numel(buf(1).img);
 
 C = linspace_vec(mn,mx,K);
 if size(C,1)~=K, C = C'; end
 
 F = [];
-for z=1:d(3)          
+for z=1:numel(buf)          
     if ~numel(buf(z).img{1}), continue; end 
     
     cr                 = zeros([numel(buf(z).img{1}) N],'single');

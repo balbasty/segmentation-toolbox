@@ -1,4 +1,4 @@
-function [ll,llrb,buf,chan,L,armijo] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,K_lab,chan,fig,L,print_ll,armijo)
+function [ll,llrb,buf,chan,L,armijo] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo,wp_lab)
 nz = numel(buf);
 N  = numel(buf(1).f);
 K  = numel(mg);
@@ -27,7 +27,7 @@ for n=1:N
             cr                 = cell(N,1);
             for n1=1:N, cr{n1} = double(buf(z).f{n1}).*double(buf(z).bf{n1}); end
 
-            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,K_lab,cr);
+            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
 
             w1 = zeros(buf(z).nm(n),1);
             w2 = zeros(buf(z).nm(n),1);
@@ -82,7 +82,7 @@ for n=1:N
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll] = compute_moments(buf,K,mg,gmm,wp,lkp,K_lab);        
+            [mom,dll] = compute_moments(buf,K,mg,gmm,wp,lkp,wp_lab);        
             ll        = ll + dll; 
 
             % Compute missing data and VB components of ll

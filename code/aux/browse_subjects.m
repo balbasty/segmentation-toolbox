@@ -1,7 +1,31 @@
-function browse_subjects(folder,S)
-if nargin<2, S = Inf; end
+function browse_subjects(pth)
+folder    = dir(pth);
+folder    = folder(3:end);
+dirflag   = [folder.isdir];
+subfolder = folder(dirflag);
+S         = numel(subfolder);
 
-[V,S,N] = read_ims_from_dir(folder,S);
+dir_scans = fullfile(pth,subfolder(1).name);     
+
+scans = dir(fullfile(dir_scans,'*.nii'));
+if isempty(scans)
+    scans = dir(fullfile(dir_scans,'*.img'));
+end
+
+N = numel(scans);
+V = cell(1,S);
+for s=1:S
+    dir_scans = fullfile(pth,subfolder(s).name);        
+
+    scans = dir(fullfile(dir_scans,'*.nii'));
+    if isempty(scans)
+        scans = dir(fullfile(dir_scans,'*.img'));
+    end
+
+    for n=1:N
+        V{s}(n) = spm_vol(fullfile(dir_scans,scans(n).name));
+    end              
+end 
 
 fname = cell(1,N*S);
 cnt   = 1;

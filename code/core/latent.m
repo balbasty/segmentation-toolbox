@@ -1,14 +1,29 @@
-function [Q,ll] = latent(f,bf,mg,gmm,B,lkp,wp,msk,code,K_lab,cr)
-if nargin<11, cr = []; end
+function [Q,ll] = latent(f,bf,mg,gmm,B,lkp,wp,msk,code,labels,wp_lab,cr)
+if nargin<12, cr = []; end
 
-B  = log_spatial_priors(B,wp);
-Q  = log_likelihoods(f,bf,mg,gmm,msk,code,K_lab,lkp,cr);
+if isempty(labels)
+    wp1 = 1;
+    wp2 = 0;
+else
+    wp1 = 1 - wp_lab;
+    wp2 = wp_lab;    
+    
+    tiny   = 1e-4;
+    labels = log_spatial_priors(double(labels) + tiny,[],wp2);
+end
 
-Kb   = max(lkp);
+B  = log_spatial_priors(B,wp,wp1);
+Q  = log_likelihoods(f,bf,mg,gmm,msk,code,lkp,cr);
+
+Kb   = max(lkp.part);
 msk1 = code>0;
 for k1=1:Kb
-    for k=find(lkp==k1)
-        Q(msk1,k) = Q(msk1,k) + B(:,k1);
+    for k=find(lkp.part==k1)
+        if isempty(labels)
+            Q(msk1,k) = Q(msk1,k) + B(:,k1);
+        else
+            Q(msk1,k) = Q(msk1,k) + B(:,k1) + labels(:,k1);
+        end
     end
 end
 
@@ -36,7 +51,7 @@ else
         L(2) = nansum(nansum(bsxfun(@times,Q,log(prod(bf,2)))));
 
         % TPMs
-        L(3) = nansum(nansum(Q(msk1,:).*bsxfun(@plus,B(:,lkp),log(mg)')));   
+        L(3) = nansum(nansum(Q(msk1,:).*bsxfun(@plus,B(:,lkp.part),log(mg)')));   
         
         ll   = sum(L);
     end

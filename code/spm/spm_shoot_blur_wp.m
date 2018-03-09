@@ -36,7 +36,8 @@ for i=1:its,
         for s1=1:S % Loop over subjects
 
             [t,s,lwp,rng0,d0] = load_from_obj(obj,m,s1);                        
-
+            lwp1              = reshape(lwp,1,1,1,d1(4));
+            
             % Compute gradients and Hessian
             lls = 0;            
             for z=1:d0(3), % Loop over planes
@@ -47,8 +48,19 @@ for i=1:its,
                 mu = double(reshape(sftmax(a1,R,lwp),[d0(1:2),d1(4)]));
 
                 % -ve log likelihood of the likelihood
-                ll0 = sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d0(1:2),d1(4)]),3).*s(:,:,z)));
+%                 ll0 = sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d0(1:2),d1(4)]),3).*s(:,:,z)));
+                                
+                % log-likelihood (using log-sum-exp)
+                sm0 = bsxfun(@plus,rotate_back(a1,R),lwp1);
+                sm1 = sum(t(:,:,z,:).*sm0,4);
+                sm2 = logsumexp(sm0,4).*sum(t(:,:,z,:),4);
+                ll0 = sum(sum(sm1 - sm2));                                
+                
                 lls = lls - ll0;
+                
+                if ~isfinite(lls)
+                    warning('~isfinite(lls)');
+                end
                 
                 % Compute first derivatives (d(4)-1) x 1 
                 grz = bsxfun(@times,mu,s(:,:,z)) - double(reshape(t(:,:,z,:),[d0(1:2),d1(4)]));

@@ -1,28 +1,82 @@
 function [gmm,buf] = init_gmm(obj,N,buf,vr0,mn,mx)
-kmeans_dist = obj.kmeans_dist;
-init_clust  = obj.init_clust;
-uniform     = obj.uniform;
-K_lab       = obj.K_lab;
-Kb          = numel(K_lab{1});
-K           = numel(K_lab{1}) + numel(K_lab{2});
-% Kr          = numel(K_lab{2});
-% K_keep      = K_lab{1};
-% K_rem       = K_lab{2};
-
 gmm            = obj.gmm;
-gmm.vr0        = vr0;
+gmm.init_clust = obj.init_clust;
 gmm.ml         = obj.do_ml;
-gmm.min        = mn;
-gmm.max        = mx;
-gmm.init_clust = init_clust;
+
+gmm.vr0 = vr0;
+gmm.min = mn;
+gmm.max = mx;
 
 if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
+    
+    Kb  = max(obj.lkp.part);
+    lkp = obj.lkp;
+    
     % Compute moments
     %----------------------------------------------------------------------
-    if uniform
+    if obj.uniform
         % Uniform template provided, use the k-means algorithm to comppute
         % moments
-        mom = kmeans2mom(buf,Kb,mn,mx,init_clust,kmeans_dist);
+        if isempty(lkp.lab)            
+            mom = kmeans2mom(buf,numel(lkp.keep),mn,mx,obj.init_clust,obj.kmeans_dist);        
+        else                     
+            % Extract non-labelled voxels
+            msk  = ismember(lkp.keep,lkp.lab);
+            lkp1 = lkp.keep(~msk);
+            
+            N    = numel(buf(1).f);
+            buf1 = struct;
+            for z=1:numel(buf)
+                msk = sum(buf(z).labels,2)==0;
+                buf1(z).img = cell(1,N);
+                for n=1:N
+                    buf1(z).img{n} = buf(z).img{n}(msk);
+                end
+            end
+            
+            mom1 = kmeans2mom(buf1,nnz(lkp1),mn,mx,obj.init_clust,obj.kmeans_dist);   
+            clear buf1
+            
+            % Extract labelled voxels                                
+            lkp2 = lkp.lab;
+            
+            mom2 = moments_struct(nnz(lkp2),N);
+            for z=1:numel(buf)
+                msk = sum(buf(z).labels,2)>0;
+                
+                cr          = zeros(nnz(msk),N);
+                for n=1:N, 
+                    cr(:,n) = double(buf(z).img{n}(msk)); 
+                end  
+                
+                q          = zeros(nnz(msk),nnz(lkp2));
+                for k=1:nnz(lkp2)
+                    q(:,k) = double(buf(z).labels(msk,lkp.lab==k));
+                end
+                
+                for k=1:nnz(lkp2)
+                    mom2(end).s0(1,k)   = mom2(end).s0(1,k)   + sum(q(:,k));
+                    mom2(end).s1(:,k)   = mom2(end).s1(:,k)   + cr(:,:)'*q(:,k);
+                    mom2(end).S2(:,:,k) = mom2(end).S2(:,:,k) + bsxfun(@times,q(:,k),cr(:,:))'*cr(:,:);
+                end
+            end
+            
+            % Combine moments
+            mom = moments_struct(numel(lkp.keep),N);
+            cnt = 1;
+            for k=1:numel(lkp.keep)
+                if lkp2(k)
+                    mom(end).s0(1,k)   = mom2(end).s0(1,lkp2(k));
+                    mom(end).s1(:,k)   = mom2(end).s1(:,lkp2(k));
+                    mom(end).S2(:,:,k) = mom2(end).S2(:,:,lkp2(k));                    
+                else
+                    mom(end).s0(1,k)   = mom1(end).s0(1,cnt);
+                    mom(end).s1(:,k)   = mom1(end).s1(:,cnt);
+                    mom(end).S2(:,:,k) = mom1(end).S2(:,:,cnt);
+                    cnt                = cnt + 1;
+                end
+            end
+        end
         buf = rmfield(buf,'img');
     else       
         % Use template to compute moments
@@ -43,8 +97,8 @@ if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
     ogmm = gmm;
     gmm  = ogmm;
     kk   = 1;
-    for k=1:K
-        if any(K_lab{2}==k)
+    for k=1:Kb
+        if any(lkp.rem==k)
             if gmm.ml
                 gmm.mn(:,k)   = zeros(size(ogmm.mn(:,1)));
                 gmm.vr(:,:,k) = eye(size(ogmm.vr(:,:,1)));
