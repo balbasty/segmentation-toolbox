@@ -151,12 +151,20 @@ for iter=1:200
         y2a     = T(2,1)*x1 + T(2,2)*x2 + T(2,4);
         y3a     = T(3,1)*x1 + T(3,2)*x2 + T(3,4);
 
+        if numel(x{3})==1
+            y3a = ones(size(y3a));
+        end
+        
         for i=1:length(x3)
             if ~buf(i).nm, continue; end
             y1    = y1a(buf(i).msk) + T(1,3)*x3(i);
             y2    = y2a(buf(i).msk) + T(2,3)*x3(i);
             y3    = y3a(buf(i).msk) + T(3,3)*x3(i);
 
+            if numel(x{3})==1
+                y3 = ones(size(y3));
+            end
+        
             msk   = y3>=1;
             y1    = y1(msk);
             y2    = y2(msk);
@@ -229,6 +237,10 @@ for iter=1:200
         y2    = y2a(buf(i).msk) + T(2,3)*x3(i);
         y3    = y3a(buf(i).msk) + T(3,3)*x3(i);
 
+        if numel(x{3})==1
+            y3 = ones(size(y3));
+        end
+            
         msk   = y3>=1;
         y1    = y1(msk);
         y2    = y2(msk);

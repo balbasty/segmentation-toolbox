@@ -1,45 +1,10 @@
 function build_template
 
-%--------------------------------------------------------------------------
-%
-% Qs
-% -Is something wrong with shrinking? (not shrinking after iter=1...)
-%
-% PRIO
-% -labels
-%   --FSL_SEG -> .img
-%   --PROCESSED -> OAS1_0001_MR1_mpr_n4_anon_111_t88_gfc
-%   --add to preprocess as well
-% -Add back missing 
-%   --problem with convergence of bf (when lkp>1?), probably due to
-%     decreasing ll...
-%   --include missing ll for ml
-% -Clean up repo + add readme
-% -Improved registration: diffeo + reparameterise + average correct
-%
-% TODO
-% -do_reslice not working
-% -impreproc -> overwrite or not
-% -Test including MRA images (requires missing data to work well)
-% -DICOM convert
-% -Add denoising
-% -Add superres (spm_imquality)
-% -Introduce aux
-% -Use K - 1 classes for template?
-% -Investigate shoot_template prm
-%
-% CLUSTER
-% -Reintroduce split?
-% -Same results, cluster vs non-cluster
-% -If same result, try to sum to one gr and H
-%
-%--------------------------------------------------------------------------
-
 addpath(genpath('./code'))
 addpath('/cherhome/mbrud/dev/distributed-computing')
 addpath('/cherhome/mbrud/dev/auxiliary-functions')
 
-test_level = 0;
+test_level = 2; % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
 
 %--------------------------------------------------------------------------
 % Set algorithm parameters
@@ -51,38 +16,56 @@ pars.dir_output   = '/data/mbrud/data-seg';
 % pars.dir_output   = '/home/mbrud/Data/data-seg';
 pars.dat          = {};
 
-% m = 1;
-% pars.dat{m}.dir_data = '/data/mbrud/images/MRI/IXI-T1T2PD/';
-% pars.dat{m}.do_preproc = true;
-% pars.dat{m}.do_rem_corrupted = false;
-% pars.dat{m}.S = Inf;
-% pars.do_segment = false;
+% Basic test
+%-----------------
+m = 1;
+pars.dat{m}.dir_data = '/data/mbrud/images/2D/MRI/2D-IXI-T1-preproc-rn/';
+pars.dat{m}.segment.verbose = true;
+% pars.dat{m}.S = 32;
+% % pars.dat{m}.dir_data = '/data/mbrud/images/MRI/IXI-T1T2PD-preproc-rn/';
 
+% CHROMIS
+%-----------------
+% pars.K = 10;
+% pars.crop_template = 10;
+% 
+% m = 1;
+% % pars.dat{m}.dir_data = '/data/mbrud/images/2D/CT/2D-lesion/';
+% pars.dat{m}.dir_data = '/data/mbrud/images/CT/CHROMIS-preproc-rn-ss-dn/';
+% pars.dat{m}.S = Inf;
+% pars.dat{m}.modality = 'CT';
+% pars.dat{m}.segment.do_bf = false;
+% % pars.dat{m}.segment.biasfwhm = 30;
+% % pars.dat{m}.segment.biasreg = 1e-1;
+% pars.dat{m}.segment.samp = 2;
+% % pars.dat{m}.segment.kmeans_ix = [1 5 3 4 2 6];
+% pars.dat{m}.trunc_ct = [-eps 200];
+% % pars.dat{m}.segment.verbose = true;
+% 
+% m = 2;
+% % pars.dat{m}.dir_data = '/data/mbrud/images/2D/CT/2D-healthy/';
+% pars.dat{m}.dir_data = '/data/mbrud/images/CT/healthy-preproc-rn-ss-dn/';
+% pars.dat{m}.S = Inf;
+% pars.dat{m}.modality = 'CT';
+% pars.dat{m}.segment.do_bf = false;
+% pars.dat{m}.segment.samp = 2;
+% % pars.dat{m}.segment.kmeans_ix = [1 2 3 4 5 6 8 7];
+% pars.dat{m}.trunc_ct = [-eps 200];
+% %pars.dat{m}.segment.lkp.rem = [7];
+
+% Labels
+%-----------------
 % m = 1;
 % pars.dat{m}.dir_data = '/home/mbrud/Data/MR-and-labels/';
 % pars.dat{m}.segment.use_labels = true;
-% % pars.dat{m}.segment.wp_lab     = eps;
+% pars.dat{m}.segment.wp_lab     = eps;
 % pars.dat{m}.segment.do_push_resp = true;
 % pars.dat{m}.segment.ml = true;
 % pars.dat{m}.segment.lkp.lab = [3 2 1 0 0 0];
-% % % pars.dat{m}.segment.lkp.rem = [6];
-
-pars.K = 9;  
-m = 1;
-pars.dat{m}.dir_data           = '/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/';
-pars.dat{m}.S                  = Inf;
-pars.dat{m}.modality           = 'CT';
-pars.dat{m}.segment.samp       = 2;
-pars.dat{m}.segment.init_clust = 'total';
-
-m = 2;
-pars.dat{m}.dir_data           = '/data/mbrud/images/CT/healthy-preproc-rn-ss/';
-pars.dat{m}.S                  = Inf;
-pars.dat{m}.modality           = 'CT';
-pars.dat{m}.segment.samp       = 2;
-pars.dat{m}.segment.init_clust = 'total';
-pars.dat{m}.segment.lkp.rem    = [4];        
-
+% pars.dat{m}.segment.lkp.rem = [6];
+ 
+% Set a template
+%-----------------
 % pars.pth_template        = fullfile(get_pth_dropbox,'PhD/Data/log-template/logTPM.nii');
 % pars.pth_template        = fullfile(get_pth_dropbox,'PhD/Data/log-template/logBlaiottaTPM.nii');
 
@@ -98,15 +81,15 @@ holly.server.login  = 'mbrud';
 holly.client.folder = fullfile(pars.dir_output,'cluster');
 holly.server.folder = holly.client.folder;
 % holly.server.folder = fullfile('/scratch',holly.client.folder(15:end));
-holly.matlab.bin    = '/share/apps/matlab';
-holly.matlab.addsub = '/home/mbrud/dev/build-template';
-holly.matlab.add    = '/home/mbrud/dev/auxiliary-functions';
 % holly.translate     = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
+holly.matlab.bin    = '/share/apps/matlab';
+holly.matlab.addsub = '/home/mbrud/dev/segmentation-toolbox';
+holly.matlab.add    = '/home/mbrud/dev/auxiliary-functions';
 holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = false;
-holly.job.mem       = '6G';
+holly.job.mem       = '7G';
 holly.job.use_dummy = true;
 
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
@@ -168,29 +151,35 @@ for iter=1:pars.niter
         shrink_template(obj,iter);    
     end
     
+    if pars.niter>1 && pars.crop_template==iter
+        % Crop template to size of the default SPM template
+        %------------------------------------------------------------------
+        crop_template(pars.pth_template,iter);
+    end
+    
     if pars.niter>1
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
         obj = update_intensity_prior(obj,iter);
     end
        
-    % Save object file
-    %----------------------------------------------------------------------
-    save(fullfile(pars.dir_template,'obj.mat'),'obj')
+    % Save obj structs
+    %------------------------------------------------------------------
+    save(fullfile(pars.dir_template,'obj.mat'),'obj');
     
     if pars.niter>1
         % Some verbose
-        %----------------------------------------------------------------------
+        %------------------------------------------------------------------
         if pars.verbose>0, plot_ll(pars.fig{5},L); end
-        if pars.verbose>1, show_template(pars.fig{6},pars); end
+        if pars.verbose>1, show_template(pars.pth_template,pars.fig{6}); end
         if pars.verbose>2, show_resp(pars.fig{7},obj,pars); end      
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
         
-        if d<pars.tol
-           break 
-        end
+%         if d<pars.tol
+%            break 
+%         end
     end
 end
 
@@ -208,8 +197,8 @@ for m=1:M
         obj{m}{s}.iter = iter;
         
         if iter==1             
-            obj{m}{s}.do_def       = false;
-            obj{m}{s}.do_bf        = false;
+            obj{m}{s}.do_def = false;
+            obj{m}{s}.do_bf  = false;
             
             obj{m}{s}.do_push_resp = true;
             obj{m}{s}.do_write_res = false;
@@ -222,14 +211,14 @@ for m=1:M
         if iter==2            
             obj{m}{s}.nsubit  = 8;
             obj{m}{s}.nitgmm  = 20;  
-            obj{m}{s}.do_bf   = true;                
+            obj{m}{s}.do_bf   = obj{m}{s}.do_bf0;                
             obj{m}{s}.uniform = false;                        
         end
 
-        if iter>=3            
+        if iter>=2
             obj{m}{s}.reg    = obj{m}{s}.reg0;            
             scal             = 2^max(12 - iter,0);                  
-            obj{m}{s}.reg(3) = obj{m}{s}.reg(3)*scal;
+            obj{m}{s}.reg(3) = obj{m}{s}.reg(3)*scal;         
         end
         
         % Sum bias field DC components
@@ -244,6 +233,39 @@ for m=1:M
     for s=1:S 
         obj{m}{s}.avg_bf_dc = avg_bf_dc; 
     end
+end
+%==========================================================================
+
+%==========================================================================
+function crop_template(pth_template,iter,verbose)
+if nargin<3, verbose = true; end
+
+pth0 = fullfile(spm('dir'),'tpm','TPM.nii');  
+V0   = spm_vol(pth0);   
+d0   = V0(1).dim;
+vx0  = vxsize(V0(1).mat);
+
+V1  = spm_vol(pth_template);
+K1  = numel(V1);
+d1  = V1(1).dim;
+vx1 = vxsize(V1(1).mat);
+
+msk     = d1<d0;
+d0(msk) = d1(msk);
+
+sk0 = d0;
+sk1 = d1;
+
+bb1 = floor((sk1 - sk0)/2);
+bb2 = bb1 + sk0;
+bb  = [bb1' bb2'];
+
+for k=1:K1
+    spm_impreproc('subvol',V1(k),bb','');        
+end
+
+if verbose
+    fprintf('%2d | size(otpm) = [%d %d %d] | size(ntpm) = [%d %d %d]\n',iter,d1(1),d1(2),d1(3),d0(1),d0(2),d0(3));
 end
 %==========================================================================
 
@@ -306,33 +328,6 @@ end
 %==========================================================================
 
 %==========================================================================
-function show_template(fig,pars)
-set(0,'CurrentFigure',fig);     
-
-pth_template = pars.pth_template;
-
-Nii = nifti(pth_template);
-b   = exp(Nii.dat(:,:,:,:));
-b   = bsxfun(@rdivide,b,sum(b,4));
-d   = size(b);
-K   = d(4);                                  
-for k=1:K         
-    subplot(3,K,k);
-    slice = b(:,:,floor(d(3)/2) + 1,k);
-    imagesc(slice'); axis off xy; title(['k=' num2str(k)]); colormap(gray);               
-   
-    subplot(3,K,K + k);
-    slice = permute(b(:,floor(d(2)/2) + 1,:,k),[3 1 2]);
-    imagesc(slice); axis off xy; colormap(gray);   
-
-    subplot(3,K,2*K + k);
-    slice = permute(b(floor(d(1)/2) + 1,:,:,k),[2 3 1]);
-    imagesc(slice'); axis off xy; colormap(gray);   
-end 
-drawnow
-%==========================================================================
-
-%==========================================================================
 function show_resp(fig,obj,pars)
 set(0,'CurrentFigure',fig);       
 
@@ -348,11 +343,13 @@ for m=1:M
             Nii = nifti(obj{m}{s}.pth_resp{k});
             img = Nii.dat(:,:,:);
             dm  = size(img);
-            zix = floor(dm(3)/2) + 1;
-            img = img(:,:,zix);
+            if numel(dm)==3
+                zix = floor(dm(3)/2) + 1;
+                img = img(:,:,zix);            
+            end
         
             subplot(M*numel(rand_subjs{1}),K,cnt);
-            imagesc(img'); axis off xy; colormap(gray);
+            imagesc(img'); axis off image xy; colormap(gray);
             title(['q_{' num2str(m), ',' num2str(s) ',' num2str(k) '}']);
             cnt = cnt + 1;
         end 

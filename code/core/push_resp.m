@@ -250,12 +250,14 @@ d    = [dm_bb,Kb,1,1,1];
 R    = null(ones(1,d(4)));    
 lwp  = reshape(log(obj.wp),1,1,d(4));
 lwp1 = reshape(log(obj.wp),1,1,1,d(4));
-s    = sum(t,4);
+
+t = max(t,eps('single')*1000);
+s = sum(t,4);
 
 % Compute gradients and Hessian
 %--------------------------------------------------------------------------
-W   = zeros([d(1:3) round(((d(4)-1)*d(4))/2)],'single'); % 2nd derivatives
-gr  = zeros([d(1:3),d(4)-1],'single');    
+W   = zeros([d(1:3) round(((d(4) - 1)*d(4))/2)],'single'); % 2nd derivatives
+gr  = zeros([d(1:3),d(4) - 1],'single');    
 
 ll  = 0;
 for z=1:d(3), % Loop over planes
@@ -337,7 +339,7 @@ for z=1:d(3), % Loop over planes
 
     % First pull out the diagonal of the 2nd derivs
     for j1=1:d(4)-1,
-        W(:,:,z,j1) = W(:,:,z,j1) + wz(:,:,j1,j1);% + maxs*sqrt(eps('single'))*d(4)^2;
+        W(:,:,z,j1) = W(:,:,z,j1) + wz(:,:,j1,j1) + 1e-4*d(4)^2;
     end
 
     % Then pull out the off diagonal parts (note that matrices are symmetric)
@@ -412,6 +414,9 @@ z1a = z0(z) + spm_bsplins(sol{3},x1,y1,z1,prm);
 x1  = M(1,1)*x1a + M(1,2)*y1a + M(1,3)*z1a + M(1,4);
 y1  = M(2,1)*x1a + M(2,2)*y1a + M(2,3)*z1a + M(2,4);
 z1  = M(3,1)*x1a + M(3,2)*y1a + M(3,3)*z1a + M(3,4);
+if numel(z0)==1
+   z1 = ones(size(z1));
+end
 return;
 %==========================================================================
 

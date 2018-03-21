@@ -1,9 +1,5 @@
 function pars = init_template(pars)
 
-if ~pars.do_segment
-    return
-end
-
 if exist(pars.dir_template,'dir'), rmdir(pars.dir_template,'s'); end; mkdir(pars.dir_template);
 
 if isempty(pars.pth_template)
@@ -28,6 +24,7 @@ if isempty(pars.pth_template)
                 mats = cat(3,mats,M);
 
                 d = size(Nii.dat);
+                if numel(d)==2, d(3) = 1; end
                 dms = cat(1,dms,d);
             end
         end

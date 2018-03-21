@@ -34,7 +34,7 @@ gr = zeros([d(1:3),d(4)-1],'single');                   % 1st derivatives
 for m=1:numel(obj)
     
     S = numel(obj{m}); 
-    if verbose, fprintf(1,'Loading derivatives from subject (m=%d, S=%d) -    ',m,S); end
+    if verbose, fprintf(1,'%d | Loading derivatives from subject (m=%d, S=%d) -    ',iter,m,S); end
     for s=1:S
         
         if verbose                

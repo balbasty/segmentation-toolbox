@@ -1,4 +1,4 @@
-function [buf,nm,vr0,mn,mx] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
+function [buf,nm,vr0,mn,mx,scl_int] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
 Kb              = max(obj.lkp.part);
 d               = [size(x0) length(z0)];
 modality        = obj.modality;
@@ -42,7 +42,11 @@ end
 % Overall moments used later for regularising via a ``Wishart-style prior''
 mom0 = zeros(1,N);
 mom1 = zeros(1,N);
-mom2 = zeros(1,N);
+mom2 = zeros(1,N);  
+
+sint    = zeros(1,N);
+nms     = zeros(1,N);
+scl_int = zeros(1,N);
 
 cl   = cell(length(z0),1);
 buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'img',cl,'labels',cl);
@@ -86,9 +90,8 @@ for z=1:length(z0)
     end              
     
     if uniform
-        for n=1:N
-            buf(z).img{n}(~msk) = [];
-            buf(z).img{n}       = buf(z).img{n}(:);
+        for n=1:N            
+            buf(z).img{n} = buf(z).img{n}(msk);
         end
     end
     
@@ -139,6 +142,10 @@ for z=1:length(z0)
             % random values are added.  It's not elegant, but the alternative would be
             % too slow for practical use.
             buf(z).f{n} = single(fz{n}(buf(z).msk{n}) + rand(buf(z).nm(n),1)*scrand(n)-scrand(n)/2);
+            
+            if uniform
+                buf(z).img{n} = buf(z).img{n} + rand(size(buf(z).img{n}))*scrand(n)-scrand(n)/2;
+            end
         else
             buf(z).f{n} = single(fz{n}(buf(z).msk{n}));
         end
@@ -154,10 +161,17 @@ for z=1:length(z0)
         mom0(n) = mom0(n) + buf(z).nm(n);
         mom1(n) = mom1(n) + sum(buf(z).f{n});
         mom2(n) = mom2(n) + sum(buf(z).f{n}.^2);
+        
+        sint(n) = sint(n) + sum(buf(z).f{n});
+        nms(n)  = nms(n)  + buf(z).nm(n);
     end
 
     % Create a buffer for tissue probability info
     buf(z).dat = zeros([buf(z).Nm,Kb],'single');
+end
+
+for n=1:N
+    scl_int(n) = (1024 / (sint(n)/nms(n)));
 end
 
 % Construct a ``Wishart-style prior'' (vr0)

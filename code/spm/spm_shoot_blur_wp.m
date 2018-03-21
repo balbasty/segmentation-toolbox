@@ -112,7 +112,7 @@ for i=1:its,
 
                 % First pull out the diagonal of the 2nd derivs
                 for j1=1:d1(4)-1,
-                    W(rng0{1},rng0{2},rng0{3}(z),j1) = W(rng0{1},rng0{2},rng0{3}(z),j1) + wz(:,:,j1,j1);% + maxs*sqrt(eps('single'))*d(4)^2;
+                    W(rng0{1},rng0{2},rng0{3}(z),j1) = W(rng0{1},rng0{2},rng0{3}(z),j1) + wz(:,:,j1,j1) + 1e-4*d(4)^2;
                 end
 
                 % Then pull out the off diagonal parts (note that matrices are symmetric)
@@ -183,6 +183,7 @@ function [t,s,lwp,rng0,d1] = load_from_obj(obj,m,s1)
 K   = numel(obj{m}{s1}.pth_resp);
 Nii = nifti(obj{m}{s1}.pth_resp{1});
 dm  = size(Nii.dat(:,:,:));
+if numel(dm)==2, dm(3) = 1; end
 dm  = [dm K];
 
 t          = zeros(dm,'single');
@@ -191,6 +192,7 @@ for k=2:K
     Nii        = nifti(obj{m}{s1}.pth_resp{k});
     t(:,:,:,k) = Nii.dat(:,:,:);
 end
+t   = max(t,eps('single')*1000);
 s   = sum(t,4);
 lwp = reshape(log(obj{m}{s1}.wp),1,1,dm(4));
 

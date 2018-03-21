@@ -18,7 +18,7 @@ if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
         % Uniform template provided, use the k-means algorithm to comppute
         % moments
         if isempty(lkp.lab)            
-            mom = kmeans2mom(buf,numel(lkp.keep),mn,mx,obj.init_clust,obj.kmeans_dist);        
+            mom = kmeans2mom(buf,numel(lkp.keep),mn,mx,obj.init_clust,obj.kmeans_dist,obj.kmeans_ix);        
         else                     
             % Extract non-labelled voxels
             msk  = ismember(lkp.keep,lkp.lab);

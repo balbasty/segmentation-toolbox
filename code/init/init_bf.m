@@ -1,4 +1,4 @@
-function [buf,chan,llrb] = init_bf(buf,N,obj,V,x0,y0,z0,ff)
+function [buf,chan,llrb] = init_bf(buf,N,obj,V,x0,y0,z0,ff,scl_int)
 kron      = @(a,b) spm_krutil(a,b);
 avg_bf_dc = obj.avg_bf_dc;
 tot_S     = obj.tot_S;
@@ -34,6 +34,10 @@ for n=1:N
         if tot_S>1, chan(n).T(1,1,1) = chan(n).T(1,1,1) - avg_bf_dc(n); end
     else
         chan(n).T = zeros(d3);
+    end
+    
+    if obj.iter<3 && strcmp(obj.modality,'MRI')
+        chan(n).T(1,1,1) = scl_int(n);
     end
     
     % Basis functions for bias correction

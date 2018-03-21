@@ -9,7 +9,7 @@ tpm = spm_load_logpriors(obj.pth_template);
 V         = obj.image; 
 N         = numel(V);
 d0        = V(1).dim(1:3);
-vx        = sqrt(sum(V(1).mat(1:3,1:3).^2));
+vx        = vxsize(V(1).mat);
 sk        = max([1 1 1],round(obj.samp*[1 1 1]./vx));
 [x0,y0,o] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
 z0        = 1:sk(3):d0(3);
@@ -35,11 +35,11 @@ tot_S     = obj.tot_S;
 
 % Fudge Factor - to (approximately) account for non-independence of voxels.
 %-----------------------------------------------------------------------
-ff = compute_fudge_factor(obj,V,sk);
+ff = compute_fudge_factor(obj.fwhm,vx,sk);
 
 % Load data into buffer
 %-----------------------------------------------------------------------
-[buf,nm,vr0,mn,mx] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
+[buf,nm,vr0,mn,mx,scl_int] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
 
 % Initialise weights
 %-----------------------------------------------------------------------
@@ -60,7 +60,7 @@ end
 
 % Initialise bias field
 %-----------------------------------------------------------------------
-[buf,chan,llrb] = init_bf(buf,N,obj,V,x0,y0,z0,ff);
+[buf,chan,llrb] = init_bf(buf,N,obj,V,x0,y0,z0,ff,scl_int);
 
 % Initialise deformation and template
 %-----------------------------------------------------------------------
@@ -171,24 +171,6 @@ obj.new    = true;
 obj.bf_dc  = bf_dc;
 obj.d0     = d0;
 return;
-%=======================================================================
-
-%=======================================================================
-function ff = compute_fudge_factor(obj,V,sk)
-% Fudge Factor - to (approximately) account for non-independence of voxels.
-% Note that variances add, and that Var[a*x + b*y] = a^2*Var[x] + b^2*Var[y]
-% Therefore the variance of i.i.d. noise after Gaussian smoothing is equal
-% to the sum of the Gaussian function squared times the original variance.
-% A Gaussian is given by g=sqrt(2*pi*s^2)^(-1/2)*exp(-0.5*x.^2/s^2);
-% After squaring, this is (2*pi*s^2)^(-1)*exp(-x.^2/s^2), which is a scaled
-% Gaussian. Letting s2 = 2/sqrt(2), this is equal to
-% (4*pi*s^2)^(-1/2)*(2*pi*s2^2)^(-1/2)*exp(-0.5*x.^2/s2^2), from which
-% the (4*pi*s^2)^(-1/2) factor comes from.
-fwhm = obj.fwhm;                            % FWHM of image smoothness
-vx   = sqrt(sum(V(1).mat(1:3,1:3).^2));     % Voxel size
-fwhm = fwhm+mean(vx); 
-s    = fwhm/sqrt(8*log(2));                 % Standard deviation
-ff   = prod(4*pi*(s./vx./sk).^2 + 1)^(1/2); 
 %=======================================================================
 
 %=======================================================================

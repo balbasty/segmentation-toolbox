@@ -71,25 +71,21 @@ else
     % Lambda ~ W(W0,nu0)
     % mu     ~ N(m0,inv(beta0*Lambda))
     
+    mom1 = mom_John2Bishop(mom);
+    
     % Init priors
     %----------------------------------------------------------------------
-    if ~isfield(gmm,'pr')
-        mom1 = mom_John2Bishop(mom);
-                       
+    if ~isfield(gmm,'pr')   
 %         vr2 = zeros(N,N);
 %         for k=1:K
 %             vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
 %         end
-%         vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);                
+%         vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);  
         
-        m0    = mom1(end).s1;                
+        m0    = repmat(median(mom1(end).s1,2),[1 K]);             
         beta0 = ones(1,K);
         nu0   = N*ones(1,K);
-        W0    = repmat(eye(N),1,1,K);  
-%         W0    = zeros(N,N,K);
-%         for k=1:K
-%             W0(:,:,k) = inv(vr2)/nu0(k);
-%         end
+        W0    = repmat(eye(N),1,1,K);
         
         gmm.pr.n = nu0;
         gmm.pr.W = W0;
@@ -113,11 +109,15 @@ else
         W     = gmm.po.W;
         beta  = gmm.po.b;
         m     = gmm.po.m;
-    else
-        m    = repmat(median(mom1(end).s1,2),[1 K]);                
+    else                      
+        m    = mom1(end).s1;                       
         beta = ones(1,K);
-        nu   = N*ones(1,K);
-        W    = repmat(eye(N),1,1,K);        
+        nu   = N*ones(1,K); 
+        W    = repmat(eye(N),1,1,K);
+%         W    = zeros(N,N,K);
+%         for k=1:K
+%             W(:,:,k) = inv(mom(end).S2(:,:,k))/nu(k);
+%         end          
     end
     
     out_L = zeros(4,K);

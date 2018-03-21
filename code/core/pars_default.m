@@ -15,9 +15,6 @@ end
 if ~isfield(pars,'dir_template')
     pars.dir_template = pars.dir_output;
 end   
-if ~isfield(pars,'do_segment')
-    pars.do_segment = true;
-end
     
 pars = append_dir(pars);
 
@@ -25,9 +22,15 @@ pars = append_dir(pars);
 %--------------------------------------------------------------------------
 if ~isfield(pars,'K')
     pars.K = 6;
+    if isfield(pars,'pth_template')
+        if ~isempty(pars.pth_template)
+            V1     = spm_vol(pars.pth_template); 
+            pars.K = numel(V1);
+        end
+    end            
 end
 if ~isfield(pars,'niter')
-    pars.niter = 50;
+    pars.niter = 30;
 end
 if ~isfield(pars,'tol')
     pars.tol = 1e-4;
@@ -42,7 +45,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0.001 2 0];
+    pars.sparam = [0.01 10 0];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -53,8 +56,11 @@ end
 if ~isfield(pars,'sum_temp_der')
     pars.sum_temp_der = false;
 end
+if ~isfield(pars,'crop_template')
+    pars.crop_template = 0;
+end
 
-% Data-set specific parameters
+% Data-set specific parameters (m=1,...,M)
 %--------------------------------------------------------------------------
 if ~isfield(pars,'dat'), 
     error('pars.dat needs to be defined!'); 
@@ -65,61 +71,28 @@ for m=1:M
     if ~isfield(pars.dat{m},'dir_data'), 
         error('pars.dat.dir_data needs to be defined!'); 
     end
-    
-    if ~isfield(pars.dat{m},'do_preproc')
-        pars.dat{m}.do_preproc = false;
-    end
+
+    % General parameters
+    %----------------------------------------------------------------------    
     if ~isfield(pars.dat{m},'S')
-        pars.dat{m}.S = 8;
-    end
-    if test_level==2 || test_level==3, pars.dat{m}.S = 8;
-    elseif test_level==1               pars.dat{m}.S = 1;   
-    end 
+        pars.dat{m}.S = Inf;
+        if test_level==2 || test_level==3, pars.dat{m}.S = 8;
+        elseif test_level==1               pars.dat{m}.S = 1;   
+        end 
+    end    
     if ~isfield(pars.dat{m},'modality')
         pars.dat{m}.modality = 'MRI';
     end    
     if ~isfield(pars.dat{m},'do_rem_corrupted')
-        if pars.dat{m}.do_preproc
-            pars.dat{m}.do_rem_corrupted = true;
-        else
-            pars.dat{m}.do_rem_corrupted = false;
-        end
+        pars.dat{m}.do_rem_corrupted = false;
     end
     if ~isfield(pars.dat{m},'verbose_rem_corrupted')
         pars.dat{m}.verbose_rem_corrupted = false;
     end
-    
-    % Pre-processing parameters
-    %----------------------------------------------------------------------
-    if ~isfield(pars.dat{m},'preproc')
-        pars.dat{m}.preproc = struct;
-    end
+    if ~isfield(pars.dat{m},'trunc_ct')
+        pars.dat{m}.trunc_ct = [-Inf Inf];
+    end   
 
-    if ~isfield(pars.dat{m}.preproc,'tol_dist')
-        pars.dat{m}.preproc.tol_dist = 4;
-    end
-    if ~isfield(pars.dat{m}.preproc,'tol_vx')
-        pars.dat{m}.preproc.tol_vx = 5;
-    end
-    if ~isfield(pars.dat{m}.preproc,'coreg_and_reslice')
-        pars.dat{m}.preproc.coreg_and_reslice = true;
-    end
-    if ~isfield(pars.dat{m}.preproc,'do_reslice')
-        pars.dat{m}.preproc.do_reslice = true;
-    end
-    if ~isfield(pars.dat{m}.preproc,'realign2mni')
-        pars.dat{m}.preproc.realign2mni = true;
-    end
-    if ~isfield(pars.dat{m}.preproc,'crop')
-        pars.dat{m}.preproc.crop = true;
-    end
-    if ~isfield(pars.dat{m}.preproc,'rem_neck')
-        pars.dat{m}.preproc.rem_neck = true;
-    end
-    if ~isfield(pars.dat{m}.preproc,'skull_strip')
-        pars.dat{m}.preproc.skull_strip = false;
-    end
-    
     % Segmentation parameters
     %----------------------------------------------------------------------
     if ~isfield(pars.dat{m},'segment')
@@ -158,20 +131,16 @@ for m=1:M
     end 
     if ~isfield(pars.dat{m}.segment,'samp')
         pars.dat{m}.segment.samp = 3;
-    end
-    if ~isfield(pars.dat{m}.segment,'init_clust')
-        if M>1
-            pars.dat{m}.segment.init_clust = 'total';
-        else
-            pars.dat{m}.segment.init_clust = '';
-        end
-    end
+    end    
     if ~isfield(pars.dat{m}.segment,'do_ml')
         pars.dat{m}.segment.do_ml = false;
     end    
     if ~isfield(pars.dat{m}.segment,'do_bf')
         pars.dat{m}.segment.do_bf = true;
     end   
+    if ~isfield(pars.dat{m}.segment,'do_aff')
+        pars.dat{m}.segment.do_aff = true;
+    end       
     if ~isfield(pars.dat{m}.segment,'do_def')
         pars.dat{m}.segment.do_def = true;
     end   
@@ -193,6 +162,15 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'kmeans_dist')
         pars.dat{m}.segment.kmeans_dist = 'cityblock';
     end   
+    if ~isfield(pars.dat{m}.segment,'kmeans_ix')
+        pars.dat{m}.segment.kmeans_ix = [];
+    end   
+    if ~isfield(pars.dat{m}.segment,'init_clust')
+        pars.dat{m}.segment.init_clust = '';
+    end    
+    if ~isempty(pars.dat{m}.segment.kmeans_ix)
+        pars.dat{m}.segment.init_clust = 'user';
+    end        
     if ~isfield(pars.dat{m}.segment,'print_ll')
         if test_level==1
             pars.dat{m}.segment.print_ll = true;
@@ -201,11 +179,7 @@ for m=1:M
         end
     end   
     if ~isfield(pars.dat{m}.segment,'print_seg')
-        if test_level==1 || test_level==2
-            pars.dat{m}.segment.print_seg = true;
-        else
-            pars.dat{m}.segment.print_seg = false;
-        end        
+        pars.dat{m}.segment.print_seg = false;
     end   
     if ~isfield(pars.dat{m}.segment,'verbose')
         if test_level==1
@@ -213,10 +187,7 @@ for m=1:M
         else
             pars.dat{m}.segment.verbose = false;
         end        
-    end   
-    if ~isfield(pars.dat{m}.segment,'trunc_ct')
-        pars.dat{m}.segment.trunc_ct = [-Inf Inf];
-    end   
+    end 
     if ~isfield(pars.dat{m}.segment,'bb')
         pars.dat{m}.segment.bb = NaN(2,3);
     end    
@@ -226,6 +197,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'cleanup')
         pars.dat{m}.segment.cleanup = false;
     end
+    if ~isfield(pars.dat{m}.segment,'fwhm')
+        pars.dat{m}.segment.fwhm = 1;
+    end
     if ~isfield(pars.dat{m}.segment,'mrf')
         pars.dat{m}.segment.mrf = 1;
     end
@@ -234,9 +208,6 @@ for m=1:M
     end
     if ~isfield(pars.dat{m}.segment,'reg')
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
-    end
-    if ~isfield(pars.dat{m}.segment,'fwhm')
-        pars.dat{m}.segment.fwhm = 1;
     end
     if ~isfield(pars.dat{m}.segment,'Affine')
         pars.dat{m}.segment.Affine = eye(4);
@@ -257,7 +228,7 @@ for m=1:M
         pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 1e-4;
+        pars.dat{m}.segment.tol1 = 0.5*1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'write_tc')
         pars.dat{m}.segment.write_tc        = true(pars.K,4);

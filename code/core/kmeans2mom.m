@@ -1,4 +1,4 @@
-function mom = kmeans2mom(buf,K,mn,mx,init_clust,kmeans_dist)
+function mom = kmeans2mom(buf,K,mn,mx,init_clust,kmeans_dist,ix1)
 N = numel(buf(1).img);
 
 C = linspace_vec(mn,mx,K);
@@ -22,6 +22,7 @@ for k=1:K
     mom(end).s1(:,k)   = mom(end).s1(:,k)   + F(:,:)'*Q(:,k);
     mom(end).S2(:,:,k) = mom(end).S2(:,:,k) + bsxfun(@times,Q(:,k),F(:,:))'*F(:,:);
 end
+% mom(end).s1./mom(end).s0
 
 if ~isempty(init_clust)
     if strcmp(init_clust,'random')
@@ -33,6 +34,9 @@ if ~isempty(init_clust)
     elseif  strcmp(init_clust,'reverse')
         % Reverse sufficient statistics
         ix = fliplr(1:K);   
+    elseif  strcmp(init_clust,'user')
+        % Used-defined
+        ix = ix1;        
     end
     
     for i=1:numel(mom) 
@@ -46,8 +50,7 @@ end
 %==========================================================================
 function nlabels = label_data(f,K,C,kmeans_dist)
 % w = warning('query','last')
-warning('off','stats:kmeans:MissingDataRemoved')
-warning('off','stats:kmeans:FailedToConvergeRep')
+warning('off','stats:kmeans:FailedToConverge')
 
 opts = statset('MaxIter',1000);
 
@@ -59,6 +62,5 @@ labels = kmeans(f,K,...
 nlabels                 = zeros([numel(labels) K],'single');
 for k=1:K, nlabels(:,k) = labels(:)==k; end
 
-warning('on','stats:kmeans:MissingDataRemoved')
-warning('on','stats:kmeans:FailedToConvergeRep')
+warning('on','stats:kmeans:FailedToConverge')
 %==========================================================================
