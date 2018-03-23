@@ -1,7 +1,7 @@
 function [gmm,buf] = init_gmm(obj,N,buf,vr0,mn,mx)
-gmm            = obj.gmm;
-gmm.init_clust = obj.init_clust;
-gmm.ml         = obj.do_ml;
+gmm            = obj.segment.gmm;
+gmm.init_clust = obj.segment.init_clust;
+gmm.ml         = obj.segment.do_ml;
 
 gmm.vr0 = vr0;
 gmm.min = mn;
@@ -9,75 +9,18 @@ gmm.max = mx;
 
 if (~isfield(gmm,'mn') && ~isfield(gmm,'vr')) && ~isfield(gmm,'po')
     
-    Kb  = max(obj.lkp.part);
-    lkp = obj.lkp;
-    
+    lkp = obj.segment.lkp;
+    Kb  = max(lkp.part);
+        
     % Compute moments
     %----------------------------------------------------------------------
     if obj.uniform
-        % Uniform template provided, use the k-means algorithm to comppute
-        % moments
-        if isempty(lkp.lab)            
-            mom = kmeans2mom(buf,numel(lkp.keep),mn,mx,obj.init_clust,obj.kmeans_dist,obj.kmeans_ix);        
-        else                     
-            % Extract non-labelled voxels
-            msk  = ismember(lkp.keep,lkp.lab);
-            lkp1 = lkp.keep(~msk);
-            
-            N    = numel(buf(1).f);
-            buf1 = struct;
-            for z=1:numel(buf)
-                msk = sum(buf(z).labels,2)==0;
-                buf1(z).img = cell(1,N);
-                for n=1:N
-                    buf1(z).img{n} = buf(z).img{n}(msk);
-                end
-            end
-            
-            mom1 = kmeans2mom(buf1,nnz(lkp1),mn,mx,obj.init_clust,obj.kmeans_dist);   
-            clear buf1
-            
-            % Extract labelled voxels                                
-            lkp2 = lkp.lab;
-            
-            mom2 = moments_struct(nnz(lkp2),N);
-            for z=1:numel(buf)
-                msk = sum(buf(z).labels,2)>0;
-                
-                cr          = zeros(nnz(msk),N);
-                for n=1:N, 
-                    cr(:,n) = double(buf(z).img{n}(msk)); 
-                end  
-                
-                q          = zeros(nnz(msk),nnz(lkp2));
-                for k=1:nnz(lkp2)
-                    q(:,k) = double(buf(z).labels(msk,lkp.lab==k));
-                end
-                
-                for k=1:nnz(lkp2)
-                    mom2(end).s0(1,k)   = mom2(end).s0(1,k)   + sum(q(:,k));
-                    mom2(end).s1(:,k)   = mom2(end).s1(:,k)   + cr(:,:)'*q(:,k);
-                    mom2(end).S2(:,:,k) = mom2(end).S2(:,:,k) + bsxfun(@times,q(:,k),cr(:,:))'*cr(:,:);
-                end
-            end
-            
-            % Combine moments
-            mom = moments_struct(numel(lkp.keep),N);
-            cnt = 1;
-            for k=1:numel(lkp.keep)
-                if lkp2(k)
-                    mom(end).s0(1,k)   = mom2(end).s0(1,lkp2(k));
-                    mom(end).s1(:,k)   = mom2(end).s1(:,lkp2(k));
-                    mom(end).S2(:,:,k) = mom2(end).S2(:,:,lkp2(k));                    
-                else
-                    mom(end).s0(1,k)   = mom1(end).s0(1,cnt);
-                    mom(end).s1(:,k)   = mom1(end).s1(:,cnt);
-                    mom(end).S2(:,:,k) = mom1(end).S2(:,:,cnt);
-                    cnt                = cnt + 1;
-                end
-            end
-        end
-        buf = rmfield(buf,'img');
+        % Uniform template provided, use the k-means algorithm to compute
+        % moments       
+        mom = kmeans2mom(buf,lkp,mn,mx,obj);        
+        
+        buf = rmfield(buf,'img');        
+        buf = rmfield(buf,'labels_full');
     else       
         % Use template to compute moments
         mom = compute_moments(buf,Kb);

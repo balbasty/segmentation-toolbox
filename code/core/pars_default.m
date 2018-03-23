@@ -45,7 +45,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0.01 10 0];
+    pars.sparam = [0 1 0];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -82,25 +82,44 @@ for m=1:M
     end    
     if ~isfield(pars.dat{m},'modality')
         pars.dat{m}.modality = 'MRI';
-    end    
-    if ~isfield(pars.dat{m},'do_rem_corrupted')
-        pars.dat{m}.do_rem_corrupted = false;
-    end
-    if ~isfield(pars.dat{m},'verbose_rem_corrupted')
-        pars.dat{m}.verbose_rem_corrupted = false;
     end
     if ~isfield(pars.dat{m},'trunc_ct')
-        pars.dat{m}.trunc_ct = [-Inf Inf];
+        pars.dat{m}.trunc_ct = [];
     end   
-
+    if ~isfield(pars.dat{m},'fwhm')
+        pars.dat{m}.fwhm = 1;
+    end
+    if ~isfield(pars.dat{m},'print_subj_info')
+        if test_level==1 %|| test_level==2
+            pars.dat{m}.print_subj_info = true;
+        else
+            pars.dat{m}.print_subj_info = false;
+        end    
+    end   
+    if ~isfield(pars.dat{m},'Affine')
+        pars.dat{m}.Affine = eye(4);
+    end
+    
+    % MI affine parameters
+    %----------------------------------------------------------------------
+    if ~isfield(pars.dat{m},'maff')
+        pars.dat{m}.maff = struct;
+    end
+    if ~isfield(pars.dat{m}.maff,'do_maff')
+        pars.dat{m}.maff.do_maff = true;
+    end  
+    if ~isfield(pars.dat{m}.maff,'affreg')
+        pars.dat{m}.maff.affreg = 'mni';
+    end
+    if ~isfield(pars.dat{m}.maff,'maff_done')
+        pars.dat{m}.maff.maff_done = false;
+    end
+    
     % Segmentation parameters
     %----------------------------------------------------------------------
     if ~isfield(pars.dat{m},'segment')
         pars.dat{m}.segment = struct;
     end
-    if ~isfield(pars.dat{m}.segment,'use_labels'), 
-        pars.dat{m}.segment.use_labels = false;
-    end    
     if ~isfield(pars.dat{m}.segment,'lkp')
         pars.dat{m}.segment.lkp = struct;
     end
@@ -116,16 +135,13 @@ for m=1:M
         else
             pars.dat{m}.segment.lkp.part = 1:pars.K;
         end                       
-    end        
-    if ~isfield(pars.dat{m}.segment.lkp,'lab') || pars.dat{m}.segment.use_labels==false
+    end     
+    if ~isfield(pars.dat{m}.segment.lkp,'lab')
         pars.dat{m}.segment.lkp.lab = [];
     end
     if ~isfield(pars.dat{m}.segment,'pth_prior')
         pars.dat{m}.segment.pth_prior = '';
     end
-    if ~isfield(pars.dat{m}.segment,'dir_lab')
-        pars.dat{m}.segment.dir_lab = '';
-    end        
     if ~isfield(pars.dat{m}.segment,'wp_lab'), 
         pars.dat{m}.segment.wp_lab = 0.5;
     end 
@@ -137,28 +153,16 @@ for m=1:M
     end    
     if ~isfield(pars.dat{m}.segment,'do_bf')
         pars.dat{m}.segment.do_bf = true;
-    end   
-    if ~isfield(pars.dat{m}.segment,'do_aff')
-        pars.dat{m}.segment.do_aff = true;
-    end       
+    end      
     if ~isfield(pars.dat{m}.segment,'do_def')
         pars.dat{m}.segment.do_def = true;
     end   
     if ~isfield(pars.dat{m}.segment,'do_wp')
         pars.dat{m}.segment.do_wp = true;
-    end   
-    if ~isfield(pars.dat{m}.segment,'do_write_res')
-        pars.dat{m}.segment.do_write_res = false;
-    end   
-    if ~isfield(pars.dat{m}.segment,'do_push_resp')
-        pars.dat{m}.segment.do_push_resp = false;
-    end   
+    end 
     if ~isfield(pars.dat{m}.segment,'do_missing_data')
         pars.dat{m}.segment.do_missing_data = false;
     end       
-    if ~isfield(pars.dat{m}.segment,'do_old_segment')
-        pars.dat{m}.segment.do_old_segment = false;
-    end   
     if ~isfield(pars.dat{m}.segment,'kmeans_dist')
         pars.dat{m}.segment.kmeans_dist = 'cityblock';
     end   
@@ -178,39 +182,15 @@ for m=1:M
             pars.dat{m}.segment.print_ll = false;
         end
     end   
-    if ~isfield(pars.dat{m}.segment,'print_seg')
-        pars.dat{m}.segment.print_seg = false;
-    end   
     if ~isfield(pars.dat{m}.segment,'verbose')
         if test_level==1
             pars.dat{m}.segment.verbose = true;
         else
             pars.dat{m}.segment.verbose = false;
-        end        
+        end      
     end 
-    if ~isfield(pars.dat{m}.segment,'bb')
-        pars.dat{m}.segment.bb = NaN(2,3);
-    end    
-    if ~isfield(pars.dat{m}.segment,'vox')
-        pars.dat{m}.segment.vox = NaN;
-    end
-    if ~isfield(pars.dat{m}.segment,'cleanup')
-        pars.dat{m}.segment.cleanup = false;
-    end
-    if ~isfield(pars.dat{m}.segment,'fwhm')
-        pars.dat{m}.segment.fwhm = 1;
-    end
-    if ~isfield(pars.dat{m}.segment,'mrf')
-        pars.dat{m}.segment.mrf = 1;
-    end
-    if ~isfield(pars.dat{m}.segment,'affreg')
-        pars.dat{m}.segment.affreg = 'mni';
-    end
     if ~isfield(pars.dat{m}.segment,'reg')
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
-    end
-    if ~isfield(pars.dat{m}.segment,'Affine')
-        pars.dat{m}.segment.Affine = eye(4);
     end
     if ~isfield(pars.dat{m}.segment,'biasreg')
         pars.dat{m}.segment.biasreg = 1e-3*(1/5);
@@ -228,18 +208,51 @@ for m=1:M
         pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 0.5*1e-4;
+        pars.dat{m}.segment.tol1 = 1e-4;
     end    
-    if ~isfield(pars.dat{m}.segment,'write_tc')
-        pars.dat{m}.segment.write_tc        = true(pars.K,4);
-        pars.dat{m}.segment.write_tc(:,2:4) = false;
+    if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
+        pars.dat{m}.segment.mix_wp_reg = 0.8;
     end    
-    if ~isfield(pars.dat{m}.segment,'write_bf')
-        pars.dat{m}.segment.write_bf = false(1,2);
+    
+    % Push resps parameters
+    %----------------------------------------------------------------------
+    if ~isfield(pars.dat{m},'push_resp')
+        pars.dat{m}.push_resp = struct;
+    end
+    if ~isfield(pars.dat{m}.push_resp,'do_push_resp')
+        pars.dat{m}.push_resp.do_push_resp = false;
+    end   
+    
+    % Write results parameters
+    %----------------------------------------------------------------------
+    if ~isfield(pars.dat{m},'write_res')
+        pars.dat{m}.write_res = struct;
+    end
+    if ~isfield(pars.dat{m}.write_res,'do_write_res')
+        pars.dat{m}.write_res.do_write_res = false;
+    end       
+    if ~isfield(pars.dat{m}.write_res,'bb')
+        pars.dat{m}.write_res.bb = NaN(2,3);
     end    
-    if ~isfield(pars.dat{m}.segment,'write_df')
-        pars.dat{m}.segment.write_df = false(1,2);
+    if ~isfield(pars.dat{m}.write_res,'vox')
+        pars.dat{m}.write_res.vox = NaN;
+    end
+    if ~isfield(pars.dat{m}.write_res,'cleanup')
+        pars.dat{m}.write_res.cleanup = false;
+    end
+    if ~isfield(pars.dat{m}.write_res,'mrf')
+        pars.dat{m}.write_res.mrf = 1;
+    end
+    if ~isfield(pars.dat{m}.write_res,'write_tc')
+        pars.dat{m}.write_res.write_tc        = true(pars.K,4);
+        pars.dat{m}.write_res.write_tc(:,2:4) = false;
     end    
+    if ~isfield(pars.dat{m}.write_res,'write_bf')
+        pars.dat{m}.write_res.write_bf = false(1,2);
+    end    
+    if ~isfield(pars.dat{m}.write_res,'write_df')
+        pars.dat{m}.write_res.write_df = false(1,2);
+    end       
 end
 %==========================================================================
 

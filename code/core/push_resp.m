@@ -1,22 +1,12 @@
 function obj = push_resp(obj)
-if ~isfield(obj,'bb'), obj.bb = NaN(2,3); end % Default to TPM bounding box
-if ~isfield(obj,'vx'), obj.vx = NaN;      end % Default to TPM voxel size
-
-bb              = obj.bb;
-vx              = obj.vx;
-lkp             = obj.lkp;
-modality        = obj.modality;
-do_missing_data = obj.do_missing_data;
-Kb              = max(lkp.part);
-N               = numel(obj.image);
+lkp = obj.segment.lkp;
+Kb  = max(lkp.part);
+N   = numel(obj.image);
 
 % Load template
 %-----------------------------------------------------------------------
 tpm = spm_load_logpriors(obj.pth_template);
-
-% Read essentials from tpm (it will be cleared later)
-%--------------------------------------------------------------------------
-M1 = tpm.M;
+M1  = tpm.M;
 
 % For missing data
 %--------------------------------------------------------------------------
@@ -38,41 +28,10 @@ end
 
 % Define orientation and field of view of any "normalised" space
 % data that may be generated (wc*.nii, mwc*.nii, rc*.nii & y_*.nii).
+% Use the actual dimensions and orientations of the tissue priors.
 %--------------------------------------------------------------------------
-if any(isfinite(bb(:))) || any(isfinite(vx))
-    % If a bounding box is supplied, combine this with the closest
-    % bounding box derived from the dimensions and orientations of
-    % the tissue priors.
-    [bb1,vx1] = spm_get_bbox(tpm.V(1), 'old');
-    bb(~isfinite(bb)) = bb1(~isfinite(bb));
-    if ~isfinite(vx), vx = abs(prod(vx1))^(1/3); end
-    bb(1,:) = vx*round(bb(1,:)/vx);
-    bb(2,:) = vx*round(bb(2,:)/vx);
-    odim    = abs(round((bb(2,1:3)-bb(1,1:3))/vx))+1;
-
-    mm  = [[bb(1,1) bb(1,2) bb(1,3)
-            bb(2,1) bb(1,2) bb(1,3)
-            bb(1,1) bb(2,2) bb(1,3)
-            bb(2,1) bb(2,2) bb(1,3)
-            bb(1,1) bb(1,2) bb(2,3)
-            bb(2,1) bb(1,2) bb(2,3)
-            bb(1,1) bb(2,2) bb(2,3)
-            bb(2,1) bb(2,2) bb(2,3)]'; ones(1,8)];
-    vx3 = [[1       1       1
-            odim(1) 1       1
-            1       odim(2) 1
-            odim(1) odim(2) 1
-            1       1       odim(3)
-            odim(1) 1       odim(3)
-            1       odim(2) odim(3)
-            odim(1) odim(2) odim(3)]'; ones(1,8)];
-    mat    = mm/vx3;
-else
-    % Use the actual dimensions and orientations of
-    % the tissue priors.
-    odim = tpm.V(1).dim;
-    mat  = tpm.V(1).mat;
-end
+odim = tpm.V(1).dim;
+mat  = tpm.V(1).mat;
 
 %--------------------------------------------------------------------------
 d         = obj.image(1).dim(1:3);
@@ -82,11 +41,11 @@ x3        = 1:d(3);
 %--------------------------------------------------------------------------
 chan(N) = struct('B1',[],'B2',[],'B3',[],'T',[],'Nc',[],'Nf',[],'ind',[]);
 for n=1:N
-    d3         = [size(obj.Tbias{n}) 1];
+    d3         = [size(obj.segment.Tbias{n}) 1];
     chan(n).B3 = spm_dctmtx(d(3),d3(3),x3);
     chan(n).B2 = spm_dctmtx(d(2),d3(2),x2(1,:)');
     chan(n).B1 = spm_dctmtx(d(1),d3(1),x1(:,1));
-    chan(n).T  = obj.Tbias{n};
+    chan(n).T  = obj.segment.Tbias{n};
 
     % Need to fix writing of bias fields or bias corrected images, when the data used are 4D.    
     chan(n).ind = obj.image(n).n;
@@ -114,10 +73,10 @@ for z=1:length(x3)
     msk = cell(1,N);
     for n=1:N
         f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
-        msk{n} = msk_modality(f{n},modality,obj.trunc_ct);
+        msk{n} = msk_modality(f{n},obj.modality,obj.trunc_ct);
     end
     
-    if ~do_missing_data
+    if ~obj.segment.do_missing_data
         tmp = true;
         for n=1:N
             tmp = tmp & msk{n};
@@ -138,7 +97,7 @@ for z=1:length(x3)
     clear bfn
        
     % Compute the deformation (mapping voxels in image to voxels in TPM)
-    [t1,t2,t3] = make_inv_deformation(Coef,z,obj.MT,prm,x1,x2,x3,M);
+    [t1,t2,t3] = make_inv_deformation(Coef,z,obj.segment.MT,prm,x1,x2,x3,M);
 
     y(:,:,z,1) = t1;
     y(:,:,z,2) = t2;
@@ -162,9 +121,16 @@ for z=1:length(x3)
         tmp = uint8(obj.labels.private.dat(:,:,z));        
         tmp = tmp(msk1);
         
+        if min(tmp(:))==0
+            tmp = tmp + 1;
+        end
+        
+        msk2       = ismember(tmp,lkp.lab);
+        tmp(~msk2) = 0;
+        
         labels = zeros([numel(tmp) Kb],'uint8');        
         for k=1:Kb
-            labels(:,k) = tmp==obj.lkp.lab(k) & obj.lkp.lab(k)~=0;             
+            labels(:,k) = tmp==lkp.lab(k) & lkp.lab(k)~=0;             
         end
         clear tmp
     end
@@ -175,7 +141,7 @@ for z=1:length(x3)
     end
     clear b msk1
     
-    q1 = latent(f,bf,obj.mg,obj.gmm,B,lkp,obj.wp,msk,code,labels,obj.wp_lab);
+    q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lkp,obj.segment.wp,msk,code,labels,obj.segment.wp_lab);
     clear B f bf
     
     q           = NaN([prod(d(1:2)) Kb]);  
@@ -188,8 +154,6 @@ for z=1:length(x3)
     clear q
 end
 clear tpm x1 x2 x3 o Coeff chan msk
-
-% debug_view(Q,666);
 
 % Adjust stuff so that warped data (and deformations) have the
 % desired bounding box and voxel sizes, instead of being the same
@@ -215,12 +179,12 @@ for k1=1:Kb
      
     if k1==1
         % Calculate bounding box from count image
-        bb_push     = compute_bb(c,obj.pth_resp{k1},M1);        
-        rngx        = bb_push(1,1):bb_push(1,2);
-        rngy        = bb_push(2,1):bb_push(2,2);
-        rngz        = bb_push(3,1):bb_push(3,2);
-        dm_bb       = [numel(rngx) numel(rngy) numel(rngz)];
-        obj.bb_push = bb_push;
+        bb_push          = compute_bb(c,obj.pth_resp{k1},M1);        
+        rngx             = bb_push(1,1):bb_push(1,2);
+        rngy             = bb_push(2,1):bb_push(2,2);
+        rngz             = bb_push(3,1):bb_push(3,2);
+        dm_bb            = [numel(rngx) numel(rngy) numel(rngz)];
+        obj.push_resp.bb = bb_push;
         
         % Allocate sufficient statistics
         t = zeros([dm_bb Kb],'single');
@@ -241,18 +205,16 @@ for k1=1:Kb
 end
 clear Q y Nii t1 c
 
-% debug_view(t,667);
-
 % Prepare computing template gradient and Hessian
 %--------------------------------------------------------------------------
 Nii  = nifti(obj.pth_template);
 d    = [dm_bb,Kb,1,1,1];
 R    = null(ones(1,d(4)));    
-lwp  = reshape(log(obj.wp),1,1,d(4));
-lwp1 = reshape(log(obj.wp),1,1,1,d(4));
+lwp  = reshape(log(obj.segment.wp),1,1,d(4));
+lwp1 = reshape(log(obj.segment.wp),1,1,1,d(4));
 
-t = max(t,eps('single')*1000);
-s = sum(t,4);
+t(:,:,:,lkp.keep) = max(t(:,:,:,lkp.keep),eps('single')*1000);
+s                 = sum(t,4);
 
 % Compute gradients and Hessian
 %--------------------------------------------------------------------------
@@ -283,9 +245,6 @@ for z=1:d(3), % Loop over planes
 
     % Compute softmax for this plane
     mu = double(reshape(sftmax(a,R,lwp),[d(1:2),d(4)]));
-
-%     % -ve log likelihood of the likelihood
-%     ll0 = sum(sum(sum(log(mu).*reshape(t(:,:,z,:),[d(1:2),d(4)]),3).*s(:,:,z)));    
     
     ll  = ll - ll0;
 
@@ -370,11 +329,6 @@ for k1=1:d(4)
     create(Nii);
     
     Nii.dat(:,:,:) = gr(:,:,:,k1);   
-    
-    if obj.sum_temp_der
-       Nii1                        = nifti(obj.pth_sgr); 
-       Nii1.dat(rngx,rngy,rngz,k1) = Nii1.dat(rngx,rngy,rngz,k1) + gr(:,:,:,k1);
-    end
 end
 clear Nii Nii1 gr
 
@@ -392,12 +346,7 @@ for k1=1:d(4)
     Nii.descrip = ['Template Hessian ' num2str(k1)];
     create(Nii);
     
-    Nii.dat(:,:,:) = W(:,:,:,k1);    
-    
-    if obj.sum_temp_der
-       Nii1                        = nifti(obj.pth_sH); 
-       Nii1.dat(rngx,rngy,rngz,k1) = Nii1.dat(rngx,rngy,rngz,k1) + W(:,:,:,k1);
-    end
+    Nii.dat(:,:,:) = W(:,:,:,k1);        
 end
 clear Nii Nii1 W
 %==========================================================================

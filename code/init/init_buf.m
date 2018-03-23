@@ -1,12 +1,9 @@
 function [buf,nm,vr0,mn,mx,scl_int] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
-Kb              = max(obj.lkp.part);
-d               = [size(x0) length(z0)];
-modality        = obj.modality;
-do_missing_data = obj.do_missing_data;
-uniform         = obj.uniform;
+Kb = max(obj.segment.lkp.part);
+d  = [size(x0) length(z0)];
 
-if isfield(obj,'msk') && ~isempty(obj.msk)
-    VM = spm_vol(obj.msk);
+if isfield(obj.segment,'msk') && ~isempty(obj.segment.msk)
+    VM = spm_vol(obj.segment.msk);
     if sum(sum((VM.mat-V(1).mat).^2)) > 1e-6 || any(VM.dim(1:3) ~= V(1).dim(1:3))
         error('Mask must have the same dimensions and orientation as the image.');
     end
@@ -49,7 +46,7 @@ nms     = zeros(1,N);
 scl_int = zeros(1,N);
 
 cl   = cell(length(z0),1);
-buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'img',cl,'labels',cl);
+buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'img',cl,'labels',cl,'labels_full',cl);
 for z=1:length(z0)
     if tot_S==1
         % Load only those voxels that are more than 5mm up
@@ -67,7 +64,7 @@ for z=1:length(z0)
         end
     end
     
-    if isfield(obj,'msk') && ~isempty(obj.msk)
+    if isfield(obj.segment,'msk') && ~isempty(obj.segment.msk)
         % Exclude any voxels to be masked out
         msk = spm_sample_vol(VM,x0,y0,o*z0(z),0);
         for n=1:N
@@ -76,26 +73,26 @@ for z=1:length(z0)
     end
     
     % Load the data
-    fz  = cell(1,N);
-    msk = true;
+    fz      = cell(1,N);
+    msk_img = true;
     for n=1:N
         fz{n}         = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
-        buf(z).msk{n} = msk_modality(fz{n},modality,obj.trunc_ct);
+        buf(z).msk{n} = msk_modality(fz{n},obj.modality,obj.trunc_ct);
         buf(z).nm(n)  = nnz(buf(z).msk{n});
-                
-        if uniform
+
+        if obj.uniform
             buf(z).img{n} = single(V(n).private.dat(:,:,z));
-            msk           = msk & msk_modality(buf(z).img{n},modality,obj.trunc_ct);
+            msk_img       = msk_img & msk_modality(buf(z).img{n},obj.modality,obj.trunc_ct);
         end
     end              
     
-    if uniform
+    if obj.uniform
         for n=1:N            
-            buf(z).img{n} = buf(z).img{n}(msk);
+            buf(z).img{n} = buf(z).img{n}(msk_img);
         end
     end
     
-    if ~do_missing_data
+    if ~obj.segment.do_missing_data
         msk = true;
         for n=1:N
             msk = msk & buf(z).msk{n};
@@ -116,34 +113,57 @@ for z=1:length(z0)
         
     % Prepare labels (if provided)
     %----------------------------------------------------------------------
-    if isempty(obj.lkp.lab)
+    if isempty(obj.segment.lkp.lab)
         buf(z).labels = [];
     else
+        % Sub-sampled
         msk = code>0;
-        tmp = uint8(spm_sample_vol(obj.labels,x0,y0,o*z0(z),0));        
+        tmp = uint8(spm_sample_vol(obj.labels,x0,y0,o*z0(z),0));            
         tmp = tmp(msk);
-        clear msk
         
-        nlabels = zeros([numel(tmp) Kb],'uint8');
-        for k=1:Kb
-            nlabels(:,k) = tmp==obj.lkp.lab(k) & obj.lkp.lab(k)~=0;             
+        if min(tmp(:))==0
+            tmp = tmp + 1;
         end
-        clear tmp
+        
+        msk       = ismember(tmp,obj.segment.lkp.lab);
+        tmp(~msk) = 0;
+        
+        nlabels = zeros([numel(tmp) Kb],'logical');
+        for k=1:Kb
+            nlabels(:,k) = tmp==obj.segment.lkp.lab(k) & tmp~=0;             
+        end
         
         buf(z).labels = nlabels;
-        clear nlabels
+        
+        % Full_size
+        tmp = uint8(obj.labels.private.dat(:,:,z));            
+        tmp = tmp(msk_img);
+        
+        if min(tmp(:))==0
+            tmp = tmp + 1;
+        end
+        
+        msk       = ismember(tmp,obj.segment.lkp.lab);
+        tmp(~msk) = 0;
+        
+        nlabels = zeros([numel(tmp) Kb],'logical');
+        for k=1:Kb
+            nlabels(:,k) = tmp==obj.segment.lkp.lab(k) & tmp~=0;             
+        end
+        
+        buf(z).labels_full = nlabels;
     end
     
     % Eliminate unwanted voxels
     %----------------------------------------------------------------------
     for n=1:N
-        if scrand(n)
+        if scrand(n) || strcmp(obj.modality,'MRI') || strcmp(obj.modality,'CT')
             % Data is an integer type, so to prevent aliasing in the histogram, small
             % random values are added.  It's not elegant, but the alternative would be
             % too slow for practical use.
             buf(z).f{n} = single(fz{n}(buf(z).msk{n}) + rand(buf(z).nm(n),1)*scrand(n)-scrand(n)/2);
             
-            if uniform
+            if obj.uniform
                 buf(z).img{n} = buf(z).img{n} + rand(size(buf(z).img{n}))*scrand(n)-scrand(n)/2;
             end
         else
@@ -162,14 +182,15 @@ for z=1:length(z0)
         mom1(n) = mom1(n) + sum(buf(z).f{n});
         mom2(n) = mom2(n) + sum(buf(z).f{n}.^2);
         
-        sint(n) = sint(n) + sum(buf(z).f{n});
-        nms(n)  = nms(n)  + buf(z).nm(n);
+        sint(n) = sint(n) + sum(buf(z).f{n}); % Sum intensities
+        nms(n)  = nms(n)  + buf(z).nm(n); % Sum voxels
     end
 
     % Create a buffer for tissue probability info
     buf(z).dat = zeros([buf(z).Nm,Kb],'single');
 end
 
+% For simple form of intensity normalisation
 for n=1:N
     scl_int(n) = (1024 / (sint(n)/nms(n)));
 end

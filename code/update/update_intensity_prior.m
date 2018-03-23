@@ -9,7 +9,7 @@ for m=1:M
     cnt  = 1;
     for s=1:S
         if obj{m}{s}.status==0
-            obj1{cnt}.gmm = obj{m}{s}.gmm;
+            obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
             cnt           = cnt + 1;
         end
     end
@@ -17,7 +17,7 @@ for m=1:M
     pr = do_update(obj1);    
         
     for s=1:S
-        obj{m}{s}.gmm.pr = pr;   
+        obj{m}{s}.segment.gmm.pr = pr;   
     end
     
     pth1 = fileparts(obj{m}{1}.image(1).fname);

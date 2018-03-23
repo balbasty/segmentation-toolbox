@@ -1,6 +1,6 @@
 function [buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M)
 nz      = numel(buf);
-Kb      = max(obj.lkp.part);
+Kb      = max(obj.segment.lkp.part);
 pth_vel = obj.pth_vel;
 
 spm_diffeo('boundary',1);
@@ -15,7 +15,7 @@ spm_diffeo('boundary',1);
 % account for different voxel sizes.  I'm still not satisfied that
 % this (rescaling the regularisaiton by prod(vx.*sk)) is optimal.
 % The same thing applies to all the nonlinear warping code in SPM.
-param  = [sk.*vx prod(vx.*sk)*ff*obj.reg]; % FIX THIS (remove "prod(vx.*sk)")
+param  = [sk.*vx prod(vx.*sk)*ff*obj.segment.reg]; % FIX THIS (remove "prod(vx.*sk)")
 
 % Mapping from indices of subsampled voxels to indices of voxels in image(s).
 MT = [sk(1) 0 0 (1-sk(1));0 sk(2) 0 (1-sk(2)); 0 0 sk(3) (1-sk(3));0 0 0 1];
@@ -46,5 +46,5 @@ for z=1:nz
     for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
 end
 
-debug_view('template',fig{3},obj.lkp,buf,wp);  
+debug_view('template',fig{3},obj.segment.lkp,buf,wp);  
 %=======================================================================

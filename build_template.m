@@ -1,73 +1,42 @@
 function build_template
 
+%--------------------------------------------------------------------------
+% OBS! Below parameters need to be set (for FIL users)
+%--------------------------------------------------------------------------
+pth2_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
+pth2_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
+holly_server_login       = 'mbrud';
+dir_output               = '/data/mbrud/data-seg';
+holly_matlab_add_src     = '/home/mbrud/dev/segmentation-toolbox';
+holly_matlab_add_aux     = '/home/mbrud/dev/auxiliary-functions';
+
+% addpath
+%--------------------------------------------------------------------------
+
 addpath(genpath('./code'))
-addpath('/cherhome/mbrud/dev/distributed-computing')
-addpath('/cherhome/mbrud/dev/auxiliary-functions')
+addpath(pth2_distributed_toolbox)
+addpath(pth2_auxiliary_functions)
 
 test_level = 2; % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
+m          = 0;
 
 %--------------------------------------------------------------------------
 % Set algorithm parameters
 %--------------------------------------------------------------------------
 
-pars.name         = 'CHROMIS';
-pars.dir_output   = '/data/mbrud/data-seg';
-% pars.dir_output   = '/data-scratch/mbrud/data-seg/';
-% pars.dir_output   = '/home/mbrud/Data/data-seg';
-pars.dat          = {};
+pars.name       = 'build-template';
+pars.dir_output = dir_output;
+pars.dat        = {};
 
 % Basic test
-%-----------------
-m = 1;
-pars.dat{m}.dir_data = '/data/mbrud/images/2D/MRI/2D-IXI-T1-preproc-rn/';
-pars.dat{m}.segment.verbose = true;
-% pars.dat{m}.S = 32;
-% % pars.dat{m}.dir_data = '/data/mbrud/images/MRI/IXI-T1T2PD-preproc-rn/';
+% -----------------
+m = m + 1;
+pars.dat{m}.dir_data = '/mnt/cifs_share/share_data/Testing/segmentation-toolbox/MRI-T1'; % In Ashburner_group shared
 
-% CHROMIS
+% Define a log template
 %-----------------
-% pars.K = 10;
-% pars.crop_template = 10;
-% 
-% m = 1;
-% % pars.dat{m}.dir_data = '/data/mbrud/images/2D/CT/2D-lesion/';
-% pars.dat{m}.dir_data = '/data/mbrud/images/CT/CHROMIS-preproc-rn-ss-dn/';
-% pars.dat{m}.S = Inf;
-% pars.dat{m}.modality = 'CT';
-% pars.dat{m}.segment.do_bf = false;
-% % pars.dat{m}.segment.biasfwhm = 30;
-% % pars.dat{m}.segment.biasreg = 1e-1;
-% pars.dat{m}.segment.samp = 2;
-% % pars.dat{m}.segment.kmeans_ix = [1 5 3 4 2 6];
-% pars.dat{m}.trunc_ct = [-eps 200];
-% % pars.dat{m}.segment.verbose = true;
-% 
-% m = 2;
-% % pars.dat{m}.dir_data = '/data/mbrud/images/2D/CT/2D-healthy/';
-% pars.dat{m}.dir_data = '/data/mbrud/images/CT/healthy-preproc-rn-ss-dn/';
-% pars.dat{m}.S = Inf;
-% pars.dat{m}.modality = 'CT';
-% pars.dat{m}.segment.do_bf = false;
-% pars.dat{m}.segment.samp = 2;
-% % pars.dat{m}.segment.kmeans_ix = [1 2 3 4 5 6 8 7];
-% pars.dat{m}.trunc_ct = [-eps 200];
-% %pars.dat{m}.segment.lkp.rem = [7];
-
-% Labels
-%-----------------
-% m = 1;
-% pars.dat{m}.dir_data = '/home/mbrud/Data/MR-and-labels/';
-% pars.dat{m}.segment.use_labels = true;
-% pars.dat{m}.segment.wp_lab     = eps;
-% pars.dat{m}.segment.do_push_resp = true;
-% pars.dat{m}.segment.ml = true;
-% pars.dat{m}.segment.lkp.lab = [3 2 1 0 0 0];
-% pars.dat{m}.segment.lkp.rem = [6];
- 
-% Set a template
-%-----------------
-% pars.pth_template        = fullfile(get_pth_dropbox,'PhD/Data/log-template/logTPM.nii');
-% pars.pth_template        = fullfile(get_pth_dropbox,'PhD/Data/log-template/logBlaiottaTPM.nii');
+% pars.pth_template = '/mnt/cifs_share/share_data/log-TPMs/CB/logBlaiottaTPM.nii'; % In Ashburner_group shared
+% pars.pth_template = '/mnt/cifs_share/share_data/log-TPMs/SPM/logTPM.nii'; % In Ashburner_group shared
 
 pars = pars_default(pars,test_level);
 
@@ -77,26 +46,24 @@ pars = pars_default(pars,test_level);
 
 holly               = struct;
 holly.server.ip     = 'holly';
-holly.server.login  = 'mbrud';
+holly.server.login  = holly_server_login;
 holly.client.folder = fullfile(pars.dir_output,'cluster');
 holly.server.folder = holly.client.folder;
-% holly.server.folder = fullfile('/scratch',holly.client.folder(15:end));
-% holly.translate     = {'/data-scratch/mbrud/' '/scratch/mbrud/'};
 holly.matlab.bin    = '/share/apps/matlab';
-holly.matlab.addsub = '/home/mbrud/dev/segmentation-toolbox';
-holly.matlab.add    = '/home/mbrud/dev/auxiliary-functions';
+holly.matlab.addsub = holly_matlab_add_src;
+holly.matlab.add    = holly_matlab_add_aux;
 holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = false;
-holly.job.mem       = '7G';
+holly.job.mem       = '6G';
 holly.job.use_dummy = true;
 
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
-elseif test_level==2  holly.server.ip  = ''; holly.client.workers = Inf;
+elseif test_level==2, holly.server.ip  = ''; holly.client.workers = Inf;
 end
-% holly.server.ip      = ''; holly.client.workers = Inf;
-% holly.server.ip      = ''; holly.client.workers = 0;
+% holly.server.ip = ''; holly.client.workers = Inf;
+% holly.server.ip = ''; holly.client.workers = 0;
 
 holly = distribute_default(holly);
 
@@ -117,10 +84,6 @@ print_algorithm_progress('started');
 L = -Inf;
 for iter=1:pars.niter        
     
-    if pars.niter>1 && pars.sum_temp_der
-        clear_temp_der(obj);
-    end
-    
     if pars.niter>1
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
@@ -133,7 +96,7 @@ for iter=1:pars.niter
     [obj,ix]    = unfold_cell(obj,2);
     [holly,obj] = distribute(holly,'process_subject','inplace',obj,pars.fig);
     obj         = fold_cell(obj,ix);
-
+    
     % Check if any subjects have status~=0
     %----------------------------------------------------------------------
     print_jobs_failed(obj);
@@ -197,32 +160,33 @@ for m=1:M
         obj{m}{s}.iter = iter;
         
         if iter==1             
-            obj{m}{s}.do_def = false;
-            obj{m}{s}.do_bf  = false;
+            obj{m}{s}.push_resp.do_push_resp = true;
+            obj{m}{s}.write_res.do_write_res = false;
             
-            obj{m}{s}.do_push_resp = true;
-            obj{m}{s}.do_write_res = false;
-            
-            obj{m}{s}.niter  = 1;                 
-            obj{m}{s}.nsubit = 1;
-            obj{m}{s}.nitgmm = 1;
+            obj{m}{s}.segment.do_def = false;
+            obj{m}{s}.segment.do_bf  = false;
+            obj{m}{s}.segment.niter  = 1;                 
+            obj{m}{s}.segment.nsubit = 1;
+            obj{m}{s}.segment.nitgmm = 1;
+            obj{m}{s}.segment.tol1   = 0.5*1e-4;
         end
 
         if iter==2            
-            obj{m}{s}.nsubit  = 8;
-            obj{m}{s}.nitgmm  = 20;  
-            obj{m}{s}.do_bf   = obj{m}{s}.do_bf0;                
-            obj{m}{s}.uniform = false;                        
+            obj{m}{s}.uniform = false;  
+            
+            obj{m}{s}.segment.nsubit  = 8;
+            obj{m}{s}.segment.nitgmm  = 20;  
+            obj{m}{s}.segment.do_bf   = obj{m}{s}.segment.do_bf0;                                                  
         end
 
         if iter>=2
-            obj{m}{s}.reg    = obj{m}{s}.reg0;            
-            scal             = 2^max(12 - iter,0);                  
-            obj{m}{s}.reg(3) = obj{m}{s}.reg(3)*scal;         
+            obj{m}{s}.segment.reg    = obj{m}{s}.segment.reg0;            
+            scal                     = 2^max(12 - iter,0);                  
+            obj{m}{s}.segment.reg(3) = obj{m}{s}.segment.reg(3)*scal;         
         end
         
         % Sum bias field DC components
-        sum_bf_dc = sum_bf_dc + obj{m}{s}.bf_dc;
+        sum_bf_dc = sum_bf_dc + obj{m}{s}.segment.bf_dc;
         cnt_S     = cnt_S + 1;
     end
     
@@ -231,7 +195,7 @@ for m=1:M
     
     % Set average bias field DC component
     for s=1:S 
-        obj{m}{s}.avg_bf_dc = avg_bf_dc; 
+        obj{m}{s}.segment.avg_bf_dc = avg_bf_dc; 
     end
 end
 %==========================================================================
@@ -282,7 +246,7 @@ for m=1:M
     S = numel(obj{m});    
     for s=1:S            
         if obj{m}{s}.status==0                
-            bb(:,:,cnt) = obj{m}{s}.bb_push;
+            bb(:,:,cnt) = obj{m}{s}.push_resp.bb;
             cnt         = cnt + 1;
         end
     end
@@ -378,15 +342,4 @@ set(0,'CurrentFigure',fig);
 plot(0:numel(L(3:end)) - 1,L(3:end),'b-','LineWidth',1);   hold on            
 plot(0:numel(L(3:end)) - 1,L(3:end),'b.','markersize',10); hold off  
 title('ll')
-%==========================================================================
-
-%==========================================================================
-function clear_temp_der(obj)
-V    = spm_vol(obj{1}{1}.pth_template); 
-d1   = [V(1).dim numel(V)];
-d_gr = [d1(1:3),d1(4) - 1];
-d_H  = [d1(1:3) round(((d1(4) - 1)*d1(4))/2)];
-
-create_nii(obj{1}{1}.pth_sgr,zeros(d_gr,'single'),eye(4),obj{1}{1}.dt,'sgr'); 
-create_nii(obj{1}{1}.pth_sH,zeros(d_H,'single'),eye(4),obj{1}{1}.dt,'sH'); 
 %==========================================================================

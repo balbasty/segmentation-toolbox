@@ -5,21 +5,16 @@ M = numel(pars.dat);
 dir_subjects = fullfile(pars.dir_output,'subjects');
 if exist(dir_subjects,'dir'), rmdir(dir_subjects,'s'); end; mkdir(dir_subjects);   
 
-dir_sum = fullfile(pars.dir_output,'sum');
-if exist(dir_sum,'dir'), rmdir(dir_sum,'s'); end; mkdir(dir_sum);   
-pth_sgr = fullfile(dir_sum,'sgr.nii');
-pth_sH  = fullfile(dir_sum,'sH.nii');
-
 %--------------------------------------------------------------------------
-tot_subj = 0;
+tot_S = 0;
 for m=1:M
     S = numel(pars.dat{m}.V);    
     for s=1:S
-        tot_subj = tot_subj + 1; 
+        tot_S = tot_S + 1; 
     end
 end
 
-if ~(tot_subj>1)   
+if ~(tot_S>1)   
     pars.niter = 1; 
 end
 
@@ -53,108 +48,85 @@ obj        = cell(1,M);
 rand_subjs = cell(1,M);
 cnt        = 1;
 for m=1:M           
-    V          = pars.dat{m}.V;
+    V             = pars.dat{m}.V;
+    N             = numel(V{1});
     S             = numel(V);
     rand_subjs{m} = randperm(S,min(S0,S));   
     obj{m}        = cell(1,S);
+    
+    pars.dat{m}.segment.biasreg  = pars.dat{m}.segment.biasreg*ones(1,N);
+    pars.dat{m}.segment.biasfwhm = pars.dat{m}.segment.biasfwhm*ones(1,N);     
+    
+    pars.dat{m}.write_res.write_bf = repmat(pars.dat{m}.write_res.write_bf,N,1);  
+        
     for s=1:S                
-        obj_s = struct;
+        obj1 = struct;
              
         %------------------------------------------------------------------
-        dir_s     = fullfile(dir_subjects,['s-' num2str(s) '_m-' num2str(m)]);
-        mkdir(dir_s); 
-        obj_s.dir_s = dir_s;
+        dir_s      = fullfile(dir_subjects,['s-' num2str(s) '_m-' num2str(m)]);
+        obj1.dir_s = dir_s;
+        mkdir(dir_s);         
+        
+        %------------------------------------------------------------------        
+        obj1.image  = V{s};
+        obj1.labels = pars.dat{m}.labels{s};
         
         %------------------------------------------------------------------
-        N            = numel(V{s});
-        obj_s.image  = V{s};
-        if isfield(pars.dat{m},'L')
-            obj_s.labels = pars.dat{m}.L{s};
-        else
-            obj_s.labels = [];
-        end
+        obj1.s            = cnt;
+        obj1.tot_S        = tot_S;
+        
+        obj1.modality        = pars.dat{m}.modality;
+        obj1.pth_template    = pars.pth_template;                        
+        obj1.dt              = pars.dt;        
+        obj1.uniform         = pars.uniform;    
+        obj1.dir_template    = pars.dir_template;    
+        obj1.trunc_ct        = pars.dat{m}.trunc_ct;
+        obj1.fwhm            = pars.dat{m}.fwhm;
+        obj1.Affine          = pars.dat{m}.Affine;
+        obj1.print_subj_info = pars.dat{m}.print_subj_info;
+        obj1.ll_template     = 0;
+        obj1.status          = 0;
+        obj1.iter            = 1;
         
         %------------------------------------------------------------------
-        obj_s.s            = cnt;
-        obj_s.pth_template = pars.pth_template;                
-        obj_s.tot_S        = tot_subj;
-        obj_s.dt           = pars.dt;        
-        obj_s.uniform      = pars.uniform;    
-        obj_s.dir_template = pars.dir_template;
-        obj_s.pth_sgr      = pth_sgr;
-        obj_s.pth_sH       = pth_sH;
-        obj_s.sum_temp_der = pars.sum_temp_der;
-        obj_s.trunc_ct     = pars.dat{m}.trunc_ct;
+        obj1.maff = pars.dat{m}.maff;
+                
+        %------------------------------------------------------------------
+        obj1.push_resp = pars.dat{m}.push_resp;
         
-        %------------------------------------------------------------------
-        obj_s.bf_dc       = zeros(1,N);
-        obj_s.avg_bf_dc   = zeros(1,N);
-        obj_s.ll_template = 0;
-        obj_s.status      = 0;
-        obj_s.iter        = 1;
-        obj_s.aff_done    = false;
-            
-        %------------------------------------------------------------------
-        obj_s.bb              = pars.dat{m}.segment.bb;
-        obj_s.vox             = pars.dat{m}.segment.vox;
-        obj_s.cleanup         = pars.dat{m}.segment.cleanup;
-        obj_s.mrf             = pars.dat{m}.segment.mrf;
-        obj_s.affreg          = pars.dat{m}.segment.affreg;
-        obj_s.wp_lab          = pars.dat{m}.segment.wp_lab;
-        obj_s.reg             = pars.dat{m}.segment.reg;
-        obj_s.reg0            = obj_s.reg;
-        obj_s.samp            = pars.dat{m}.segment.samp;
-        obj_s.Affine          = pars.dat{m}.segment.Affine;
-        obj_s.biasreg         = pars.dat{m}.segment.biasreg*ones(1,N);
-        obj_s.biasfwhm        = pars.dat{m}.segment.biasfwhm*ones(1,N);  
-        obj_s.modality        = pars.dat{m}.modality;
-        obj_s.do_ml           = pars.dat{m}.segment.do_ml;
-        obj_s.do_bf           = pars.dat{m}.segment.do_bf;
-        obj_s.do_bf0          = pars.dat{m}.segment.do_bf;
-        obj_s.do_aff          = pars.dat{m}.segment.do_aff;
-        obj_s.do_def          = pars.dat{m}.segment.do_def;
-        obj_s.do_wp           = pars.dat{m}.segment.do_wp;
-        obj_s.print_seg       = pars.dat{m}.segment.print_seg;
-        obj_s.print_ll        = pars.dat{m}.segment.print_ll;        
-        obj_s.nsubit          = pars.dat{m}.segment.nsubit;
-        obj_s.nitgmm          = pars.dat{m}.segment.nitgmm;
-        obj_s.niter           = pars.dat{m}.segment.niter;            
-        obj_s.tol1            = pars.dat{m}.segment.tol1;        
-        obj_s.kmeans_dist     = pars.dat{m}.segment.kmeans_dist;
-        obj_s.kmeans_ix       = pars.dat{m}.segment.kmeans_ix;
-        obj_s.init_clust      = pars.dat{m}.segment.init_clust;                                        
-        obj_s.do_missing_data = pars.dat{m}.segment.do_missing_data;
-        obj_s.do_write_res    = pars.dat{m}.segment.do_write_res;
-        obj_s.do_push_resp    = pars.dat{m}.segment.do_push_resp;
-        obj_s.do_old_segment  = pars.dat{m}.segment.do_old_segment;                             
-        obj_s.write_tc        = pars.dat{m}.segment.write_tc;
-        obj_s.write_bf        = repmat(pars.dat{m}.segment.write_bf,N,1);        
-        obj_s.write_df        = pars.dat{m}.segment.write_df;                
-        obj_s.fwhm            = pars.dat{m}.segment.fwhm;
+        %------------------------------------------------------------------                 
+        obj1.write_res = pars.dat{m}.write_res;        
         
-        % Prepare lkp
-        %------------------------------------------------------------------
+        %------------------------------------------------------------------                     
+        obj1.segment = pars.dat{m}.segment;
+        
+        obj1.segment.reg0    = pars.dat{m}.segment.reg;
+        obj1.segment.do_bf0  = pars.dat{m}.segment.do_bf;
+        obj1.segment.do_def0 = pars.dat{m}.segment.do_def;
+           
+        obj1.segment.bf_dc     = zeros(1,N);
+        obj1.segment.avg_bf_dc = zeros(1,N);
+        
+        % lkp
         lkp = pars.dat{m}.segment.lkp;
         
-        if isfield(pars.dat{m},'L')
-            labels  = pars.dat{m}.L{s};
+        if ~isempty(lkp.lab) && ~isempty(lkp.rem)
+           error('~isempty(lkp.lab) && ~isempty(lkp.rem)') 
+        end
+            
+        if ~isempty(pars.dat{m}.labels{s}) && ~isempty(lkp.lab)
+            labels  = pars.dat{m}.labels{s};
             labels  = uint8(labels.private.dat(:,:,:));
-            mn      = min(labels(labels(:)~=0));
-            mx      = max(labels(:));
+            if min(labels(:))==0
+               labels = labels + 1; 
+            end
+            mn = min(labels(:));
+            mx = max(labels(:));
             
             if isempty(lkp.lab)
                 lkp.lab = mn:mx;
                 lkp.lab = [lkp.lab zeros(1,pars.K - mx)];
             end
-            
-%             % Sanity check
-%             if max(lkp.lab)>pars.K
-%                 error('max(obj_s.lab_lkp)>pars.K')
-%             end         
-% 
-%             if numel(lkp.lab)>numel(mn:mx)
-%                 error('numel(obj_s.lab_lkp)>numel(mn:mx)')
-%             end
         end
         
         if ~isempty(lkp.rem)
@@ -162,18 +134,18 @@ for m=1:M
             lkp.keep = lkp.keep(~msk);
         end    
         
-        obj_s.lkp = lkp;
+        obj1.segment.lkp = lkp;
         
-        %------------------------------------------------------------------
-        obj_s.gmm = struct;
+        % gmm
+        obj1.segment.gmm = struct;
         pth_prior = pars.dat{m}.segment.pth_prior;
-        if ~isempty(pth_prior) && ~obj_s.do_ml
-            tmp          = load(pth_prior,'-mat');
-            obj_s.gmm.pr = tmp.pr;
+        if ~isempty(pth_prior) && ~obj1.segment.do_ml
+            tmp                 = load(pth_prior,'-mat');
+            obj1.segment.gmm.pr = tmp.pr;
         end
-        
-        %------------------------------------------------------------------    
-        [~,nam] = fileparts(obj_s.image(1).fname);
+          
+        %------------------------------------------------------------------
+        [~,nam] = fileparts(obj1.image(1).fname);
 
         dir_resp = fullfile(dir_s,'resp'); 
         mkdir(dir_resp); 
@@ -183,9 +155,8 @@ for m=1:M
             fname       = fullfile(dir_resp,['resp-', num2str(k), '-' nam, '.nii']);
             pth_resp{k} = fname;  
         end
-        obj_s.pth_resp = pth_resp;
-
-        %------------------------------------------------------------------      
+        obj1.pth_resp = pth_resp;
+    
         dir_der = fullfile(dir_s,'der');      
         mkdir(dir_der);
 
@@ -194,29 +165,27 @@ for m=1:M
             fname     = fullfile(dir_der,['gr-', num2str(k), '-' nam, '.nii']);
             pth_gr{k} = fname;  
         end
-        obj_s.pth_gr = pth_gr;
+        obj1.pth_gr = pth_gr;
 
         pth_H = cell(1,d_H(end));
         for k=1:d_H(end)
             fname    = fullfile(dir_der,['H-', num2str(k), '-' nam, '.nii']);
             pth_H{k} = fname;  
         end
-        obj_s.pth_H = pth_H;
+        obj1.pth_H = pth_H;
 
-        %------------------------------------------------------------------
         dir_vel = fullfile(dir_s,'vel');   
         mkdir(dir_vel);
 
-        obj_s.pth_vel = fullfile(dir_vel,['vel-' nam '.nii']);   
+        obj1.pth_vel = fullfile(dir_vel,['vel-' nam '.nii']);   
 
-        %------------------------------------------------------------------
         dir_write = fullfile(dir_s,'write');   
         mkdir(dir_write);
 
-        obj_s.dir_write = dir_write;
+        obj1.dir_write = dir_write;
         
         %------------------------------------------------------------------
-        obj{m}{s} = obj_s;
+        obj{m}{s} = obj1;
         
         cnt = cnt + 1;
     end

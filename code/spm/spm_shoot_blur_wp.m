@@ -196,11 +196,11 @@ t   = max(t,eps('single')*1000);
 s   = sum(t,4);
 lwp = reshape(log(obj{m}{s1}.wp),1,1,dm(4));
 
-bb_push  = obj{m}{s1}.bb_push;
-rng0     = cell(1,3);
-rng0{1}  = bb_push(1,1):bb_push(1,2);
-rng0{2}  = bb_push(2,1):bb_push(2,2);
-rng0{3}  = bb_push(3,1):bb_push(3,2);            
+bb      = obj{m}{s1}.push_resp.bb;
+rng0    = cell(1,3);
+rng0{1} = bb(1,1):bb(1,2);
+rng0{2} = bb(2,1):bb(2,2);
+rng0{3} = bb(3,1):bb(3,2);            
 
 d1 = dm(1:3);
 %==========================================================================

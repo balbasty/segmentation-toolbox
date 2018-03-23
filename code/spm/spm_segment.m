@@ -10,24 +10,25 @@ V         = obj.image;
 N         = numel(V);
 d0        = V(1).dim(1:3);
 vx        = vxsize(V(1).mat);
-sk        = max([1 1 1],round(obj.samp*[1 1 1]./vx));
+sk        = max([1 1 1],round(obj.segment.samp*[1 1 1]./vx));
 [x0,y0,o] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
 z0        = 1:sk(3):d0(3);
 d         = [size(x0) length(z0)];
-lkp       = obj.lkp;
+lkp       = obj.segment.lkp;
 Kb        = max(lkp.part);
-tol1      = obj.tol1;
-wp_reg    = 1;
-wp_lab    = obj.wp_lab;
+tol1      = obj.segment.tol1;
+wp_reg    = 1/Kb;
+mix_wp_reg = obj.segment.mix_wp_reg;
+wp_lab    = obj.segment.wp_lab;
 modality  = obj.modality;
-niter     = obj.niter;
-nitgmm    = obj.nitgmm;
-nsubit    = obj.nsubit;
-do_bf     = obj.do_bf;
-if obj.uniform, obj.do_def = false; end
-do_def    = obj.do_def;
-do_wp     = obj.do_wp;
-print_ll  = obj.print_ll;
+niter     = obj.segment.niter;
+nitgmm    = obj.segment.nitgmm;
+nsubit    = obj.segment.nsubit;
+do_bf     = obj.segment.do_bf;
+if obj.uniform, obj.segment.do_def = false; end
+do_def    = obj.segment.do_def;
+do_wp     = obj.segment.do_wp;
+print_ll  = obj.segment.print_ll;
 pth_vel   = obj.pth_vel;
 Affine    = obj.Affine;
 M         = tpm.M\Affine*V(1).mat;
@@ -43,13 +44,13 @@ ff = compute_fudge_factor(obj.fwhm,vx,sk);
 
 % Initialise weights
 %-----------------------------------------------------------------------
-if isfield(obj,'wp'), wp = obj.wp;
-else,                 wp = ones(1,Kb)/Kb;
+if isfield(obj.segment,'wp'), wp = obj.segment.wp;
+else                          wp = ones(1,Kb)/Kb;
 end
         
 part0 = lkp.part;
-if isfield(obj,'mg')
-    mg = obj.mg;   
+if isfield(obj.segment,'mg')
+    mg = obj.segment.mg;   
     if numel(mg)~=numel(lkp.part)
         lkp.part = 1:Kb;       
     end
@@ -82,7 +83,7 @@ for iter=1:niter
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Estimate cluster parameters
         %------------------------------------------------------------
-        [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab);
+        [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,mix_wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab);
  
         debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_lab);
         
@@ -122,7 +123,7 @@ for iter=1:niter
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Estimate cluster parameters
             %------------------------------------------------------------
-            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab);
+            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,mix_wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab);
 
             debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_lab);
 
@@ -159,17 +160,15 @@ for i=1:3
 end
 clear Twarp Nii
 
-obj.Affine = Affine;
-obj.lkp    = lkp;
-obj.MT     = MT;
-obj.Tbias  = {chan(:).T};
-obj.wp     = wp;
-obj.mg     = mg;
-obj.gmm    = gmm;
-obj.ll     = ll;
-obj.new    = true;
-obj.bf_dc  = bf_dc;
-obj.d0     = d0;
+obj.Affine        = Affine;
+obj.segment.lkp   = lkp;
+obj.segment.MT    = MT;
+obj.segment.Tbias = {chan(:).T};
+obj.segment.wp    = wp;
+obj.segment.mg    = mg;
+obj.segment.gmm   = gmm;
+obj.segment.ll    = ll;
+obj.segment.bf_dc = bf_dc;
 return;
 %=======================================================================
 

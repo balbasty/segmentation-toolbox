@@ -50,10 +50,10 @@ for m=1:numel(obj)
         end
         
         if obj{m}{s}.status==0
-            bb_push = obj{m}{s}.bb_push;
-            rngx    = bb_push(1,1):bb_push(1,2);
-            rngy    = bb_push(2,1):bb_push(2,2);
-            rngz    = bb_push(3,1):bb_push(3,2);
+            bb   = obj{m}{s}.push_resp.bb;
+            rngx = bb(1,1):bb(1,2);
+            rngy = bb(2,1):bb(2,2);
+            rngz = bb(3,1):bb(3,2);
             
             for k=1:size(gr,4)
                 Nii                  = nifti(obj{m}{s}.pth_gr{k});
@@ -65,7 +65,7 @@ for m=1:numel(obj)
                 W(rngx,rngy,rngz,k) = W(rngx,rngy,rngz,k) + single(Nii.dat(:,:,:));
             end
             
-            ll       = ll + obj{m}{s}.ll_template; 
+            ll = ll + obj{m}{s}.ll_template; 
         end
     end
     fprintf(' | DONE!\n')    

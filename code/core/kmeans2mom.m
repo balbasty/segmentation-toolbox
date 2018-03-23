@@ -1,8 +1,40 @@
-function mom = kmeans2mom(buf,K,mn,mx,init_clust,kmeans_dist,ix1)
+function mom = kmeans2mom(buf,lkp,mn,mx,obj)
 N = numel(buf(1).img);
+K = numel(lkp.keep);
 
 C = linspace_vec(mn,mx,K);
 if size(C,1)~=K, C = C'; end
+    
+if ~isempty(lkp.lab)    
+    Nii    = nifti(obj.labels.fname);
+    labels = uint8(Nii.dat(:,:,:));        
+    if min(labels(:))==0
+        labels = labels + 1;
+    end
+    
+    avg_int = zeros(K,N);
+    
+    for n=1:N
+        Nii = nifti(obj.image(n).fname);
+        img = single(Nii.dat(:,:,:));
+    
+        for k=lkp.lab
+            if k==0, continue; end
+
+            msk          = labels==k;
+            avg_int(k,n) = mean(img(msk(:)));
+        end
+    end
+    clear labels img
+    
+    for k=lkp.lab
+        if k==0, continue; end
+        
+        C(k,:) = avg_int(k,:);
+    end
+    
+    C(lkp.lab==0,:) = linspace_vec(mn,mx,nnz(lkp.lab==0))';
+end
 
 F = [];
 for z=1:numel(buf)          
@@ -14,7 +46,7 @@ for z=1:numel(buf)
     clear cr    
 end
 
-Q = label_data(F,K,C,kmeans_dist);
+Q = label_data(F,K,C,obj.segment.kmeans_dist);
 
 mom = moments_struct(K,N);  
 for k=1:K
@@ -24,19 +56,19 @@ for k=1:K
 end
 % mom(end).s1./mom(end).s0
 
-if ~isempty(init_clust)
-    if strcmp(init_clust,'random')
+if ~isempty(obj.segment.init_clust)
+    if strcmp(obj.segment.init_clust,'random')
         % Randomise sufficient statistics        
         ix = randperm(K);        
-    elseif  strcmp(init_clust,'total')
+    elseif  strcmp(obj.segment.init_clust,'total')
         % Sort sufficient statistics according total amount of each class (0th moment)
         [~,ix] = sort(mom(end).s0);  
-    elseif  strcmp(init_clust,'reverse')
+    elseif  strcmp(obj.segment.init_clust,'reverse')
         % Reverse sufficient statistics
         ix = fliplr(1:K);   
-    elseif  strcmp(init_clust,'user')
+    elseif  strcmp(obj.segment.init_clust,'user')
         % Used-defined
-        ix = ix1;        
+        ix = obj.segment.kmeans_ix;        
     end
     
     for i=1:numel(mom) 

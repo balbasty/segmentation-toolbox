@@ -1,19 +1,16 @@
 function [Q,ll] = latent(f,bf,mg,gmm,B,lkp,wp,msk,code,labels,wp_lab,cr)
 if nargin<12, cr = []; end
 
-if isempty(labels)
-    wp1 = 1;
-    wp2 = 0;
-else
-    wp1 = 1 - wp_lab;
-    wp2 = wp_lab;    
-    
+if ~isempty(labels)
     tiny   = 1e-4;
-    labels = log_spatial_priors(double(labels) + tiny,[],wp2);
+    msk2   = sum(labels,2)>0;
+    labels = double(labels);
+    labels = max(labels,tiny);
+    labels = log_spatial_priors(labels,[],wp_lab);
 end
 
-B  = log_spatial_priors(B,wp,wp1);
-Q  = log_likelihoods(f,bf,mg,gmm,msk,code,lkp,cr);
+B = log_spatial_priors(B,wp);
+Q = log_likelihoods(f,bf,mg,gmm,msk,code,lkp,cr);
 
 Kb   = max(lkp.part);
 msk1 = code>0;
@@ -22,7 +19,7 @@ for k1=1:Kb
         if isempty(labels)
             Q(msk1,k) = Q(msk1,k) + B(:,k1);
         else
-            Q(msk1,k) = Q(msk1,k) + B(:,k1) + labels(:,k1);
+            Q(msk1,k) = Q(msk1,k) + B(:,k1) + msk2.*labels(:,k1);
         end
     end
 end
@@ -36,7 +33,7 @@ else
     
     if nargout==2
         % Compute lower bound components
-        L = zeros(1,3);
+        L = zeros(1,4);
 
         % Responsibilities
         L(1) = -nansum(nansum(Q.*logQ));
@@ -53,7 +50,12 @@ else
         % TPMs
         L(3) = nansum(nansum(Q(msk1,:).*bsxfun(@plus,B(:,lkp.part),log(mg)')));   
         
-        ll   = sum(L);
+        if ~isempty(labels)
+            % Labels
+            L(4) = nansum(nansum(Q(msk1,:).*bsxfun(@times,msk2,labels(:,lkp.part))));  
+        end
+        
+        ll = sum(L);
     end
 end
 %=======================================================================
