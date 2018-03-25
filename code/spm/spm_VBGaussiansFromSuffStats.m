@@ -109,11 +109,15 @@ else
         W     = gmm.po.W;
         beta  = gmm.po.b;
         m     = gmm.po.m;
-    else                      
-        m    = mom1(end).s1;                       
-        beta = ones(1,K);
-        nu   = N*ones(1,K); 
-        W    = repmat(eye(N),1,1,K);
+    else                  
+        m    = m0;                       
+        beta = beta0;
+        nu   = nu0; 
+        W    = W0;
+%         m    = mom1(end).s1;                       
+%         beta = ones(1,K);
+%         nu   = N*ones(1,K); 
+%         W    = repmat(eye(N),1,1,K);
 %         W    = zeros(N,N,K);
 %         for k=1:K
 %             W(:,:,k) = inv(mom(end).S2(:,:,k))/nu(k);

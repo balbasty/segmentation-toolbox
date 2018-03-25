@@ -57,6 +57,10 @@ for m=1:M
     pars.dat{m}.segment.biasreg  = pars.dat{m}.segment.biasreg*ones(1,N);
     pars.dat{m}.segment.biasfwhm = pars.dat{m}.segment.biasfwhm*ones(1,N);     
     
+    if V{1}.dim(3)==1
+        pars.dat{m}.maff.do_maff = false;
+    end
+    
     pars.dat{m}.write_res.write_bf = repmat(pars.dat{m}.write_res.write_bf,N,1);  
         
     for s=1:S                

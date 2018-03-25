@@ -45,7 +45,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0 1 0];
+    pars.sparam = [0 2 0];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;

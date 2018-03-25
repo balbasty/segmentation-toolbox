@@ -2,32 +2,70 @@ function obj = update_intensity_prior(obj,iter)
 dir_template = obj{1}{1}.dir_template;
 
 M = numel(obj);
+
+all_ct = true;
 for m=1:M
-    
-    S    = numel(obj{m});
-    obj1 = {};
+    if strcmp(obj{m}{1}.modality,'MRI')
+        all_ct = false;
+    end
+end
+
+if all_ct
     cnt  = 1;
-    for s=1:S
-        if obj{m}{s}.status==0
-            obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
-            cnt           = cnt + 1;
+    obj1 = {};
+    for m=1:M
+        S = numel(obj{m});                
+        for s=1:S
+            if obj{m}{s}.status==0
+                obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
+                cnt           = cnt + 1;
+            end
         end
     end
     
     pr = do_update(obj1);    
-        
-    for s=1:S
-        obj{m}{s}.segment.gmm.pr = pr;   
+
+    for m=1:M
+        for s=1:S
+            obj{m}{s}.segment.gmm.pr = pr;   
+        end
     end
     
-    pth1 = fileparts(obj{m}{1}.image(1).fname);
+    pth1 = fileparts(obj{1}{1}.image(1).fname);
     pth1 = strsplit(pth1,filesep);
     pth1 = pth1{end - 1};
-    
+
     fname = fullfile(dir_template,['prior-' pth1 '.mat']);
     save(fname,'pr');
-    
-    for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end    
+
+    for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end        
+else
+    for m=1:M
+        S    = numel(obj{m});
+        obj1 = {};
+        cnt  = 1;
+        for s=1:S
+            if obj{m}{s}.status==0
+                obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
+                cnt           = cnt + 1;
+            end
+        end
+
+        pr = do_update(obj1);    
+
+        for s=1:S
+            obj{m}{s}.segment.gmm.pr = pr;   
+        end
+
+        pth1 = fileparts(obj{m}{1}.image(1).fname);
+        pth1 = strsplit(pth1,filesep);
+        pth1 = pth1{end - 1};
+
+        fname = fullfile(dir_template,['prior-' pth1 '.mat']);
+        save(fname,'pr');
+
+        for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end    
+    end
 end
 %==========================================================================
 
@@ -67,7 +105,7 @@ for k=1:K
         g = g + b0(k)*n(k)*W(:,:,k)*(m(:,k)-m0(:,k));
         H = H + b0(k)*n(k)*W(:,:,k);
     end
-    m0(:,k) = max(m0(:,k) + H\g,1e-5);    
+    m0(:,k) = m0(:,k) + H\g;    
     
     %______________________________________________________________________________
 
