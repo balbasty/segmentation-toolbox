@@ -1,39 +1,9 @@
 function [ll,llr,buf,Twarp,L,armijo] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,tot_S,armijo,wp_lab)
-tiny = eps*eps;
 nz   = numel(buf);
 N    = numel(buf(1).f);
 K    = numel(lkp.part);
 Kb   = max(lkp.part);
 d    = size(buf(1).msk{1});
-
-ll_const = 0;
-if gmm.ml
-    ll   = llr + llrb;
-    buf1 = struct('dat',cell(nz,1));
-    for z=1:nz    
-        if ~buf(z).Nm, continue; end       
-           
-        % Compute likelihoods, and save them in buf.dat        
-        qt       = log_likelihoods(buf(z).f,buf(z).bf,mg,gmm,buf(z).msk,buf(z).code,lkp);
-        max_qt   = nanmax(qt,[],2);
-        ll_const = ll_const + nansum(max_qt);
-        B        = bsxfun(@times,double(buf(z).dat),wp);
-        B        = bsxfun(@times,B,1./sum(B,2));
-        
-        msk1 = buf(z).code>0;
-        q    = zeros(buf(z).Nm,Kb);
-        for k1=1:Kb
-            for k=find(lkp.part==k1)
-                q(:,k1) = q(:,k1) + exp(qt(msk1,k) - max_qt(msk1));
-            end
-            buf1(z).dat(:,k1) = single(q(:,k1));
-        end
-        ll = ll + nansum(log(nansum(q.*B + tiny,2)));        
-    end
-    ll = ll + ll_const;
-    
-    clear qt max_qt B q
-end
 
 Alpha = zeros([size(x0),nz,6],'single');
 Beta  = zeros([size(x0),nz,3],'single');
@@ -80,23 +50,18 @@ for z=1:nz
     dp3 = zeros(buf(z).Nm,1);
     MM  = M*MT; % Map from sampled voxels to atlas data
     
-    if ~gmm.ml
-        % Compute responsibilties        
-        qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab);        
-        q  = zeros(buf(z).Nm,Kb,'single');
-        for k1=1:Kb
-            for k=find(lkp.part==k1)
-                q(:,k1) = q(:,k1) + qt(msk1,k);
-            end
+    % Compute responsibilties        
+    qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab);        
+    q  = zeros(buf(z).Nm,Kb,'single');
+    for k1=1:Kb
+        for k=find(lkp.part==k1)
+            q(:,k1) = q(:,k1) + qt(msk1,k);
         end
-        clear qt
     end
+    clear qt
     
     for k1=1:Kb
-        if gmm.ml, pp = double(buf1(z).dat(:,k1));
-        else       pp = double(q(:,k1));
-        end
-        
+        pp  = double(q(:,k1));        
         p   = p   + pp.*b{k1};
         dp1 = dp1 + pp.*(MM(1,1)*db1{k1} + MM(2,1)*db2{k1} + MM(3,1)*db3{k1});
         dp2 = dp2 + pp.*(MM(1,2)*db1{k1} + MM(2,2)*db2{k1} + MM(3,2)*db3{k1});
@@ -150,56 +115,31 @@ for line_search=1:12
     
     % Recompute objective function
     llr1 = -0.5*sum(sum(sum(sum(Twarp1.*bsxfun(@times,spm_diffeo('vel2mom',bsxfun(@times,Twarp1,1./sk4),param),1./sk4)))));
-    ll1  = llr1 + llrb + ll_const;
-    if gmm.ml
-        for z=1:nz
-            if ~buf(z).Nm, continue; end
-            
-            msk1                          = buf(z).code>0;
-            [x1,y1,z1]                    = make_deformation(Twarp1,z,x0,y0,z0,M,msk1);
-            b                             = spm_sample_logpriors(tpm,x1,y1,z1);
-            for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
-            clear x1 y1 z1
-            
-            s                  = zeros(size(buf(z).dat(:,1)));
-            for k1=1:Kb, b{k1} = b{k1}*wp(k1); s = s + b{k1}; end
-            for k1=1:Kb, b{k1} = b{k1}./s; end
-            clear s            
+    ll1  = llr1 + llrb;
 
-            sq = zeros(buf(z).Nm,1);
-            for k1=1:Kb
-                sq = sq + double(buf1(z).dat(:,k1)).*double(b{k1});
-            end
-            clear b
-            
-            ll1 = ll1 + sum(log(sq));
-            clear sq
-        end
-    else
-        mom = moments_struct(K,N);
-        for z=1:nz
-            if ~buf(z).Nm, continue; end
+    mom = moments_struct(K,N);
+    for z=1:nz
+        if ~buf(z).Nm, continue; end
 
-            msk1                          = buf(z).code>0;
-            [x1,y1,z1]                    = make_deformation(Twarp1,z,x0,y0,z0,M,msk1);
-            b                             = spm_sample_logpriors(tpm,x1,y1,z1);
-            for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
-            clear x1 y1 z1
-            
-            cr                             = NaN(numel(buf(z).msk),N);
-            for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end 
+        msk1                          = buf(z).code>0;
+        [x1,y1,z1]                    = make_deformation(Twarp1,z,x0,y0,z0,M,msk1);
+        b                             = spm_sample_logpriors(tpm,x1,y1,z1);
+        for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
+        clear x1 y1 z1
 
-            [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
-            ll1     = ll1 + dll;
+        cr                             = NaN(numel(buf(z).msk),N);
+        for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end 
 
-            mom = spm_SuffStats(cr,q,mom,buf(z).code);
-            clear q cr b
-        end           
+        [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
+        ll1     = ll1 + dll;
 
-        % Compute missing data and VB components of ll
-        dll = spm_VBGaussiansFromSuffStats(mom,gmm);
-        ll1 = ll1 + sum(sum(dll)); 
-    end
+        mom = spm_SuffStats(cr,q,mom,buf(z).code);
+        clear q cr b
+    end           
+
+    % Compute missing data and VB components of ll
+    dll = spm_VBGaussiansFromSuffStats(mom,gmm);
+    ll1 = ll1 + sum(sum(dll)); 
 
     if ll1<ll
         % Still not better, so keep searching inwards.

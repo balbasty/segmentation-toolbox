@@ -23,38 +23,34 @@ for k1=1:Kb
     end
 end
 
-if gmm.ml
-    [Q,ll] = safe_softmax(Q);
-else
-    logSumQ = logsumexp(Q,2);
-    logQ    = bsxfun(@minus,Q,logSumQ);
-    Q       = exp(logQ);
-    
-    if nargout==2
-        % Compute lower bound components
-        L = zeros(1,4);
+logSumQ = logsumexp(Q,2);
+logQ    = bsxfun(@minus,Q,logSumQ);
+Q       = exp(logQ);
 
-        % Responsibilities
-        L(1) = -nansum(nansum(Q.*logQ));
+if nargout==2
+    % Compute lower bound components
+    L = zeros(1,4);
 
-        % Bias field      
-        N                        = numel(f);
-        M                        = numel(code);
-        nbf                      = ones([M N]);
-        for n=1:N, nbf(msk{n},n) = double(bf{n}); end
-        bf                       = nbf; clear nbf
-     
-        L(2) = nansum(nansum(bsxfun(@times,Q,log(prod(bf,2)))));
+    % Responsibilities
+    L(1) = -nansum(nansum(Q.*logQ));
 
-        % TPMs
-        L(3) = nansum(nansum(Q(msk1,:).*bsxfun(@plus,B(:,lkp.part),log(mg)')));   
-        
-        if ~isempty(labels)
-            % Labels
-            L(4) = nansum(nansum(Q(msk1,:).*labels(:,lkp.part)));  
-        end
-        
-        ll = sum(L);
+    % Bias field      
+    N                        = numel(f);
+    M                        = numel(code);
+    nbf                      = ones([M N]);
+    for n=1:N, nbf(msk{n},n) = double(bf{n}); end
+    bf                       = nbf; clear nbf
+
+    L(2) = nansum(nansum(bsxfun(@times,Q,log(prod(bf,2)))));
+
+    % TPMs
+    L(3) = nansum(nansum(Q(msk1,:).*bsxfun(@plus,B(:,lkp.part),log(mg)')));   
+
+    if ~isempty(labels)
+        % Labels
+        L(4) = nansum(nansum(Q(msk1,:).*labels(:,lkp.part)));  
     end
+
+    ll = sum(L);
 end
 %=======================================================================

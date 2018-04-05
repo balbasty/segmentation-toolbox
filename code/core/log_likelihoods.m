@@ -18,10 +18,8 @@ end
 
 % Compute log|B|
 %--------------------------------------------------------------------------
-if ~gmm.ml    
-    nbf                      = NaN([M N]);
-    for n=1:N, nbf(msk{n},n) = double(bf{n}); end
-end
+nbf                      = NaN([M N]);
+for n=1:N, nbf(msk{n},n) = double(bf{n}); end
 
 % Compute likelihoods
 %--------------------------------------------------------------------------
@@ -34,16 +32,10 @@ for n=2:2^N
             if any(lkp.rem==lkp.part(k))
                 L(ind,k) = -Inf;
             else
-                if gmm.ml
-                    C        = chol(gmm.vr(msk0,msk0,k));
-                    d        = bsxfun(@minus,cr(ind,msk0),gmm.mn(msk0,k)')/C;
-                    L(ind,k) = log(mg(k)) - (N/2)*log(2*pi) - sum(log(diag(C))) - 0.5*sum(d.*d,2);
-                else
-                    d        = bsxfun(@minus,cr(ind,msk0)',gmm.po.m(msk0,k));
-                    Q        = chol(gmm.po.W(msk0,msk0,k))*d;
-                    E        = N/gmm.po.b(k) + gmm.po.n(k)*dot(Q,Q,1);
-                    L(ind,k) = 0.5*(Elogdet(gmm.po.W(msk0,msk0,k),gmm.po.n(k)) - E') + log(mg(k)) - N/2*log(2*pi) + log(prod(nbf(ind,msk0),2));
-                end
+                d        = bsxfun(@minus,cr(ind,msk0)',gmm.po.m(msk0,k));
+                Q        = chol(gmm.po.W(msk0,msk0,k))*d;
+                E        = N/gmm.po.b(k) + gmm.po.n(k)*dot(Q,Q,1);
+                L(ind,k) = 0.5*(Elogdet(gmm.po.W(msk0,msk0,k),gmm.po.n(k)) - E') + log(mg(k)) - N/2*log(2*pi) + log(prod(nbf(ind,msk0),2));
             end
         end
     end

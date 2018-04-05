@@ -60,8 +60,8 @@ if ~isempty(fig)
             subplot(N,3,n); 
     	    slice = NaN(d(1:2));
             slice(buf(dz).msk{n}) = buf(dz).f{n};   
-            if strcmp(modality,'CT'), imagesc(slice',clims_CT); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
-            else                      imagesc(slice'); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
+            if strcmp(modality,'CT'), imagesc(slice',clims_CT); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray); colorbar;    
+            else                      imagesc(slice'); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray); colorbar;    
             end
             
             subplot(N,3,N + n);    
@@ -73,8 +73,8 @@ if ~isempty(fig)
             subplot(N,3,2*N + n);   
     	    slice = NaN(d(1:2));         
             slice(buf(dz).msk{n}) = buf(dz).bf{n}.*buf(dz).f{n};
-            if strcmp(modality,'CT'), imagesc(slice',clims_CT); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
-            else                      imagesc(slice'); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray);    
+            if strcmp(modality,'CT'), imagesc(slice',clims_CT); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray); colorbar;    
+            else                      imagesc(slice'); axis image xy off; title(['X, n=' num2str(n)]); colormap(gray); colorbar;    
             end
             title(['BX, n=' num2str(n)]);
         end  

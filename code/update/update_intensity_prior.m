@@ -1,11 +1,6 @@
 function obj = update_intensity_prior(obj,iter)
-if obj{1}{1}.segment.do_ml
-    return
-end
-
 dir_template = obj{1}{1}.dir_template;
-
-M = numel(obj);
+M            = numel(obj);
 
 all_ct = true;
 for m=1:M

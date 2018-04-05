@@ -58,7 +58,7 @@ for m=1:M
     pars.dat{m}.segment.biasreg  = pars.dat{m}.segment.biasreg*ones(1,N);
     pars.dat{m}.segment.biasfwhm = pars.dat{m}.segment.biasfwhm*ones(1,N);     
     
-    if V{1}.dim(3)==1
+    if V{1}(1).dim(3)==1
         pars.dat{m}.maff.do_maff = false;
     end
     
@@ -108,6 +108,7 @@ for m=1:M
         obj1.segment.reg0    = pars.dat{m}.segment.reg;
         obj1.segment.do_bf0  = pars.dat{m}.segment.do_bf;
         obj1.segment.do_def0 = pars.dat{m}.segment.do_def;
+        obj1.segment.do_wp0  = pars.dat{m}.segment.do_wp;
            
         obj1.segment.bf_dc     = zeros(1,N);
         obj1.segment.avg_bf_dc = zeros(1,N);
@@ -143,8 +144,8 @@ for m=1:M
         
         % gmm
         obj1.segment.gmm = struct;
-        pth_prior = pars.dat{m}.segment.pth_prior;
-        if ~isempty(pth_prior) && ~obj1.segment.do_ml
+        pth_prior        = pars.dat{m}.segment.pth_prior;
+        if ~isempty(pth_prior)
             tmp                 = load(pth_prior,'-mat');
             obj1.segment.gmm.pr = tmp.pr;
         end

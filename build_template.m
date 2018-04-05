@@ -3,12 +3,14 @@ function build_template
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-pth2_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
-pth2_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
-holly_server_login       = 'mbrud';
-dir_output               = '/data/mbrud/data-seg';
-holly_matlab_add_src     = '/home/mbrud/dev/segmentation-toolbox';
-holly_matlab_add_aux     = '/home/mbrud/dev/auxiliary-functions';
+dir_output = '/home/smajjk/Data/tmp-build-tpm';
+
+pth2_distributed_toolbox = '../distributed-computing';
+pth2_auxiliary_functions = '../auxiliary-functions';
+
+holly_server_login   = 'mbrud';
+holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox';
+holly_matlab_add_aux = '/home/mbrud/dev/auxiliary-functions';
 
 % addpath
 %--------------------------------------------------------------------------
@@ -18,27 +20,30 @@ addpath(pth2_distributed_toolbox)
 addpath(pth2_auxiliary_functions)
 
 test_level = 2; % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
-m          = 0;
+m = 0;
 
 %--------------------------------------------------------------------------
 % Set algorithm parameters
 %--------------------------------------------------------------------------
 
-pars.name       = 'build-template';
+pars.name       = 'CHROMIS';
 pars.dir_output = dir_output;
 pars.dat        = {};
 
 % Basic test
 % -----------------
 m = m + 1;
-pars.dat{m}.dir_data = '/mnt/cifs_share/share_data/Testing/segmentation-toolbox/MRI-T1'; % In Ashburner_group shared
+% pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+pars.dat{m}.S = 4;
+pars.dat{m}.segment.samp = 1;
 
 % Define a log template
 %-----------------
 % pars.pth_template = '/mnt/cifs_share/share_data/log-TPMs/CB/logBlaiottaTPM.nii'; % In Ashburner_group shared
 % pars.pth_template = '/mnt/cifs_share/share_data/log-TPMs/SPM/logTPM.nii'; % In Ashburner_group shared
 
-pars = pars_default(pars,test_level);
+pars = pars_default(pars,test_level); 
 
 %--------------------------------------------------------------------------
 % Set distribute package parameters
@@ -56,7 +61,7 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = false;
-holly.job.mem       = '6G';
+holly.job.mem       = '10G';
 holly.job.use_dummy = true;
 
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
@@ -75,6 +80,8 @@ pars       = read_images(pars);
 pars       = init_template(pars); 
 [obj,pars] = init_obj(pars);
 
+obj = kmeans_on_hist(obj,pars);
+
 %--------------------------------------------------------------------------
 % Start the algorithm
 %--------------------------------------------------------------------------
@@ -88,7 +95,7 @@ for iter=1:pars.niter
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
         %----------------------------------------------------------------------    
-        obj = modify_obj(obj,iter);
+        obj = modify_obj(obj,iter,pars.niter);
     end       
     
     % Segment a bunch of subjects 
@@ -107,6 +114,12 @@ for iter=1:pars.niter
         L = update_template(L,obj,pars,iter);                              
     end        
     
+    if pars.niter>1 && pars.mrf
+        % Use a MRF cleanup procedure
+        %------------------------------------------------------------------
+        mrf_clean_up(pars.pth_template);
+    end
+        
     if pars.niter>1
         % Automatically decrease the size of the template based on bounding
         % boxes computed for each pushed responsibility image
@@ -136,6 +149,7 @@ for iter=1:pars.niter
         if pars.verbose>0, plot_ll(pars.fig{5},L); end
         if pars.verbose>1, show_template(pars.pth_template,pars.fig{6}); end
         if pars.verbose>2, show_resp(pars.fig{7},obj,pars); end      
+        if pars.verbose>3, show_def(pars.fig{8},obj,pars); end 
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
@@ -150,7 +164,7 @@ print_algorithm_progress('finished',iter);
 %==========================================================================
 
 %==========================================================================
-function obj = modify_obj(obj,iter)
+function obj = modify_obj(obj,iter,niter)
 M = numel(obj);    
 for m=1:M
     S         = numel(obj{m});    
@@ -165,29 +179,38 @@ for m=1:M
             
             obj{m}{s}.segment.do_def = false;
             obj{m}{s}.segment.do_bf  = false;
+            obj{m}{s}.segment.do_wp  = false;
             obj{m}{s}.segment.niter  = 1;                 
             obj{m}{s}.segment.nsubit = 1;
             obj{m}{s}.segment.nitgmm = 1;
-            obj{m}{s}.segment.tol1   = 0.5*1e-4;
         end
 
         if iter==2            
             obj{m}{s}.uniform = false;  
             
-            obj{m}{s}.segment.nsubit  = 8;
-            obj{m}{s}.segment.nitgmm  = 20;  
-            obj{m}{s}.segment.do_bf   = obj{m}{s}.segment.do_bf0;                                                  
+            obj{m}{s}.segment.nsubit = 8;
+            obj{m}{s}.segment.nitgmm = 20;  
+            obj{m}{s}.segment.do_bf  = obj{m}{s}.segment.do_bf0;                                                  
+            obj{m}{s}.segment.do_wp  = obj{m}{s}.segment.do_wp0;    
         end
 
         if iter>=2
-            obj{m}{s}.segment.reg    = obj{m}{s}.segment.reg0;            
-            scal                     = 2^max(12 - iter,0);                  
-            obj{m}{s}.segment.reg(3) = obj{m}{s}.segment.reg(3)*scal;         
+            reg0  = obj{m}{s}.segment.reg0;   
+            sched = 2.^fliplr(repelem(0:10,2));
+            scal  = sched(min(iter,numel(sched)));   
+            
+            obj{m}{s}.segment.reg([2 3 4 5]) = reg0([2 3 4 5])*scal;                     
         end
         
         % Sum bias field DC components
         sum_bf_dc = sum_bf_dc + obj{m}{s}.segment.bf_dc;
         cnt_S     = cnt_S + 1;
+        
+        if iter==niter && obj{m}{s}.image(1).dim(3)>1
+            obj{m}{s}.write_res.do_write_res = true;
+            obj{m}{s}.write_res.mrf = 2;
+            obj{m}{s}.write_res.write_tc(:,[1 2 4]) = true;            
+        end
     end
     
     % Average of bias field DC components
@@ -198,6 +221,52 @@ for m=1:M
         obj{m}{s}.segment.avg_bf_dc = avg_bf_dc; 
     end
 end
+%==========================================================================
+
+%==========================================================================
+function mrf_clean_up(pth_template,verbose)
+if nargin<2, verbose = false; end
+
+Nii = nifti(pth_template);
+mat = Nii.mat;
+vx  = 1./single(sum(mat(1:3,1:3).^2));
+Q   = single(Nii.dat(:,:,:,:));
+dm  = size(Q);
+Kb  = dm(4);
+zix = floor(dm(3)/2) + 1;
+
+% softmax
+Q = exp(Q);
+Q = bsxfun(@rdivide,Q,sum(Q,4));
+
+nmrf_its = 10;
+T        = 2;
+G        = T*ones([Kb,1],'single');
+P        = zeros(dm,'uint8');
+
+if verbose
+    figure(666);
+    for k=1:Kb
+       subplot(2,Kb,k) 
+       imagesc(Q(:,:,zix,k)); axis off image xy; colormap(gray);
+    end
+end
+
+for iter=1:nmrf_its
+    spm_mrf(P,Q,G,vx);
+end
+
+P = double(P)/255;
+
+if verbose
+    for k=1:Kb
+       subplot(2,Kb,Kb + k) 
+       imagesc(P(:,:,zix,k)); axis off image xy; colormap(gray);
+    end
+    drawnow
+end
+
+Nii.dat(:,:,:,:) = log(max(P,eps('single')));
 %==========================================================================
 
 %==========================================================================
@@ -311,10 +380,38 @@ for m=1:M
                 zix = floor(dm(3)/2) + 1;
                 img = img(:,:,zix);            
             end
-        
+            
+            wp = round(obj{m}{s}.segment.wp(k),3);
+            
             subplot(M*numel(rand_subjs{1}),K,cnt);
             imagesc(img'); axis off image xy; colormap(gray);
-            title(['q_{' num2str(m), ',' num2str(s) ',' num2str(k) '}']);
+            title(['q_{' num2str(m), ',' num2str(s) ',' num2str(k) '},w=' num2str(wp)]);
+            cnt = cnt + 1;
+        end 
+    end
+end                                  
+drawnow
+%==========================================================================
+
+%==========================================================================
+function show_def(fig,obj,pars)
+set(0,'CurrentFigure',fig);       
+
+rand_subjs = pars.rand_subjs;
+
+M   = numel(obj);
+cnt = 1;    
+for m=1:M                
+    for s=rand_subjs{m} 
+        Nii = nifti(obj{m}{s}.pth_vel);
+        img = Nii.dat(:,:,:,:);
+        dm  = size(img);
+        zix = floor(dm(3)/2) + 1; 
+        
+        for i=1:3
+            subplot(M*numel(rand_subjs{1}),3,cnt)
+            imagesc(img(:,:,zix,i)'); axis off image xy; colormap(gray); colorbar
+            title(['def_{' num2str(m), ',' num2str(s), ',' num2str(i) '}']);
             cnt = cnt + 1;
         end 
     end
@@ -342,4 +439,53 @@ set(0,'CurrentFigure',fig);
 plot(0:numel(L(3:end)) - 1,L(3:end),'b-','LineWidth',1);   hold on            
 plot(0:numel(L(3:end)) - 1,L(3:end),'b.','markersize',10); hold off  
 title('ll')
+%==========================================================================
+
+%==========================================================================
+function obj = kmeans_on_hist(obj,pars)
+K = pars.K;
+
+x = -2000:2000;
+h = zeros(1,numel(x));
+for m=1:numel(obj)
+    if pars.dat{m}.segment.kmeans_hist
+        S = numel(obj{m});
+        for s=1:S
+            img = single(obj{m}{s}.image(1).private.dat(:,:,:));
+            msk = msk_modality(img,obj{m}{s}.modality,obj{m}{s}.trunc_ct);
+            img = img(msk(:));
+            
+            h1 = hist(img(:),x);
+            h  = h + h1;
+        end
+    end
+end
+h = h(900:end)';
+x = x(900:end)';
+
+[mg,mn,vr] = spm_imbasics('fit_gmm2hist',h,x,K);
+
+for m=1:numel(obj)
+    if pars.dat{m}.segment.kmeans_hist
+        S = numel(obj{m});
+        for s=1:S
+            for k=1:K
+                if obj{m}{s}.segment.do_ml                
+                    obj{m}{s}.segment.gmm.mn(:,k) = mn(k);
+                    obj{m}{s}.segment.gmm.vr(:,:,k) = vr(k);
+                else
+                    obj{m}{s}.segment.gmm.pr.m(:,k) = mn(k);
+                    obj{m}{s}.segment.gmm.pr.b(k) = mean(mg);
+                    obj{m}{s}.segment.gmm.pr.n(k) = mean(mg);
+                    obj{m}{s}.segment.gmm.pr.W(:,:,k) = 1./(vr(k)*mean(mg));
+
+                    obj{m}{s}.segment.gmm.po.m(:,k) = mn(k);
+                    obj{m}{s}.segment.gmm.po.b(k) = mean(mg);
+                    obj{m}{s}.segment.gmm.po.n(k) = mean(mg);
+                    obj{m}{s}.segment.gmm.po.W(:,:,k) = 1./(vr(k)*mean(mg));
+                end      
+            end
+        end
+    end
+end
 %==========================================================================

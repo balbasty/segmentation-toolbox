@@ -15,13 +15,12 @@ for n=1:N
     
     if obj.tot_S==1
         % GAUSSIAN REGULARISATION for bias correction
-        Cbias = kron(krn_z,kron(krn_y,krn_x)).^(-2)*biasreg;        
+        Cbias     = kron(krn_z,kron(krn_y,krn_x)).^(-2)*biasreg;        
         chan(n).C = sparse(1:length(Cbias),1:length(Cbias),Cbias,length(Cbias),length(Cbias)); % Store prior covaricance for bias regularisation
     else
         % BENDING ENERGY regularisation for bias correction
         % This penalises the sum of squares of the 2nd derivatives of the bias parameters
-        chan(n).C = diffeo('penalty',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0]);
-        chan(n).C = chan(n).C(1:size(chan(n).C,1)/3,1:size(chan(n).C,1)/3);
+        chan(n).C = spm_sparse('precision','field',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0]);
     end
     
     % Initial parameterisation of bias field
@@ -56,12 +55,9 @@ for n=1:N
     T  = chan(n).T;
     chan(n).ll = double(-0.5*T(:)'*C*T(:));
     for z=1:numel(z0)
-        bf             = transf(B1,B2,B3(z,:),T);
-        tmp            = bf(buf(z).msk{n});        
-        if obj.segment.do_ml 
-            chan(n).ll = chan(n).ll + double(sum(tmp)); 
-        end        
-        buf(z).bf{n}   = single(exp(tmp));
+        bf           = transf(B1,B2,B3(z,:),T);
+        tmp          = bf(buf(z).msk{n}); 
+        buf(z).bf{n} = single(exp(tmp));
     end
     llrb = llrb + chan(n).ll;
 end

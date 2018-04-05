@@ -47,110 +47,78 @@ function [out_L,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm,vr1)
 K    = size(mom(1).s0,2);
 N    = numel(mom(1).ind);
 vr0  = gmm.vr0;
-ml   = gmm.ml;
 tiny = eps*eps;
 
-if ml,
-    % Maximum likelihood solution   
-    if isfield(gmm,'mn') 
-        mu = gmm.mn;
-    else
-        mu = zeros(N,K);
+
+% Init priors
+%----------------------------------------------------------------------
+mom1 = mom_John2Bishop(mom);
+
+if ~isfield(gmm,'pr')   
+    vr2 = zeros(N,N);
+    for k=1:K
+        vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
     end
-    
-    if isfield(gmm,'vr') 
-        Sigma = gmm.vr;
-    else
-        Sigma = repmat(eye(N,N),[1 1 K]);
-    end
-    
-    out_L = zeros(1,K);
-else
-    % Variational Bayes solution    
-    % Extract priors
-    % Lambda ~ W(W0,nu0)
-    % mu     ~ N(m0,inv(beta0*Lambda))
-    
-    mom1 = mom_John2Bishop(mom);
-    
-    % Init priors
-    %----------------------------------------------------------------------
-    if ~isfield(gmm,'pr')   
-%         vr2 = zeros(N,N);
-%         for k=1:K
-%             vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
-%         end
-%         vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);  
-        
-        m0    = repmat(median(mom1(end).s1,2),[1 K]);             
-        beta0 = ones(1,K);
-        nu0   = N*ones(1,K);
-        W0    = repmat(eye(N),1,1,K);
-        
-        gmm.pr.n = nu0;
-        gmm.pr.W = W0;
-        gmm.pr.b = beta0;
-        gmm.pr.m = m0;
-    end
-    
-    nu0   = gmm.pr.n;
-    W0    = gmm.pr.W;
-    beta0 = gmm.pr.b;
-    m0    = gmm.pr.m;
-    if numel(nu0)   == 1, nu0   = repmat(  nu0,[1 K  ]); end
-    if size(W0,3)   == 1, W0    = repmat(   W0,[1 1 K]); end
-    if numel(beta0) == 1, beta0 = repmat(beta0,[1 K  ]); end
-    if size(m0,2)   == 1, m0    = repmat(   m0,[1 K  ]); end
-        
-    % Init posteriors
-    %----------------------------------------------------------------------
-    if isfield(gmm,'po') 
-        nu    = gmm.po.n;
-        W     = gmm.po.W;
-        beta  = gmm.po.b;
-        m     = gmm.po.m;
-    else                  
-        m    = m0;                       
-        beta = beta0;
-        nu   = nu0; 
-        W    = W0;
-%         m    = mom1(end).s1;                       
-%         beta = ones(1,K);
-%         nu   = N*ones(1,K); 
-%         W    = repmat(eye(N),1,1,K);
-%         W    = zeros(N,N,K);
-%         for k=1:K
-%             W(:,:,k) = inv(mom(end).S2(:,:,k))/nu(k);
-%         end          
-    end
-    
-    out_L = zeros(4,K);
-    
-    if N >= min(nu0)+1,
-        warning('SPM:Wishart','Can not normalise Wishart distribution (M=%d, nu_0=%f)', N,min(nu0));
-    end
+    vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);  
+
+    m0    = mom1(end).s1;                       
+    beta0 = mean(mom1(end).s0)*ones(1,K);
+    nu0   = mean(mom1(end).s0)*ones(1,K); 
+    W0    = zeros(N,N,K);
+    for k=1:K
+        W0(:,:,k) = inv(vr2)/nu0(k);
+    end   
+
+    gmm.pr.n = nu0;
+    gmm.pr.W = W0;
+    gmm.pr.b = beta0;
+    gmm.pr.m = m0;
 end
 
-for k=1:K,
+nu0   = gmm.pr.n;
+W0    = gmm.pr.W;
+beta0 = gmm.pr.b;
+m0    = gmm.pr.m;
+if numel(nu0)   == 1, nu0   = repmat(  nu0,[1 K  ]); end
+if size(W0,3)   == 1, W0    = repmat(   W0,[1 1 K]); end
+if numel(beta0) == 1, beta0 = repmat(beta0,[1 K  ]); end
+if size(m0,2)   == 1, m0    = repmat(   m0,[1 K  ]); end
+
+% Init posteriors
+%----------------------------------------------------------------------
+if isfield(gmm,'po') 
+    nu    = gmm.po.n;
+    W     = gmm.po.W;
+    beta  = gmm.po.b;
+    m     = gmm.po.m;
+else                  
+    m    = gmm.pr.m;                       
+    beta = gmm.pr.b;
+    nu   = gmm.pr.n; 
+    W    = gmm.pr.W;        
+end
+
+out_L = zeros(4,K);
+
+if N >= min(nu0)+1
+    warning('SPM:Wishart','Can not normalise Wishart distribution (M=%d, nu_0=%f)', N,min(nu0));
+end
+
+for k=1:K
     % Compute zeroeth moment
     s0 = 0;
     for i=2:numel(mom), s0 = s0 + mom(i).s0(k); end
 
-    if ~ml && nargout>1,
+    if nargout>1
         nu(k)   = nu0(k)   + s0;
         beta(k) = beta0(k) + s0;
     end
 
-    L      = -Inf;
-    for iter=1:1024,
+    L = -Inf;
+    for iter=1:1024
 
-        if ml,
-            muk    = mu(:,k);
-            Lambda = inv(Sigma(:,:,k));
-        else
-            muk    = m(:,k);
-            Lambda = W(:,:,k)*nu(k);
-        end
+        muk    = m(:,k);
+        Lambda = W(:,:,k)*nu(k);
 
         s1     = zeros(N,1); % First moment
         S2     = zeros(N,N); % Second moment
@@ -160,8 +128,8 @@ for k=1:K,
 
         % E[log q(h)]
         L3     = 0;
-        for i=1:numel(mom),
-            if mom(i).s0(k)>tiny,
+        for i=1:numel(mom)
+            if mom(i).s0(k)>tiny
                 ind            = mom(i).ind;
                 mux            = muk( ind,:);
                 muy            = muk(~ind,:);
@@ -183,49 +151,34 @@ for k=1:K,
             end
         end
 
-        if ml,
-            if nargout>1
-                mu(:,k)      = s1/s0;
-                
-    %             Sigma(:,:,k) = S2/s0 - mu(:,k)*mu(:,k)';
-                Sigma(:,:,k) = (S2 - s1*s1'/s0 + N*vr0)/(s0 + N);
-            end
-            L            = -0.5*s0*(logdet(Sigma(:,:,k)) + N*log(2*pi)) ...
-                           -0.5*s0*trace((mu(:,k)*mu(:,k)' + S2/s0 - 2*mu(:,k)*s1'/s0)/Sigma(:,:,k)) ...
-                           -L3;
-           %fprintf('%d\t%g\n', iter,L);
-        else
-            if nargout>1
-                m(:,k)   = (beta0(k)*m0(:,k) + s1)/beta(k);
+        if nargout>1
+            m(:,k)   = (beta0(k)*m0(:,k) + s1)/beta(k);
 
-                W(:,:,k) = inv(beta0(k)*m0(:,k)*m0(:,k)' + S2 - beta(k)*m(:,k)*m(:,k)' + inv(W0(:,:,k)));
-                W(:,:,k) = threshold_eig(W(:,:,k));
-            end
-            
-            % E[log p(g,h|mu,Lambda)]
-            Eld = Elogdet(W(:,:,k),nu(k));
-            L1  = 0.5*s0*(Eld - N*log(2*pi) - trace((m(:,k)*m(:,k)' + inv(beta(k)*nu(k)*W(:,:,k)) + S2/s0 - 2*m(:,k)*s1'/s0)*nu(k)*W(:,:,k)));
-
-            % E[log p(mu,Lambda)]
-            L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld - logWishartDen(W0(:,:,k),nu0(k)) ...
-               - 0.5*nu(k)*beta0(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)) - 0.5*nu(k)*trace(W0(:,:,k)\W(:,:,k));
-
-            % E[log q(mu,Lambda)]
-            L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld - logWishartDen(W(:,:,k),nu(k));
-
-            % Negative Free Energy
-            L = L1 + L2 - L3 - L4;
-           %fprintf('%d\t%g\t%g\t%g\t%g\t%g\n', iter,L1, L2, L3, L4, L);
+            W(:,:,k) = inv(beta0(k)*m0(:,k)*m0(:,k)' + S2 - beta(k)*m(:,k)*m(:,k)' + inv(W0(:,:,k)));
+            W(:,:,k) = threshold_eig(W(:,:,k));
         end
+
+        % E[log p(g,h|mu,Lambda)]
+        Eld = Elogdet(W(:,:,k),nu(k));
+        L1  = 0.5*s0*(Eld - N*log(2*pi) - trace((m(:,k)*m(:,k)' + inv(beta(k)*nu(k)*W(:,:,k)) + S2/s0 - 2*m(:,k)*s1'/s0)*nu(k)*W(:,:,k)));
+
+        % E[log p(mu,Lambda)]
+        L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld - logWishartDen(W0(:,:,k),nu0(k)) ...
+           - 0.5*nu(k)*beta0(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)) - 0.5*nu(k)*trace(W0(:,:,k)\W(:,:,k));
+
+        % E[log q(mu,Lambda)]
+        L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld - logWishartDen(W(:,:,k),nu(k));
+
+        % Negative Free Energy
+        L = L1 + L2 - L3 - L4;
+       %fprintf('%d\t%g\t%g\t%g\t%g\t%g\n', iter,L1, L2, L3, L4, L);
         
         if L-old_L < s0*N*1e-10, break; end
     end
     
     if nargin==3, vr1 = vr1 + (S2 - s1*s1'/s0); end
         
-    if ml, out_L(k)   = -L3;
-    else   out_L(:,k) = [L1 L2 L3 L4]';
-    end
+    out_L(:,k) = [L1 L2 L3 L4]';
 end
 
 if nargin==3 && nargout>1
@@ -236,17 +189,11 @@ if nargin==3 && nargout>1
     for k=1:K, Sigma(:,:,k) = vr1; end    
 end
 
-if ml,
-    % Maximum likelihood estimates    
-    gmm.mn       = mu;
-    gmm.vr       = Sigma;
-else
-    % Posterior distributions
-    gmm.po.m     = m;
-    gmm.po.W     = W;
-    gmm.po.n     = nu;
-    gmm.po.b     = beta;
-end
+% Posterior distributions
+gmm.po.m     = m;
+gmm.po.W     = W;
+gmm.po.n     = nu;
+gmm.po.b     = beta;
 %==========================================================================
 
 %==========================================================================

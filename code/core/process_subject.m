@@ -73,26 +73,19 @@ end
 
 %==========================================================================
 function fprintf_obj(obj,t1,t2)
-if obj.print_subj_info
-    V  = spm_vol(obj.pth_template);
-    d1 = V(1).dim;
-
+if obj.print_subj_info    
     fprintf('==============================================\n')
     fprintf('%s %s %s %s\n','| modality =',obj.modality,'| fname(1) =',obj.image(1).fname);    
     fprintf('----------------------------------------------\n')
     fprintf('| wp = [%.3f, %s%.3f]\n',obj.segment.wp(1),sprintf('%.3f, ',obj.segment.wp(2:end - 1)),obj.segment.wp(end));
     fprintf('----------------------------------------------\n')
     fprintf('| bf_dc = [%s] | avg_bf_dc = [%s] \n',sprintf('%.3f ', obj.segment.bf_dc),sprintf('%.3f ', obj.segment.avg_bf_dc));
+    fprintf('----------------------------------------------\n')    
+    for n=1:size(obj.segment.gmm.po.m,1), fprintf('| po.m = [%.3f, %s%.3f]\n',obj.segment.gmm.po.m(n,1),sprintf('%.3f, ',obj.segment.gmm.po.m(n,2:end - 1)),obj.segment.gmm.po.m(n,end)); end
     fprintf('----------------------------------------------\n')
-    if obj.segment.do_ml
-        for n=1:size(obj.segment.gmm.mn,1), fprintf('| mn = [%.3f, %s%.3f]\n',obj.segment.gmm.mn(n,1),sprintf('%.3f, ',obj.segment.gmm.mn(n,2:end - 1)),obj.segment.gmm.mn(n,end)); end
-    else    
-        for n=1:size(obj.segment.gmm.po.m,1), fprintf('| po.m = [%.3f, %s%.3f]\n',obj.segment.gmm.po.m(n,1),sprintf('%.3f, ',obj.segment.gmm.po.m(n,2:end - 1)),obj.segment.gmm.po.m(n,end)); end
-        fprintf('----------------------------------------------\n')
-        for n=1:size(obj.segment.gmm.po.m,1), fprintf('| pr.m = [%.3f, %s%.3f]\n',obj.segment.gmm.pr.m(n,1),sprintf('%.3f, ',obj.segment.gmm.pr.m(n,2:end - 1)),obj.segment.gmm.pr.m(n,end)); end
-    end    
+    for n=1:size(obj.segment.gmm.po.m,1), fprintf('| pr.m = [%.3f, %s%.3f]\n',obj.segment.gmm.pr.m(n,1),sprintf('%.3f, ',obj.segment.gmm.pr.m(n,2:end - 1)),obj.segment.gmm.pr.m(n,end)); end
     fprintf('----------------------------------------------\n')
-    fprintf('%s %i %s %i %s %i %s %i \n','| ml =',obj.segment.do_ml,'| uniform =',obj.uniform,'| do_bf =',obj.segment.do_bf,'| do_def =',obj.segment.do_def);            
+    fprintf('%s %i %s %i %s %i \n','| uniform =',obj.uniform,'| do_bf =',obj.segment.do_bf,'| do_def =',obj.segment.do_def);            
     fprintf('----------------------------------------------\n')
     fprintf('%s %i %s %i %s %.1f %s %.1f %s %.7f \n','| s =',obj.s,'| iter =',obj.iter,'| t1 (s) =',t1,'| t2 (s) =',t2,'| ll =',obj.segment.ll);        
     fprintf('==============================================\n')

@@ -1,7 +1,6 @@
 function [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,mix_wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab)
 tiny = eps*eps;
 K    = numel(mg);
-Kb   = numel(wp);
 
 for subit=1:nitgmm
     oll = ll;
@@ -22,13 +21,7 @@ for subit=1:nitgmm
     
     if do_wp
         % Update tissue weights
-        for k1=1:Kb
-            w1 = mix_wp_reg;
-            w2 = 1 - w1;
-            
-            wp(k1) = (w1*sum(s0(lkp.part==k1)) + w2*nvox*wp_reg)/(w1*mgm(k1) + w2*nvox); % bias the solution towards 1
-        end
-        wp = wp/sum(wp);
+        wp = update_wp(lkp,s0,mgm,nvox,mix_wp_reg,wp_reg);
     end
     
     % Update mixing proportions

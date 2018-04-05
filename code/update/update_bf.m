@@ -4,15 +4,9 @@ N  = numel(buf(1).f);
 K  = numel(mg);
 d  = size(buf(1).msk{1});
 
-if gmm.ml
-    pr                   = zeros(size(gmm.vr));
-    for k=1:K, pr(:,:,k) = inv(gmm.vr(:,:,k)); end
-    mn                   = gmm.mn;
-else
-    pr                   = zeros(size(gmm.po.W));
-    for k=1:K, pr(:,:,k) = gmm.po.n(k)*gmm.po.W(:,:,k); end
-    mn                   = gmm.po.m;    
-end
+pr                   = zeros(size(gmm.po.W));
+for k=1:K, pr(:,:,k) = gmm.po.n(k)*gmm.po.W(:,:,k); end
+mn                   = gmm.po.m; 
 
 for n=1:N
     d3  = numel(chan(n).T);
@@ -70,9 +64,6 @@ for n=1:N
                 
                 bf           = transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T);
                 tmp          = bf(buf(z).msk{n});
-                if gmm.ml
-                    chan(n).ll   = chan(n).ll + double(sum(tmp));
-                end
                 buf(z).bf{n} = single(exp(tmp));
             end
 

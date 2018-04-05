@@ -80,7 +80,7 @@ for m=1:M
     if ~isfield(pars.dat{m},'S')
         pars.dat{m}.S = Inf;
         if test_level==2 || test_level==3, pars.dat{m}.S = 8;
-        elseif test_level==1               pars.dat{m}.S = 1;   
+        elseif test_level==1,              pars.dat{m}.S = 1;   
         end 
     end    
     if ~isfield(pars.dat{m},'modality')
@@ -145,7 +145,7 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'pth_prior')
         pars.dat{m}.segment.pth_prior = '';
     end
-    if ~isfield(pars.dat{m}.segment,'wp_lab'), 
+    if ~isfield(pars.dat{m}.segment,'wp_lab')
         pars.dat{m}.segment.wp_lab = 0.5;
     end 
     if isempty(pars.dat{m}.segment.lkp.lab)
@@ -153,9 +153,6 @@ for m=1:M
     end
     if ~isfield(pars.dat{m}.segment,'samp')
         pars.dat{m}.segment.samp = 3;
-    end    
-    if ~isfield(pars.dat{m}.segment,'do_ml')
-        pars.dat{m}.segment.do_ml = false;
     end    
     if ~isfield(pars.dat{m}.segment,'do_bf')
         pars.dat{m}.segment.do_bf = true;
@@ -217,7 +214,7 @@ for m=1:M
         pars.dat{m}.segment.tol1 = 1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
-        pars.dat{m}.segment.mix_wp_reg = 0.8;
+        pars.dat{m}.segment.mix_wp_reg = 0.5;
     end    
     if ~isfield(pars.dat{m}.segment,'kmeans_hist')
         pars.dat{m}.segment.kmeans_hist = false;
