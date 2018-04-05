@@ -57,7 +57,7 @@ if ~isfield(pars,'sum_temp_der')
     pars.sum_temp_der = false;
 end
 if ~isfield(pars,'crop_template')
-    pars.crop_template = 0;
+    pars.crop_template = 15;
 end
 if ~isfield(pars,'mrf')
     pars.mrf = false;

@@ -1,10 +1,9 @@
-function build_template
-
+function build_template(pars)
+if nargin<1, pars = struct; end
+    
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-dir_output = '/home/smajjk/Data/tmp-build-tpm';
-
 pth2_distributed_toolbox = '../distributed-computing';
 pth2_auxiliary_functions = '../auxiliary-functions';
 
@@ -26,15 +25,16 @@ m = 0;
 % Set algorithm parameters
 %--------------------------------------------------------------------------
 
-pars.name       = 'CHROMIS';
-pars.dir_output = dir_output;
-pars.dat        = {};
+pars.name = 'CHROMIS';
+if ~isfield(pars,'dir_output')
+    pars.dir_output = '/home/smajjk/Data/tmp-build-tpm';
+end
 
 % Basic test
 % -----------------
 m = m + 1;
-% pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+% pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
 pars.dat{m}.S = 16;
 pars.dat{m}.segment.samp = 1;
 
