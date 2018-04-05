@@ -65,13 +65,13 @@ end
 
 % Data-set specific parameters (m=1,...,M)
 %--------------------------------------------------------------------------
-if ~isfield(pars,'dat'), 
+if ~isfield(pars,'dat')
     error('pars.dat needs to be defined!'); 
 end
 
 M = numel(pars.dat);
 for m=1:M
-    if ~isfield(pars.dat{m},'dir_data'), 
+    if ~isfield(pars.dat{m},'dir_data')
         error('pars.dat.dir_data needs to be defined!'); 
     end
 

@@ -35,7 +35,7 @@ pars.dat        = {};
 m = m + 1;
 % pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
 pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-pars.dat{m}.S = 4;
+pars.dat{m}.S = 16;
 pars.dat{m}.segment.samp = 1;
 
 % Define a log template

@@ -30,6 +30,9 @@ try
         obj.Affine = spm_maff_new(obj.image(1),4,(obj.fwhm+1)*16,tpm,obj.Affine,obj.maff.affreg);            
         obj.Affine = spm_maff_new(obj.image(1),3,obj.fwhm,tpm,obj.Affine,obj.maff.affreg);                            
         clear tpm         
+        
+        obj.maff.maff_done = true;
+        obj.segment.do_def = obj.segment.do_def0;
     elseif do_template && ~obj.uniform && ~obj.maff.do_maff && obj.iter==2
         obj.segment.do_def = obj.segment.do_def0;
     end 
