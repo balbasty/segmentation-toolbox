@@ -115,15 +115,11 @@ for z=1:length(x3)
     b    = spm_sample_logpriors(tpm,t1(msk1),t2(msk1),t3(msk1));
     clear t1 t2 t3
     
-    if isempty(lkp.lab)
+    if isempty(lkp.lab) || isempty(obj.labels)
         labels = [];
     else
         tmp = uint8(obj.labels.private.dat(:,:,z));        
-        tmp = tmp(msk1);
-        
-        if min(tmp(:))==0
-            tmp = tmp + 1;
-        end
+        tmp = tmp(msk1);        
         
         msk2       = ismember(tmp,lkp.lab);
         tmp(~msk2) = 0;
@@ -149,7 +145,7 @@ for z=1:length(x3)
         q(:,k1) = sum(q1(:,lkp.part==k1),2);
     end 
     clear q1 
-    
+    % pars.dat{m}.S = 50;
     Q(:,:,z,:) = single(reshape(q,[d(1:2),1,Kb]));
     clear q
 end

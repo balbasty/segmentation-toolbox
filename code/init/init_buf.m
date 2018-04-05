@@ -113,17 +113,13 @@ for z=1:length(z0)
         
     % Prepare labels (if provided)
     %----------------------------------------------------------------------
-    if isempty(obj.segment.lkp.lab)
+    if isempty(obj.segment.lkp.lab) || isempty(obj.labels)
         buf(z).labels = [];
     else
         % Sub-sampled
         msk = code>0;
         tmp = uint8(spm_sample_vol(obj.labels,x0,y0,o*z0(z),0));            
-        tmp = tmp(msk);
-        
-        if min(tmp(:))==0
-            tmp = tmp + 1;
-        end
+        tmp = tmp(msk);        
         
         msk       = ismember(tmp,obj.segment.lkp.lab);
         tmp(~msk) = 0;
@@ -138,10 +134,6 @@ for z=1:length(z0)
         % Full_size
         tmp = uint8(obj.labels.private.dat(:,:,z));            
         tmp = tmp(msk_img);
-        
-        if min(tmp(:))==0
-            tmp = tmp + 1;
-        end
         
         msk       = ismember(tmp,obj.segment.lkp.lab);
         tmp(~msk) = 0;

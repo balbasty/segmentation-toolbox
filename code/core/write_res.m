@@ -26,9 +26,11 @@ odir     = obj.dir_write;
 tpm = spm_load_logpriors(obj.pth_template);
 
 % Read essentials from tpm (it will be cleared later)
-d1  = size(tpm.dat{1});
-d1  = d1(1:3);
-M1  = tpm.M;
+d1 = size(tpm.dat{1});
+if numel(d1)==2
+    d1(3) = 1;
+end
+M1 = tpm.M;
 
 % For missing data
 %--------------------------------------------------------------------------

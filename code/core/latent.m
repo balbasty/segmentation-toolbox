@@ -2,14 +2,13 @@ function [Q,ll] = latent(f,bf,mg,gmm,B,lkp,wp,msk,code,labels,wp_lab,cr)
 if nargin<12, cr = []; end
 
 if ~isempty(labels)
-    tiny   = 1e-4;
-    msk2   = sum(labels,2)>0;
+    tiny   = eps('single');
     labels = double(labels);
     labels = max(labels,tiny);
     labels = log_spatial_priors(labels,[],wp_lab);
 end
 
-B = log_spatial_priors(B,wp);
+B = log_spatial_priors(B,wp,1 - wp_lab);
 Q = log_likelihoods(f,bf,mg,gmm,msk,code,lkp,cr);
 
 Kb   = max(lkp.part);
@@ -19,7 +18,7 @@ for k1=1:Kb
         if isempty(labels)
             Q(msk1,k) = Q(msk1,k) + B(:,k1);
         else
-            Q(msk1,k) = Q(msk1,k) + B(:,k1) + msk2.*labels(:,k1);
+            Q(msk1,k) = Q(msk1,k) + B(:,k1) + labels(:,k1);
         end
     end
 end
@@ -52,7 +51,7 @@ else
         
         if ~isempty(labels)
             % Labels
-            L(4) = nansum(nansum(Q(msk1,:).*bsxfun(@times,msk2,labels(:,lkp.part))));  
+            L(4) = nansum(nansum(Q(msk1,:).*labels(:,lkp.part)));  
         end
         
         ll = sum(L);

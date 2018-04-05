@@ -24,6 +24,7 @@ if pars.dat{1}.segment.verbose
     for i=1:numel(fig), fig{i} = figure(i); clf(figure(i)); end    
 end
 if pars.niter>1
+    if pars.verbose>3, fig{8} = figure(8); clf(figure(8)); end
     if pars.verbose>2, fig{7} = figure(7); clf(figure(7)); end
     if pars.verbose>1, fig{6} = figure(6); clf(figure(6)); end
     if pars.verbose>0, fig{5} = figure(5); clf(figure(5)); end        

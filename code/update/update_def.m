@@ -122,6 +122,10 @@ for z=1:nz
     Alpha(:,:,z,5)  = dp1.*dp3;
     Alpha(:,:,z,6)  = dp2.*dp3;
     clear tmp p dp1 dp2 dp3
+    
+    % Adjust for label weight
+    Beta  = (1 - wp_lab)*Beta;
+    Alpha = (1 - wp_lab)*Alpha;
 end
 
 if tot_S==1
@@ -140,7 +144,10 @@ clear Alpha Beta
 % Line search to ensure objective function improves
 for line_search=1:12
     Twarp1 = Twarp - armijo*Update; % Backtrack if necessary
-
+    if nz==1
+        Twarp1(:,:,:,end) = single(0);
+    end
+    
     % Recompute objective function
     llr1 = -0.5*sum(sum(sum(sum(Twarp1.*bsxfun(@times,spm_diffeo('vel2mom',bsxfun(@times,Twarp1,1./sk4),param),1./sk4)))));
     ll1  = llr1 + llrb + ll_const;

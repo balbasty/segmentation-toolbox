@@ -36,7 +36,7 @@ if ~isfield(pars,'tol')
     pars.tol = 1e-4;
 end
 if ~isfield(pars,'verbose')
-    pars.verbose = 3;
+    pars.verbose = 4;
 end
 if ~isfield(pars,'pth_template')
     pars.pth_template = '';
@@ -45,7 +45,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0 2 0];
+    pars.sparam = [1e-4 1 1];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -58,6 +58,9 @@ if ~isfield(pars,'sum_temp_der')
 end
 if ~isfield(pars,'crop_template')
     pars.crop_template = 0;
+end
+if ~isfield(pars,'mrf')
+    pars.mrf = false;
 end
 
 % Data-set specific parameters (m=1,...,M)
@@ -145,6 +148,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'wp_lab'), 
         pars.dat{m}.segment.wp_lab = 0.5;
     end 
+    if isempty(pars.dat{m}.segment.lkp.lab)
+        pars.dat{m}.segment.wp_lab = 0;
+    end
     if ~isfield(pars.dat{m}.segment,'samp')
         pars.dat{m}.segment.samp = 3;
     end    
@@ -213,6 +219,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
         pars.dat{m}.segment.mix_wp_reg = 0.8;
     end    
+    if ~isfield(pars.dat{m}.segment,'kmeans_hist')
+        pars.dat{m}.segment.kmeans_hist = false;
+    end    
     
     % Push resps parameters
     %----------------------------------------------------------------------
@@ -244,8 +253,7 @@ for m=1:M
         pars.dat{m}.write_res.mrf = 1;
     end
     if ~isfield(pars.dat{m}.write_res,'write_tc')
-        pars.dat{m}.write_res.write_tc        = true(pars.K,4);
-        pars.dat{m}.write_res.write_tc(:,2:4) = false;
+        pars.dat{m}.write_res.write_tc = false(pars.K,4);        
     end    
     if ~isfield(pars.dat{m}.write_res,'write_bf')
         pars.dat{m}.write_res.write_bf = false(1,2);
