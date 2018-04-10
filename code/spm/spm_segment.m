@@ -104,11 +104,6 @@ for iter=1:niter
         debug_view('bf',fig{2},lkp,buf,modality);
         
         if iter==1 && subit==1
-            % Most of the log-likelihood improvements are in the first iteration.
-            % Show only improvements after this, as they are more clearly visible.
-            spm_plot_convergence('Clear');
-            spm_plot_convergence('Init','Processing','Log-likelihood','Iteration');
-
             if numel(lkp.part) ~= numel(part0)
                 lkp.part = part0;
                 K        = numel(lkp.part);

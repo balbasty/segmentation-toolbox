@@ -1,6 +1,6 @@
 function build_template(pars,test_level)
 if nargin<1, pars       = struct; end
-if nargin<2, test_level = 1; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
+if nargin<2, test_level = 2; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
 if ~isfield(pars,'dir_output')
 %     pars.dir_output = '/data/mbrud/tmp-build-tpm/';
     pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
