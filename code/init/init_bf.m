@@ -9,7 +9,6 @@ ff  = varargin{7};
 scl = varargin{8};
 
 N    = numel(buf(1).f);
-kron = @(a,b) spm_krutil(a,b);
 cl   = cell(N,1);
 args = {'C',cl,'B1',cl,'B2',cl,'B3',cl,'T',cl,'ll',cl};
 chan = struct(args{:});

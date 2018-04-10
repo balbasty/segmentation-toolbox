@@ -93,7 +93,7 @@ for m=1:M
         pars.dat{m}.fwhm = 1;
     end
     if ~isfield(pars.dat{m},'print_subj_info')
-        if test_level==1 %|| test_level==2
+        if test_level==1
             pars.dat{m}.print_subj_info = true;
         else
             pars.dat{m}.print_subj_info = false;
@@ -196,7 +196,7 @@ for m=1:M
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
     end
     if ~isfield(pars.dat{m}.segment,'biasreg')
-        pars.dat{m}.segment.biasreg = 1e-1;
+        pars.dat{m}.segment.biasreg = 1e-4;
     end
     if ~isfield(pars.dat{m}.segment,'biasfwhm')
         pars.dat{m}.segment.biasfwhm = 60;
@@ -261,6 +261,13 @@ for m=1:M
     if ~isfield(pars.dat{m}.write_res,'write_df')
         pars.dat{m}.write_res.write_df = false(1,2);
     end       
+    
+    % Data is CT
+    %----------------------------------------------------------------------
+    if strcmp(pars.dat{m}.modality,'CT')
+        pars.dat{m}.segment.kmeans_hist = true;
+        pars.dat{m}.segment.do_bf = false;
+    end
 end
 %==========================================================================
 

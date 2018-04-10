@@ -59,7 +59,10 @@ for m=1:M
     pars.dat{m}.segment.biasfwhm = pars.dat{m}.segment.biasfwhm*ones(1,N);     
     
     if V{1}(1).dim(3)==1
+        % Data is 2D
+        %------------------------------------------------------------------
         pars.dat{m}.maff.do_maff = false;
+        pars.dat{m}.segment.samp = 1;
     end
     
     pars.dat{m}.write_res.write_bf = repmat(pars.dat{m}.write_res.write_bf,N,1);  

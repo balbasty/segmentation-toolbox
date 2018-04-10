@@ -1,6 +1,6 @@
 function build_template(pars,test_level)
 if nargin<1, pars       = struct; end
-if nargin<2, test_level = 1; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
+if nargin<2, test_level = 2; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
 if ~isfield(pars,'dir_output')
 %     pars.dir_output = '/data/mbrud/tmp-build-tpm/';
     pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
@@ -12,8 +12,8 @@ end
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-pth2_distributed_toolbox = '../distributed-computing';
-pth2_auxiliary_functions = '../auxiliary-functions';
+pth2_distributed_toolbox = '/home/mbrud/dev/distributed-computing';
+pth2_auxiliary_functions = '/home/mbrud/dev/auxiliary-functions';
 
 holly_server_login   = 'mbrud';
 holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox';
@@ -36,11 +36,9 @@ m = 0;
 % -----------------
 m = m + 1;
 
-% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
 pars.dat{m}.S = 8;
-pars.dat{m}.segment.samp = 1;
-pars.dat{m}.segment.est_fwhm = true;
 
 % CT
 % -----------------
@@ -52,10 +50,6 @@ pars.dat{m}.segment.est_fwhm = true;
 % % pars.dat{m}.dir_data = '/data/mbrud/images/CT/2d_test-labels_preproc-ra-cr-rn-vx-1';
 % pars.dat{m}.modality = 'CT';
 % pars.dat{m}.S = Inf;
-% pars.dat{m}.segment.samp = 1;
-% 
-% pars.dat{m}.segment.kmeans_hist = true;
-% pars.dat{m}.segment.do_bf = false;
 % 
 % pars.dat{m}.segment.lkp.lab = zeros(1,pars.K);
 % pars.dat{m}.segment.lkp.lab(15) = 1;
