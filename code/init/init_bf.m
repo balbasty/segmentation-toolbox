@@ -1,4 +1,14 @@
-function [buf,chan,llrb] = init_bf(buf,N,obj,V,x0,y0,z0,ff,scl_int)
+function varargout = init_bf(varargin)
+buf = varargin{1};
+obj = varargin{2};
+V   = varargin{3};
+x0  = varargin{4};
+y0  = varargin{5};
+z0  = varargin{6};
+ff  = varargin{7};
+scl = varargin{8};
+
+N    = numel(buf(1).f);
 kron = @(a,b) spm_krutil(a,b);
 cl   = cell(N,1);
 args = {'C',cl,'B1',cl,'B2',cl,'B3',cl,'T',cl,'ll',cl};
@@ -18,8 +28,7 @@ for n=1:N
         Cbias     = kron(krn_z,kron(krn_y,krn_x)).^(-2)*biasreg;        
         chan(n).C = sparse(1:length(Cbias),1:length(Cbias),Cbias,length(Cbias),length(Cbias)); % Store prior covaricance for bias regularisation
     else
-        % BENDING ENERGY regularisation for bias correction
-        % This penalises the sum of squares of the 2nd derivatives of the bias parameters
+        % BENDING ENERGY regularisation for bias correction (when building TPMs)
         chan(n).C = spm_sparse('precision','field',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0]);
     end
     
@@ -28,20 +37,27 @@ for n=1:N
         chan(n).T = obj.segment.Tbias{n};
         
         if obj.tot_S>1
+            % When building TPMs, mean correct DC component of bias field
             chan(n).T(1,1,1) = chan(n).T(1,1,1) - obj.segment.avg_bf_dc(n); 
         end
     else
-        chan(n).T = zeros(d3);
-    end
-    
-    if obj.iter<3 && strcmp(obj.modality,'MRI')
-        chan(n).T(1,1,1) = scl_int(n);
-    end
+        chan(n).T = zeros(d3);        
+    end        
     
     % Basis functions for bias correction
     chan(n).B3 = spm_dctmtx(d0(3),d3(3),z0);
     chan(n).B2 = spm_dctmtx(d0(2),d3(2),y0(1,:)');
     chan(n).B1 = spm_dctmtx(d0(1),d3(1),x0(:,1));
+    
+    if obj.iter==1 && strcmp(obj.modality,'MRI')
+        % Change DC component of bias field to make intensities more
+        % simillar between MR images. The scaling parameter is set in
+        % init_buf
+        b1 = chan(n).B1(1,1);
+        b2 = chan(n).B2(1,1);
+                
+        chan(n).T(1,1,1) = 1/(b1*b2)*log(scl(n));
+    end
 end
 
 % Create initial bias field
@@ -61,6 +77,10 @@ for n=1:N
     end
     llrb = llrb + chan(n).ll;
 end
+
+varargout{1} = buf;
+varargout{2} = chan;
+varargout{3} = llrb;
 %=======================================================================
 
 %=======================================================================

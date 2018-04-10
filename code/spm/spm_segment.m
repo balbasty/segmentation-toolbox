@@ -40,7 +40,7 @@ ff = compute_fudge_factor(obj.fwhm,vx,sk);
 
 % Load data into buffer
 %-----------------------------------------------------------------------
-[buf,nm,vr0,mn,mx,scl_int] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
+[buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
 
 % Initialise weights
 %-----------------------------------------------------------------------
@@ -61,7 +61,7 @@ end
 
 % Initialise bias field
 %-----------------------------------------------------------------------
-[buf,chan,llrb] = init_bf(buf,N,obj,V,x0,y0,z0,ff,scl_int);
+[buf,chan,llrb] = init_bf(buf,obj,V,x0,y0,z0,ff,scl_bf);
 
 % Initialise deformation and template
 %-----------------------------------------------------------------------

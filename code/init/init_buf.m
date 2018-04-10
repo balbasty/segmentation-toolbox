@@ -1,4 +1,4 @@
-function [buf,nm,vr0,mn,mx,scl_int] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
+function [buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
 Kb = max(obj.segment.lkp.part);
 d  = [size(x0) length(z0)];
 
@@ -43,10 +43,10 @@ mom2 = zeros(1,N);
 
 sint    = zeros(1,N);
 nms     = zeros(1,N);
-scl_int = zeros(1,N);
+scl_bf = zeros(1,N);
 
 cl   = cell(length(z0),1);
-buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'img',cl,'labels',cl,'labels_full',cl);
+buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'labels',cl);
 for z=1:length(z0)
     if tot_S==1
         % Load only those voxels that are more than 5mm up
@@ -73,24 +73,12 @@ for z=1:length(z0)
     end
     
     % Load the data
-    fz      = cell(1,N);
-    msk_img = true;
+    fz = cell(1,N);
     for n=1:N
         fz{n}         = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
         buf(z).msk{n} = msk_modality(fz{n},obj.modality,obj.trunc_ct);
         buf(z).nm(n)  = nnz(buf(z).msk{n});
-
-        if obj.uniform
-            buf(z).img{n} = single(V(n).private.dat(:,:,z));
-            msk_img       = msk_img & msk_modality(buf(z).img{n},obj.modality,obj.trunc_ct);
-        end
-    end              
-    
-    if obj.uniform
-        for n=1:N            
-            buf(z).img{n} = buf(z).img{n}(msk_img);
-        end
-    end
+    end                  
     
     if ~obj.segment.do_missing_data
         msk = true;
@@ -130,20 +118,6 @@ for z=1:length(z0)
         end
         
         buf(z).labels = nlabels;
-        
-        % Full_size
-        tmp = uint8(obj.labels.private.dat(:,:,z));            
-        tmp = tmp(msk_img);
-        
-        msk       = ismember(tmp,obj.segment.lkp.lab);
-        tmp(~msk) = 0;
-        
-        nlabels = zeros([numel(tmp) Kb],'logical');
-        for k=1:Kb
-            nlabels(:,k) = tmp==obj.segment.lkp.lab(k) & tmp~=0;             
-        end
-        
-        buf(z).labels_full = nlabels;
     end
     
     % Eliminate unwanted voxels
@@ -154,10 +128,6 @@ for z=1:length(z0)
             % random values are added.  It's not elegant, but the alternative would be
             % too slow for practical use.
             buf(z).f{n} = single(fz{n}(buf(z).msk{n}) + rand(buf(z).nm(n),1)*scrand(n)-scrand(n)/2);
-            
-            if obj.uniform
-                buf(z).img{n} = buf(z).img{n} + rand(size(buf(z).img{n}))*scrand(n)-scrand(n)/2;
-            end
         else
             buf(z).f{n} = single(fz{n}(buf(z).msk{n}));
         end
@@ -184,7 +154,7 @@ end
 
 % For simple form of intensity normalisation
 for n=1:N
-    scl_int(n) = (1024 / (sint(n)/nms(n)));
+    scl_bf(n) = (1024/(sint(n)/nms(n)));
 end
 
 % Construct a ``Wishart-style prior'' (vr0)

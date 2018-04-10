@@ -14,10 +14,7 @@ if ~isfield(gmm,'po')
     if obj.uniform
         % Uniform template provided, use the k-means algorithm to compute
         % moments       
-        mom = kmeans2mom(buf,lkp,mn,mx,obj);        
-        
-        buf = rmfield(buf,'img');        
-        buf = rmfield(buf,'labels_full');
+        mom = kmeans2mom(buf,lkp,mn,mx,obj); 
     else       
         % Use template to compute moments
         mom = compute_moments(buf,Kb);

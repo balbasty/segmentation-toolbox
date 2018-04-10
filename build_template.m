@@ -1,6 +1,14 @@
-function build_template(pars)
-if nargin<1, pars = struct; end
-    
+function build_template(pars,test_level)
+if nargin<1, pars       = struct; end
+if nargin<2, test_level = 1; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
+if ~isfield(pars,'dir_output')
+%     pars.dir_output = '/data/mbrud/tmp-build-tpm/';
+    pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
+end
+if ~isfield(pars,'name')
+    pars.name = 'segmentation-toolbox';  
+end
+
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
@@ -18,25 +26,39 @@ addpath(genpath('./code'))
 addpath(pth2_distributed_toolbox)
 addpath(pth2_auxiliary_functions)
 
-test_level = 2; % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
-m = 0;
-
 %--------------------------------------------------------------------------
 % Set algorithm parameters
 %--------------------------------------------------------------------------
 
-pars.name = 'CHROMIS';
-if ~isfield(pars,'dir_output')
-    pars.dir_output = '/home/smajjk/Data/tmp-build-tpm';
-end
+m = 0;
 
 % Basic test
 % -----------------
 m = m + 1;
-pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-% pars.dat{m}.dir_data = '/home/smajjk/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-pars.dat{m}.S = 16;
+
+pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+pars.dat{m}.S = 8;
 pars.dat{m}.segment.samp = 1;
+
+% CT
+% -----------------
+% pars.K = 20;
+% 
+% m = m + 1;
+% 
+% pars.dat{m}.dir_data = '/data/mbrud/images/CT/test-labels_preproc-ra-cr-rn-vx';
+% % pars.dat{m}.dir_data = '/data/mbrud/images/CT/2d_test-labels_preproc-ra-cr-rn-vx-1';
+% pars.dat{m}.modality = 'CT';
+% pars.dat{m}.S = Inf;
+% pars.dat{m}.segment.samp = 1;
+% 
+% pars.dat{m}.segment.kmeans_hist = true;
+% pars.dat{m}.segment.do_bf = false;
+% 
+% pars.dat{m}.segment.lkp.lab = zeros(1,pars.K);
+% pars.dat{m}.segment.lkp.lab(15) = 1;
+% pars.dat{m}.segment.wp_lab = 0.5;
 
 % Define a log template
 %-----------------
@@ -147,9 +169,9 @@ for iter=1:pars.niter
         % Some verbose
         %------------------------------------------------------------------
         if pars.verbose>0, plot_ll(pars.fig{5},L); end
-        if pars.verbose>1, show_template(pars.pth_template,pars.fig{6}); end
-        if pars.verbose>2, show_resp(pars.fig{7},obj,pars); end      
-        if pars.verbose>3, show_def(pars.fig{8},obj,pars); end 
+        if pars.verbose>1, show_template(pars.fig{6},pars.pth_template); end
+        if pars.verbose>2, show_resp(pars.fig{7},obj,pars.rand_subjs); end      
+        if pars.verbose>3, show_def(pars.fig{8},obj,pars.rand_subjs); end 
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
@@ -196,10 +218,10 @@ for m=1:M
 
         if iter>=2
             reg0  = obj{m}{s}.segment.reg0;   
-            sched = 2.^fliplr(repelem(0:10,2));
+            sched = 2.^fliplr(repelem(0:9,2));
             scal  = sched(min(iter,numel(sched)));   
             
-            obj{m}{s}.segment.reg([2 3 4 5]) = reg0([2 3 4 5])*scal;                     
+            obj{m}{s}.segment.reg(3) = reg0(3)*scal;                     
         end
         
         % Sum bias field DC components
@@ -361,65 +383,6 @@ end
 %==========================================================================
 
 %==========================================================================
-function show_resp(fig,obj,pars)
-set(0,'CurrentFigure',fig);       
-
-rand_subjs = pars.rand_subjs;
-
-M   = numel(obj);
-cnt = 1;    
-for m=1:M                
-    for s=rand_subjs{m} 
-        K = numel(obj{m}{s}.pth_resp);
-        
-        for k=1:K    
-            Nii = nifti(obj{m}{s}.pth_resp{k});
-            img = Nii.dat(:,:,:);
-            dm  = size(img);
-            if numel(dm)==3
-                zix = floor(dm(3)/2) + 1;
-                img = img(:,:,zix);            
-            end
-            
-            wp = round(obj{m}{s}.segment.wp(k),3);
-            
-            subplot(M*numel(rand_subjs{1}),K,cnt);
-            imagesc(img'); axis off image xy; colormap(gray);
-            title(['q_{' num2str(m), ',' num2str(s) ',' num2str(k) '},w=' num2str(wp)]);
-            cnt = cnt + 1;
-        end 
-    end
-end                                  
-drawnow
-%==========================================================================
-
-%==========================================================================
-function show_def(fig,obj,pars)
-set(0,'CurrentFigure',fig);       
-
-rand_subjs = pars.rand_subjs;
-
-M   = numel(obj);
-cnt = 1;    
-for m=1:M                
-    for s=rand_subjs{m} 
-        Nii = nifti(obj{m}{s}.pth_vel);
-        img = Nii.dat(:,:,:,:);
-        dm  = size(img);
-        zix = floor(dm(3)/2) + 1; 
-        
-        for i=1:3
-            subplot(M*numel(rand_subjs{1}),3,cnt)
-            imagesc(img(:,:,zix,i)'); axis off image xy; colormap(gray); colorbar
-            title(['def_{' num2str(m), ',' num2str(s), ',' num2str(i) '}']);
-            cnt = cnt + 1;
-        end 
-    end
-end                                  
-drawnow
-%==========================================================================
-
-%==========================================================================
 function print_algorithm_progress(status,iter)
 if nargin<2, iter = 0; end
 
@@ -470,20 +433,15 @@ for m=1:numel(obj)
         S = numel(obj{m});
         for s=1:S
             for k=1:K
-                if obj{m}{s}.segment.do_ml                
-                    obj{m}{s}.segment.gmm.mn(:,k) = mn(k);
-                    obj{m}{s}.segment.gmm.vr(:,:,k) = vr(k);
-                else
-                    obj{m}{s}.segment.gmm.pr.m(:,k) = mn(k);
-                    obj{m}{s}.segment.gmm.pr.b(k) = mean(mg);
-                    obj{m}{s}.segment.gmm.pr.n(k) = mean(mg);
-                    obj{m}{s}.segment.gmm.pr.W(:,:,k) = 1./(vr(k)*mean(mg));
+                obj{m}{s}.segment.gmm.pr.m(:,k) = mn(k);
+                obj{m}{s}.segment.gmm.pr.b(k) = mean(mg);
+                obj{m}{s}.segment.gmm.pr.n(k) = mean(mg);
+                obj{m}{s}.segment.gmm.pr.W(:,:,k) = 1./(vr(k)*mean(mg));
 
-                    obj{m}{s}.segment.gmm.po.m(:,k) = mn(k);
-                    obj{m}{s}.segment.gmm.po.b(k) = mean(mg);
-                    obj{m}{s}.segment.gmm.po.n(k) = mean(mg);
-                    obj{m}{s}.segment.gmm.po.W(:,:,k) = 1./(vr(k)*mean(mg));
-                end      
+                obj{m}{s}.segment.gmm.po.m(:,k) = mn(k);
+                obj{m}{s}.segment.gmm.po.b(k) = mean(mg);
+                obj{m}{s}.segment.gmm.po.n(k) = mean(mg);
+                obj{m}{s}.segment.gmm.po.W(:,:,k) = 1./(vr(k)*mean(mg));
             end
         end
     end

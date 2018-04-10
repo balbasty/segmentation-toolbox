@@ -1,5 +1,5 @@
 function mom = kmeans2mom(buf,lkp,mn,mx,obj)
-N = numel(buf(1).img);
+N = numel(buf(1).f);
 K = numel(lkp.keep);
 
 C = linspace_vec(mn,mx,K);
@@ -38,10 +38,10 @@ end
 
 F = [];
 for z=1:numel(buf)          
-    if ~numel(buf(z).img{1}), continue; end 
+    if ~numel(buf(z).f{1}), continue; end 
     
-    cr                 = zeros([numel(buf(z).img{1}) N],'single');
-    for n=1:N, cr(:,n) = buf(z).img{n}; end
+    cr                 = zeros([numel(buf(z).f{1}) N],'single');
+    for n=1:N, cr(:,n) = buf(z).f{n}.*buf(z).bf{n}; end
     F                  = [F;cr];
     clear cr    
 end

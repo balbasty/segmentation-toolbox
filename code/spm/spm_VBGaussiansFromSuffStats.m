@@ -1,4 +1,4 @@
-function [out_L,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm,vr1)
+function [out_L,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm)
 % Gaussians from sufficient statistics (with missing data)
 %
 % FORMAT [post,L] = spm_VBGaussiansFromSuffStats(mom,priors)
@@ -52,21 +52,21 @@ tiny = eps*eps;
 
 % Init priors
 %----------------------------------------------------------------------
-mom1 = mom_John2Bishop(mom);
-
 if ~isfield(gmm,'pr')   
-    vr2 = zeros(N,N);
-    for k=1:K
-        vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
-    end
-    vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);  
+    mom1 = mom_John2Bishop(mom);
+    
+%     vr2 = zeros(N,N);
+%     for k=1:K
+%         vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
+%     end
+%     vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);  
 
     m0    = mom1(end).s1;                       
-    beta0 = mean(mom1(end).s0)*ones(1,K);
-    nu0   = mean(mom1(end).s0)*ones(1,K); 
+    beta0 = ones(1,K);
+    nu0   = N*ones(1,K); 
     W0    = zeros(N,N,K);
     for k=1:K
-        W0(:,:,k) = inv(vr2)/nu0(k);
+        W0(:,:,k) = eye(N);
     end   
 
     gmm.pr.n = nu0;
@@ -174,26 +174,16 @@ for k=1:K
        %fprintf('%d\t%g\t%g\t%g\t%g\t%g\n', iter,L1, L2, L3, L4, L);
         
         if L-old_L < s0*N*1e-10, break; end
-    end
-    
-    if nargin==3, vr1 = vr1 + (S2 - s1*s1'/s0); end
+    end    
         
     out_L(:,k) = [L1 L2 L3 L4]';
 end
 
-if nargin==3 && nargout>1
-    s0 = 0;
-    for i=2:numel(mom), s0 = s0 + mom(i).s0; end
-    
-    vr1 = (vr1 + N*vr0)/(sum(s0) + N);
-    for k=1:K, Sigma(:,:,k) = vr1; end    
-end
-
 % Posterior distributions
-gmm.po.m     = m;
-gmm.po.W     = W;
-gmm.po.n     = nu;
-gmm.po.b     = beta;
+gmm.po.m = m;
+gmm.po.W = W;
+gmm.po.n = nu;
+gmm.po.b = beta;
 %==========================================================================
 
 %==========================================================================
