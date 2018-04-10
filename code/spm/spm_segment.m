@@ -9,7 +9,7 @@ tpm = spm_load_logpriors(obj.pth_template);
 V         = obj.image; 
 N         = numel(V);
 d0        = V(1).dim(1:3);
-vx        = vxsize(V(1).mat);
+vx        = spm_misc('vxsize',V(1).mat);
 sk        = max([1 1 1],round(obj.segment.samp*[1 1 1]./vx));
 [x0,y0,o] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
 z0        = 1:sk(3):d0(3);
@@ -98,10 +98,10 @@ for iter=1:niter
             % The aim is to save memory, and maybe make the computations
             % faster.
             %------------------------------------------------------------
-            [ll,llrb,buf,chan,L,armijo(1)] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_lab);
-        
-            debug_view('bf',fig{2},lkp,buf,modality);
+            [ll,llrb,buf,chan,L,armijo(1)] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_lab);                    
         end
+        
+        debug_view('bf',fig{2},lkp,buf,modality);
         
         if iter==1 && subit==1
             % Most of the log-likelihood improvements are in the first iteration.

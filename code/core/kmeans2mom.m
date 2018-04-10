@@ -2,7 +2,7 @@ function mom = kmeans2mom(buf,lkp,mn,mx,obj)
 N = numel(buf(1).f);
 K = numel(lkp.keep);
 
-C = linspace_vec(mn,mx,K);
+C = spm_misc('linspace_vec',mn,mx,K);
 if size(C,1)~=K, C = C'; end
     
 if ~isempty(lkp.lab)    
@@ -33,7 +33,7 @@ if ~isempty(lkp.lab)
         C(k,:) = avg_int(k,:);
     end
     
-    C(lkp.lab==0,:) = linspace_vec(mn,mx,nnz(lkp.lab==0))';
+    C(lkp.lab==0,:) = spm_misc('linspace_vec',mn,mx,nnz(lkp.lab==0))';
 end
 
 F = [];

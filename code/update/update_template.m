@@ -3,7 +3,7 @@ pth_template = obj{1}{1}.pth_template;
 sparam       = pars.sparam;
 
 Nii = nifti(pth_template);
-vx  = vxsize(Nii.mat);
+vx  = spm_misc('vxsize',Nii.mat);
 mu0 = single(Nii.dat(:,:,:,:));
 
 prm = [vx sparam];

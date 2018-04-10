@@ -197,5 +197,10 @@ for m=1:M
     end
 end
 
+% A random sample of subjects (used for visualising algorithm progress)
 pars.rand_subjs = rand_subjs;
+
+% If pars.dat{m}.segment.kmeans_hist, fit GMM to accumulative histogram.
+% For setting initial GMM parameters.
+obj = fit_gmm_to_acc_hist(obj,pars);
 %==========================================================================

@@ -226,7 +226,7 @@ for z=1:d(3), % Loop over planes
     % log-likelihood (using log-sum-exp)
     sm0 = bsxfun(@plus,sz,lwp1);
     sm1 = sum(t(:,:,z,:).*sm0,4);
-    sm2 = logsumexp(sm0,4).*s(:,:,z);
+    sm2 = spm_matcomp('logsumexp',sm0,4).*s(:,:,z);
     ll0 = sum(sum(sm1 - sm2));                        
     
     sz = reshape(sz,d(1),d(2),d(4));

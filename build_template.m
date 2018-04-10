@@ -102,8 +102,6 @@ pars       = read_images(pars);
 pars       = init_template(pars); 
 [obj,pars] = init_obj(pars);
 
-obj = kmeans_on_hist(obj,pars);
-
 %--------------------------------------------------------------------------
 % Start the algorithm
 %--------------------------------------------------------------------------
@@ -139,7 +137,7 @@ for iter=1:pars.niter
     if pars.niter>1 && pars.mrf
         % Use a MRF cleanup procedure
         %------------------------------------------------------------------
-        mrf_clean_up(pars.pth_template);
+        mrf_template(pars.pth_template);
     end
         
     if pars.niter>1
@@ -157,7 +155,8 @@ for iter=1:pars.niter
     
     if pars.niter>1
         % Update Gaussian-Wishart hyper-parameters
-        %------------------------------------------------------------------
+        %----------------------------------
+% FORMAT nii2subject(dir_in,dir_out)--------------------------------
         obj = update_intensity_prior(obj,iter);
     end
        
@@ -183,188 +182,6 @@ for iter=1:pars.niter
 end
 
 print_algorithm_progress('finished',iter);
-%==========================================================================
-
-%==========================================================================
-function obj = modify_obj(obj,iter,niter)
-M = numel(obj);    
-for m=1:M
-    S         = numel(obj{m});    
-    sum_bf_dc = 0;
-    cnt_S     = 0;
-    for s=1:S            
-        obj{m}{s}.iter = iter;
-        
-        if iter==1             
-            obj{m}{s}.push_resp.do_push_resp = true;
-            obj{m}{s}.write_res.do_write_res = false;
-            
-            obj{m}{s}.segment.do_def = false;
-            obj{m}{s}.segment.do_bf  = false;
-            obj{m}{s}.segment.do_wp  = false;
-            obj{m}{s}.segment.niter  = 1;                 
-            obj{m}{s}.segment.nsubit = 1;
-            obj{m}{s}.segment.nitgmm = 1;
-        end
-
-        if iter==2            
-            obj{m}{s}.uniform = false;  
-            
-            obj{m}{s}.segment.nsubit = 8;
-            obj{m}{s}.segment.nitgmm = 20;  
-            obj{m}{s}.segment.do_bf  = obj{m}{s}.segment.do_bf0;                                                  
-            obj{m}{s}.segment.do_wp  = obj{m}{s}.segment.do_wp0;    
-        end
-
-        if iter>=2
-            reg0  = obj{m}{s}.segment.reg0;   
-            sched = 2.^fliplr(repelem(0:9,2));
-            scal  = sched(min(iter,numel(sched)));   
-            
-            obj{m}{s}.segment.reg(3) = reg0(3)*scal;                     
-        end
-        
-        % Sum bias field DC components
-        sum_bf_dc = sum_bf_dc + obj{m}{s}.segment.bf_dc;
-        cnt_S     = cnt_S + 1;
-        
-        if iter==niter && obj{m}{s}.image(1).dim(3)>1
-            obj{m}{s}.write_res.do_write_res = true;
-            obj{m}{s}.write_res.mrf = 2;
-            obj{m}{s}.write_res.write_tc(:,[1 2 4]) = true;            
-        end
-    end
-    
-    % Average of bias field DC components
-    avg_bf_dc = sum_bf_dc/cnt_S;
-    
-    % Set average bias field DC component
-    for s=1:S 
-        obj{m}{s}.segment.avg_bf_dc = avg_bf_dc; 
-    end
-end
-%==========================================================================
-
-%==========================================================================
-function mrf_clean_up(pth_template,verbose)
-if nargin<2, verbose = false; end
-
-Nii = nifti(pth_template);
-mat = Nii.mat;
-vx  = 1./single(sum(mat(1:3,1:3).^2));
-Q   = single(Nii.dat(:,:,:,:));
-dm  = size(Q);
-Kb  = dm(4);
-zix = floor(dm(3)/2) + 1;
-
-% softmax
-Q = exp(Q);
-Q = bsxfun(@rdivide,Q,sum(Q,4));
-
-nmrf_its = 10;
-T        = 2;
-G        = T*ones([Kb,1],'single');
-P        = zeros(dm,'uint8');
-
-if verbose
-    figure(666);
-    for k=1:Kb
-       subplot(2,Kb,k) 
-       imagesc(Q(:,:,zix,k)); axis off image xy; colormap(gray);
-    end
-end
-
-for iter=1:nmrf_its
-    spm_mrf(P,Q,G,vx);
-end
-
-P = double(P)/255;
-
-if verbose
-    for k=1:Kb
-       subplot(2,Kb,Kb + k) 
-       imagesc(P(:,:,zix,k)); axis off image xy; colormap(gray);
-    end
-    drawnow
-end
-
-Nii.dat(:,:,:,:) = log(max(P,eps('single')));
-%==========================================================================
-
-%==========================================================================
-function crop_template(pth_template,iter,verbose)
-if nargin<3, verbose = true; end
-
-pth0 = fullfile(spm('dir'),'tpm','TPM.nii');  
-V0   = spm_vol(pth0);   
-d0   = V0(1).dim;
-vx0  = vxsize(V0(1).mat);
-
-V1  = spm_vol(pth_template);
-K1  = numel(V1);
-d1  = V1(1).dim;
-vx1 = vxsize(V1(1).mat);
-
-msk     = d1<d0;
-d0(msk) = d1(msk);
-
-sk0 = d0;
-sk1 = d1;
-
-bb1 = floor((sk1 - sk0)/2);
-bb2 = bb1 + sk0;
-bb  = [bb1' bb2'];
-
-for k=1:K1
-    spm_impreproc('subvol',V1(k),bb','');        
-end
-
-if verbose
-    fprintf('%2d | size(otpm) = [%d %d %d] | size(ntpm) = [%d %d %d]\n',iter,d1(1),d1(2),d1(3),d0(1),d0(2),d0(3));
-end
-%==========================================================================
-
-%==========================================================================
-function shrink_template(obj,iter,verbose)
-if nargin<3, verbose = true; end
-
-pth_template = obj{1}{1}.pth_template;
-
-M   = numel(obj);
-bb  = [];
-cnt = 1;
-for m=1:M
-    S = numel(obj{m});    
-    for s=1:S            
-        if obj{m}{s}.status==0                
-            bb(:,:,cnt) = obj{m}{s}.push_resp.bb;
-            cnt         = cnt + 1;
-        end
-    end
-end
-
-mn_bb = min(bb,[],3);
-mx_bb = max(bb,[],3);
-nbb   = [mn_bb(:,1) mx_bb(:,2)];
-
-V0 = spm_vol(pth_template);
-od = V0(1).dim;
-
-for k=1:numel(V0)
-    spm_impreproc('subvol',V0(k),nbb','tmp');        
-end
-
-delete(pth_template);
-[pth,nam,ext] = fileparts(V0(1).fname);
-fname         = fullfile(pth,['tmp' nam ext]);
-movefile(fname,pth_template);
-
-V  = spm_vol(pth_template);
-nd = V(1).dim;   
-
-if verbose
-    fprintf('%2d | size(otpm) = [%d %d %d] | size(ntpm) = [%d %d %d]\n',iter,od(1),od(2),od(3),nd(1),nd(2),nd(3));
-end
 %==========================================================================
 
 %==========================================================================
@@ -402,48 +219,4 @@ set(0,'CurrentFigure',fig);
 plot(0:numel(L(3:end)) - 1,L(3:end),'b-','LineWidth',1);   hold on            
 plot(0:numel(L(3:end)) - 1,L(3:end),'b.','markersize',10); hold off  
 title('ll')
-%==========================================================================
-
-%==========================================================================
-function obj = kmeans_on_hist(obj,pars)
-K = pars.K;
-
-x = -2000:2000;
-h = zeros(1,numel(x));
-for m=1:numel(obj)
-    if pars.dat{m}.segment.kmeans_hist
-        S = numel(obj{m});
-        for s=1:S
-            img = single(obj{m}{s}.image(1).private.dat(:,:,:));
-            msk = msk_modality(img,obj{m}{s}.modality,obj{m}{s}.trunc_ct);
-            img = img(msk(:));
-            
-            h1 = hist(img(:),x);
-            h  = h + h1;
-        end
-    end
-end
-h = h(900:end)';
-x = x(900:end)';
-
-[mg,mn,vr] = spm_imbasics('fit_gmm2hist',h,x,K);
-
-for m=1:numel(obj)
-    if pars.dat{m}.segment.kmeans_hist
-        S = numel(obj{m});
-        for s=1:S
-            for k=1:K
-                obj{m}{s}.segment.gmm.pr.m(:,k) = mn(k);
-                obj{m}{s}.segment.gmm.pr.b(k) = mean(mg);
-                obj{m}{s}.segment.gmm.pr.n(k) = mean(mg);
-                obj{m}{s}.segment.gmm.pr.W(:,:,k) = 1./(vr(k)*mean(mg));
-
-                obj{m}{s}.segment.gmm.po.m(:,k) = mn(k);
-                obj{m}{s}.segment.gmm.po.b(k) = mean(mg);
-                obj{m}{s}.segment.gmm.po.n(k) = mean(mg);
-                obj{m}{s}.segment.gmm.po.W(:,:,k) = 1./(vr(k)*mean(mg));
-            end
-        end
-    end
-end
 %==========================================================================

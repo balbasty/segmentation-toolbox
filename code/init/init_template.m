@@ -31,7 +31,7 @@ if isempty(pars.pth_template)
     end
 
     % Compute average orientation matrix and dimensions
-    [M,d] = compute_avg_mat(mats,dms);
+    [M,d] = spm_misc('compute_avg_mat',mats,dms);
 
     % Adjust template voxel size
     nvx = pars.vx_tpm*ones(1,3);
@@ -65,7 +65,7 @@ if isempty(pars.pth_template)
     vols = cell(K,1);
     for k=1:K    
         vols{k} = fullfile(pth,[nam num2str(k) ext]);
-        create_nii(vols{k},img,M,pars.dt,'template');
+        spm_misc('create_nii',vols{k},img,M,pars.dt,'template');
     end
     clear img
 
