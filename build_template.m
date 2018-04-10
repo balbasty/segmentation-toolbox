@@ -1,6 +1,6 @@
 function build_template(pars,test_level)
 if nargin<1, pars       = struct; end
-if nargin<2, test_level = 2; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
+if nargin<2, test_level = 1; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
 if ~isfield(pars,'dir_output')
 %     pars.dir_output = '/data/mbrud/tmp-build-tpm/';
     pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
@@ -36,10 +36,11 @@ m = 0;
 % -----------------
 m = m + 1;
 
-pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
 pars.dat{m}.S = 8;
 pars.dat{m}.segment.samp = 1;
+pars.dat{m}.segment.est_fwhm = true;
 
 % CT
 % -----------------

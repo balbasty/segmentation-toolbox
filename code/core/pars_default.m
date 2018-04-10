@@ -219,6 +219,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'kmeans_hist')
         pars.dat{m}.segment.kmeans_hist = false;
     end    
+    if ~isfield(pars.dat{m}.segment,'est_fwhm')
+        pars.dat{m}.segment.est_fwhm = true;
+    end    
     
     % Push resps parameters
     %----------------------------------------------------------------------
