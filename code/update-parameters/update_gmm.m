@@ -1,13 +1,10 @@
 function [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,mix_wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_lab)
-tiny = eps*eps;
-K    = numel(mg);
-
 for subit=1:nitgmm
     oll = ll;
     ll  = llrb + llr;
     
     % Compute responsibilities and moments
-    [mom,dll,mgm] = compute_moments(buf,K,mg,gmm,wp,lkp,wp_lab);        
+    [mom,dll,mgm] = compute_moments(buf,mg,gmm,wp,lkp,wp_lab);        
     ll            = ll + dll;     
     
     % Add up 0:th moment
@@ -25,10 +22,7 @@ for subit=1:nitgmm
     end
     
     % Update mixing proportions
-    for k=1:K
-        tmp   = s0(lkp.part==lkp.part(k));
-        mg(k) = (s0(k) + tiny)/sum(tmp + tiny);  % US eq. 27 (partly)
-    end
+    mg = update_mg(lkp,s0);
         
     % Update means and variances
     [dll,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);

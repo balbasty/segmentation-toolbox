@@ -1,5 +1,5 @@
-function [mom,ll,mgm] = compute_moments(buf,K,mg,gmm,wp,lkp,wp_lab)
-    
+function [mom,ll,mgm] = compute_moments(buf,mg,gmm,wp,lkp,wp_lab)
+K  = numel(mg);
 nz = numel(buf);
 N  = numel(buf(1).f);
 
@@ -26,9 +26,10 @@ for z=1:nz
         [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,B,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
         ll      = ll + dll;
     else
-        msk1   = buf(z).code>0;
-        q      = NaN(numel(buf(z).msk{1}),N);
-        for k=1:K
+        msk1 = buf(z).code>0;
+        q    = NaN(numel(buf(z).msk{1}),N);
+        Kb   = size(buf(1).dat,2);
+        for k=1:Kb
             q(msk1,k) = double(buf(z).dat(:,k));
         end
     end

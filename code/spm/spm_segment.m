@@ -55,7 +55,7 @@ if isfield(obj.segment,'mg')
         lkp.part = 1:Kb;       
     end
 else              
-    mg       = ones(Kb,1);
+    mg       = ones(1,Kb);
     lkp.part = 1:Kb;   
 end
 
