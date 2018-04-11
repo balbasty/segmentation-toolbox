@@ -13,60 +13,66 @@ x2   = x2(msk1);
 x3   = x3(msk1);
 
 s = cell(1,Kb);
-if nargout<=1
-    tot = zeros(dx);
+if nargout<=1    
+    mx = -Inf(dx);
     for k=1:Kb
         a = spm_bsplins(tpm.dat{k},x1,x2,x3,[deg deg deg 0 0 0]); % interpolate log-template
-                
-        % For soft-max
-        s{k}       = ones(dx)*wp(k);
-        s{k}(msk1) = exp(a);
-        s{k}(msk2) = wp(k);
-        tot        = tot + s{k};
+                        
+        s{k}       = ones(dx)*log(wp(k));
+        s{k}(msk1) = a;
+        s{k}(msk2) = log(wp(k));     
+        
+        mx = max(mx,max(s{k}));
     end
     
-    % soft-max
-    msk      = ~isfinite(tot);
-    tot(msk) = 1;
-    for k=1:Kb
-        s{k}(msk) = wp(k);
-        s{k}      = s{k}./tot;
-    end
-else
-    ds1 = cell(1,Kb);
-    ds2 = cell(1,Kb);
-    ds3 = cell(1,Kb);
+    % Safe soft-max
     tot = zeros(dx);
     for k=1:Kb
+        s{k} = exp(s{k} - mx);
+        tot  = tot + s{k}; 
+    end    
+    
+    for k=1:Kb
+        s{k} = s{k}./tot;
+    end
+else
+    mx  = -Inf(dx);
+    ds1 = cell(1,Kb);
+    ds2 = cell(1,Kb);
+    ds3 = cell(1,Kb);    
+    for k=1:Kb
         [a,da1,da2,da3] = spm_bsplins(tpm.dat{k},x1,x2,x3,[deg deg deg 0 0 0]); % interpolate log-template and compute derivatives     
+                
+        s{k}       = ones(dx)*log(wp(k));
+        s{k}(msk1) = a;
+        s{k}(msk2) = log(wp(k));        
         
-        % For soft-max
-        s{k}       = ones(dx)*wp(k);
-        s{k}(msk1) = exp(a);
-        s{k}(msk2) = wp(k);
-        tot        = tot + s{k};
+        mx = max(mx,max(s{k}));
         
         ds1{k} = zeros(dx); ds1{k}(msk1) = da1;
         ds2{k} = zeros(dx); ds2{k}(msk1) = da2;
         ds3{k} = zeros(dx); ds3{k}(msk1) = da3;
     end
     
-    % soft-max
-    msk      = find(~isfinite(tot));
-    tot(msk) = 1;
-    da1      = zeros(dx);
-    da2      = zeros(dx);
-    da3      = zeros(dx);
+    % Safe soft-max
+    tot = zeros(dx);
     for k=1:Kb
-         s{k}(msk) = wp(k);
-         s{k}      = s{k}./tot;
-         da1       = da1 + s{k}.*ds1{k};
-         da2       = da2 + s{k}.*ds2{k};
-         da3       = da3 + s{k}.*ds3{k};
+        s{k} = exp(s{k} - mx);
+        tot  = tot + s{k}; 
+    end    
+    
+    da1 = zeros(dx);
+    da2 = zeros(dx);
+    da3 = zeros(dx);
+    for k=1:Kb
+         s{k} = s{k}./tot;
+         da1  = da1 + s{k}.*ds1{k};
+         da2  = da2 + s{k}.*ds2{k};
+         da3  = da3 + s{k}.*ds3{k};
     end
     for k=1:Kb
-        ds1{k} = s{k}.*(ds1{k} - da1); ds1{k}(msk) = 0;
-        ds2{k} = s{k}.*(ds2{k} - da2); ds2{k}(msk) = 0;
-        ds3{k} = s{k}.*(ds3{k} - da3); ds3{k}(msk) = 0;
+        ds1{k} = s{k}.*(ds1{k} - da1);
+        ds2{k} = s{k}.*(ds2{k} - da2);
+        ds3{k} = s{k}.*(ds3{k} - da3);
     end
 end
