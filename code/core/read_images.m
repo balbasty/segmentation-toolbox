@@ -1,4 +1,6 @@
-function pars = read_images(pars)
+function pars = read_images(pars,verbose)
+if nargin<2, verbose = true; end
+
 M = numel(pars.dat);
 for m=1:M % Loop over populations
     pth        = pars.dat{m}.dir_data;
@@ -45,6 +47,8 @@ for m=1:M % Loop over populations
     pars.dat{m}.V      = scans;  
     pars.dat{m}.labels = labels;    
     
-    fprintf('Loaded data from %d subject(s) having %d channel(s) each (%s)\n',S,N,pth); 
+    if verbose
+        fprintf('Loaded data from %d subject(s) having %d channel(s) each (%s)\n',S,N,pth); 
+    end
 end
 %==========================================================================

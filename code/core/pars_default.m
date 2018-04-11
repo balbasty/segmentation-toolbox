@@ -134,7 +134,7 @@ for m=1:M
     end    
     if ~isfield(pars.dat{m}.segment.lkp,'part')
         if isfield(pars.dat{m}.segment,'nlkp')
-            pars.dat{m}.segment.lkp.part = reshape(repmat(1:pars.K,pars.dat{m}.segment.nlkp,1),1,[]);
+            pars.dat{m}.segment.lkp.part = reshape(repelem(1:pars.K,1,pars.dat{m}.segment.nlkp),1,[]);
         else
             pars.dat{m}.segment.lkp.part = 1:pars.K;
         end                       
@@ -211,16 +211,16 @@ for m=1:M
         pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 1e-5;
+        pars.dat{m}.segment.tol1 = 1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
         pars.dat{m}.segment.mix_wp_reg = 0.5;
     end    
-    if ~isfield(pars.dat{m}.segment,'kmeans_hist')
-        pars.dat{m}.segment.kmeans_hist = false;
-    end    
     if ~isfield(pars.dat{m}.segment,'est_fwhm')
         pars.dat{m}.segment.est_fwhm = true;
+    end    
+    if ~isfield(pars.dat{m}.segment,'mg')
+        pars.dat{m}.segment.mg = ones(1,numel(pars.dat{m}.segment.lkp.part));
     end    
     
     % Push resps parameters
@@ -262,12 +262,11 @@ for m=1:M
         pars.dat{m}.write_res.write_df = false(1,2);
     end       
     
-    % Data is CT
-    %----------------------------------------------------------------------
-    if strcmp(pars.dat{m}.modality,'CT')
-        pars.dat{m}.segment.kmeans_hist = true;
-        pars.dat{m}.segment.do_bf = false;
-    end
+%     % Data is CT
+%     %----------------------------------------------------------------------
+%     if strcmp(pars.dat{m}.modality,'CT')
+% %         pars.dat{m}.segment.do_bf = false;
+%     end
 end
 %==========================================================================
 

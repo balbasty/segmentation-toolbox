@@ -42,31 +42,35 @@ m = 0;
 
 % Basic test
 % -----------------
-m = m + 1;
-
-pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
-pars.dat{m}.S = 8;
-
-% CT
-% -----------------
-% pars.K = 20;
-% 
 % m = m + 1;
-% 
-% pars.dat{m}.dir_data = '/data/mbrud/images/CT/test-labels_preproc-ra-cr-rn-vx';
-% % pars.dat{m}.dir_data = '/data/mbrud/images/CT/2d_test-labels_preproc-ra-cr-rn-vx-1';
+% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+% % pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+% pars.dat{m}.S = 1;
+
+% CROMIS
+% -----------------
+pars.K = 24;
+
+m = m + 1;
+pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/2D-Data/CT-w-lesion';
+pars.dat{m}.modality = 'CT';
+pars.dat{m}.S = Inf;
+pars.dat{m}.segment.mix_wp_reg = 0.9;
+pars.dat{m}.segment.do_bf = false;
+
+% m = m + 1;
+% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/2D-Data/CT-wo-lesion';
 % pars.dat{m}.modality = 'CT';
-% pars.dat{m}.S = Inf;
-% 
-% pars.dat{m}.segment.lkp.lab = zeros(1,pars.K);
-% pars.dat{m}.segment.lkp.lab(15) = 1;
-% pars.dat{m}.segment.wp_lab = 0.5;
+% pars.dat{m}.S = 4;
 
 % Define a log template
 %-----------------
 % pars.pth_template = '/mnt/cifs_share/share_data/log-TPMs/CB/logBlaiottaTPM.nii'; % In Ashburner_group shared
 % pars.pth_template = '/mnt/cifs_share/share_data/log-TPMs/SPM/logTPM.nii'; % In Ashburner_group shared
+
+% For CT data, initialises the GMM parameters by fitting a GMM to an
+% accumulated histogram of image intensities.
+pars = init_ct(pars);
 
 pars = pars_default(pars,test_level); 
 

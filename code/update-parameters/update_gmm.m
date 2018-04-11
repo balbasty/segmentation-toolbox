@@ -25,7 +25,7 @@ do_wp      = varargin{15};
 fig        = varargin{16};
 L          = varargin{17};
 print_ll   = varargin{18};
-wp_lab     = varargin{10};
+wp_lab     = varargin{19};
 
 for subit=1:nitgmm
     oll = ll;

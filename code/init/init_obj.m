@@ -146,7 +146,9 @@ for m=1:M
         obj1.segment.lkp = lkp;
         
         % gmm
-        obj1.segment.gmm = struct;
+        if ~isfield(obj1.segment,'gmm')
+            obj1.segment.gmm = struct;
+        end
         pth_prior        = pars.dat{m}.segment.pth_prior;
         if ~isempty(pth_prior)
             tmp                 = load(pth_prior,'-mat');
@@ -202,8 +204,4 @@ end
 
 % A random sample of subjects (used for visualising algorithm progress)
 pars.rand_subjs = rand_subjs;
-
-% If pars.dat{m}.segment.kmeans_hist, fit GMM to accumulative histogram.
-% For setting initial GMM parameters.
-obj = fit_gmm_to_acc_hist(obj,pars);
 %==========================================================================

@@ -46,7 +46,7 @@ if ~isempty(fig)
             for k=1:K
                 subplot(K1,K2,k);
                 slice = Q(:,:,floor(d(3)/2) + 1,k);
-                imagesc(slice'); axis image xy off; title(['k=' num2str(k)]); colormap(gray);  
+                imagesc(slice'); axis image xy off; title(['k=' num2str(lkp.part(k))]); colormap(gray);  
             end  
         end
     end
