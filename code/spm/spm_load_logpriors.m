@@ -14,7 +14,7 @@ for k1=1:(Kb)
     tpm.dat{k1} = zeros(tpm.V(1).dim(1:3));
 end
 
-% Interpolate log-template
+% Slice log-template
 for i=1:tpm.V(1).dim(3)
     M = spm_matrix([0 0 i]);
     for k1=1:Kb
@@ -22,6 +22,7 @@ for i=1:tpm.V(1).dim(3)
     end
 end
 
+% Convert into b-spline coefficients
 for k1=1:Kb
     tpm.dat{k1} = spm_bsplinc(tpm.dat{k1},[tpm.deg tpm.deg tpm.deg 0 0 0]);
 end
