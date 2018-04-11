@@ -1,4 +1,10 @@
-function obj = update_intensity_prior(obj,iter)
+function obj = update_intensity_hp(obj,iter)
+% Update VB-GMM hyper-parameters (gmm.pr)
+% FORMAT obj = update_intensity_prior(obj,iter)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 dir_template = obj{1}{1}.dir_template;
 M            = numel(obj);
 

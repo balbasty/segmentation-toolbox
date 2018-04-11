@@ -1,4 +1,10 @@
 function mg = update_mg(lkp,s0)
+% Update mixing weights of tissue-specific GMM (mg)
+% FORMAT mg = update_mg(lkp,s0)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 tiny = eps*eps;
 K    = numel(lkp.part);
 mg   = zeros(1,K);

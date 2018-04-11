@@ -5,7 +5,7 @@ N   = numel(obj.image);
 
 % Load template
 %-----------------------------------------------------------------------
-tpm = spm_load_logpriors(obj.pth_template);
+tpm = spm_load_logpriors(obj.pth_template,obj.segment.wp);
 M1  = tpm.M;
 
 % For missing data

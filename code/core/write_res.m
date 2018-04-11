@@ -23,7 +23,7 @@ odir     = obj.dir_write;
 
 % Load template
 %-----------------------------------------------------------------------
-tpm = spm_load_logpriors(obj.pth_template);
+tpm = spm_load_logpriors(obj.pth_template,obj.segment.wp);
 
 % Read essentials from tpm (it will be cleared later)
 d1 = size(tpm.dat{1});

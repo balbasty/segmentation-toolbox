@@ -1,4 +1,10 @@
 function mrf_template(pth_template,verbose)
+% Clean-up template using a MRF routine
+% FORMAT mrf_template(pth_template,verbose)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 if nargin<2, verbose = false; end
 
 Nii = nifti(pth_template);

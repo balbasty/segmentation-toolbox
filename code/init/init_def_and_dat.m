@@ -1,4 +1,4 @@
-function [buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M)
+function [buf,param,MT,sk4,Twarp,llr] = init_def_and_dat(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M)
 nz      = numel(buf);
 Kb      = max(obj.segment.lkp.part);
 pth_vel = obj.pth_vel;

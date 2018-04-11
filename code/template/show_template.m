@@ -1,10 +1,14 @@
 function show_template(fig,pth_template)
+% Display soft-maxed template
+% FORMAT show_template(fig,pth_template)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 
 set(0,'CurrentFigure',fig);     
 
 Nii = nifti(pth_template);
-b   = exp(Nii.dat(:,:,:,:));
-b   = bsxfun(@rdivide,b,sum(b,4));
+b   = spm_matcomp('softmax',Nii.dat(:,:,:,:));
 d   = size(b);
 Kb  = d(4);    
 if d(3)>1

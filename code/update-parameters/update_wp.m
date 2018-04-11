@@ -1,4 +1,10 @@
 function wp = update_wp(lkp,s0,mgm,nvox,mix_wp_reg,wp_reg)
+% Update tissue mixing weights (wp)
+% FORMAT wp = update_wp(lkp,s0,mgm,nvox,mix_wp_reg,wp_reg)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 Kb = max(lkp.part);
 wp = zeros(1,Kb);
 for k1=1:Kb

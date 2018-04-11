@@ -1,4 +1,10 @@
 function crop_template(pth_template,iter,verbose)
+% Crop template to same size as default SPM template
+% FORMAT crop_template(pth_template,iter,verbose)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 if nargin<3, verbose = true; end
 
 pth0 = fullfile(spm('dir'),'tpm','TPM.nii');  

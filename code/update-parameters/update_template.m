@@ -1,4 +1,10 @@
 function L = update_template(L,obj,pars,iter)
+% Update template (NIfTI stored in pth_template)
+% FORMAT L = update_template(L,obj,pars,iter)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 pth_template = obj{1}{1}.pth_template;
 sparam       = pars.sparam;
 

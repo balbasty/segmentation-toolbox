@@ -1,17 +1,45 @@
-function [ll,llrb,buf,chan,L,armijo] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo,wp_lab)
+function varargout = update_bf(varargin)
+% Update bias field parameters (in chan{:}.T)
+% FORMAT varargout = update_bf(varargin)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
+
+% Read function input
+%--------------------------------------------------------------------------
+ll       = varargin{1};
+llrb     = varargin{2};
+llr      = varargin{3};
+buf      = varargin{4};
+mg       = varargin{5};
+gmm      = varargin{6};
+wp       = varargin{7};
+lkp      = varargin{8};
+chan     = varargin{9};
+fig      = varargin{10};
+L        = varargin{11};
+print_ll = varargin{12};
+armijo   = varargin{13};
+wp_lab   = varargin{14};
+
+% Some parameters
 nz = numel(buf);
 N  = numel(buf(1).f);
 K  = numel(mg);
 d  = size(buf(1).msk{1});
 
-pr                   = zeros(size(gmm.po.W));
-for k=1:K, pr(:,:,k) = gmm.po.n(k)*gmm.po.W(:,:,k); end
-mn                   = gmm.po.m; 
+% Get means and precisions
+pr = zeros(size(gmm.po.W));
+for k=1:K 
+    pr(:,:,k) = gmm.po.n(k)*gmm.po.W(:,:,k); 
+end
+mn = gmm.po.m; 
 
 for n=1:N
     d3  = numel(chan(n).T);
     if d3>0
-        % Compute objective function and its 1st and second derivatives
+        % Compute objective function and its first and second derivatives
         Alpha = zeros(d3,d3); % Second derivatives
         Beta  = zeros(d3,1);  % First derivatives
 
@@ -43,7 +71,7 @@ for n=1:N
             b3    = chan(n).B3(z,:)';
             Beta  = Beta  + kron(b3,spm_krutil(wt1,chan(n).B1,chan(n).B2,0));
             Alpha = Alpha + kron(b3*b3',spm_krutil(wt2,chan(n).B1,chan(n).B2,1));
-            clear wt1 wt2 b3
+            clear wt1 wWritet2 b3
         end
 
         oll     = ll;
@@ -102,9 +130,18 @@ for n=1:N
         clear oldT
     end
 end
-%=======================================================================  
 
-%=======================================================================
+% Write function output
+%--------------------------------------------------------------------------
+varargout{1} = ll;
+varargout{2} = llrb;
+varargout{3} = buf;
+varargout{4} = chan;
+varargout{5} = L;
+varargout{6} = armijo;
+%========================================================================== 
+
+%==========================================================================
 function t = transf(B1,B2,B3,T)
 if ~isempty(T)
     d2 = [size(T) 1];
@@ -114,4 +151,4 @@ else
     t  = zeros(size(B1,1),size(B2,1));
 end
 return;
-%=======================================================================
+%==========================================================================

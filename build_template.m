@@ -1,6 +1,14 @@
 function build_template(pars,test_level)
+% Builds a probabilistic template from populations of brain images
+% FORMAT build_template(pars,test_level)
+% pars - Parameter struct (for more info see the function pars_default)
+% test_level - For testing and debugging (0=no testing, 1=for, 2=parfor, 3=holly)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 if nargin<1, pars       = struct; end
-if nargin<2, test_level = 2; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
+if nargin<2, test_level = 2; end
 if ~isfield(pars,'dir_output')
 %     pars.dir_output = '/data/mbrud/tmp-build-tpm/';
     pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
@@ -150,9 +158,8 @@ for iter=1:pars.niter
     
     if pars.niter>1
         % Update Gaussian-Wishart hyper-parameters
-        %----------------------------------
-% FORMAT nii2subject(dir_in,dir_out)--------------------------------
-        obj = update_intensity_prior(obj,iter);
+        %------------------------------------------------------------------
+        obj = update_intensity_hp(obj,iter);
     end
        
     % Save obj structs

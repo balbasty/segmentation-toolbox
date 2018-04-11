@@ -22,7 +22,7 @@ try
    
         % Affine registration
         %------------------------------------------------------------------
-        tpm = spm_load_logpriors(obj.pth_template);
+        tpm = spm_load_logpriors(obj.pth_template,obj.segment.wp);
 
         M                       = obj.image(1).mat;
         c                       = (obj.image(1).dim+1)/2;

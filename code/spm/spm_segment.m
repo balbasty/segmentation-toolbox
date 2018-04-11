@@ -1,9 +1,5 @@
 function obj = spm_segment(obj,fig)
 
-% Load template
-%-----------------------------------------------------------------------
-tpm = spm_load_logpriors(obj.pth_template);
-
 % Parameters, etc.
 %-----------------------------------------------------------------------
 V         = obj.image; 
@@ -31,21 +27,12 @@ do_wp     = obj.segment.do_wp;
 print_ll  = obj.segment.print_ll;
 pth_vel   = obj.pth_vel;
 Affine    = obj.Affine;
-M         = tpm.M\Affine*V(1).mat;
 tot_S     = obj.tot_S;
-
-% Fudge Factor - to (approximately) account for non-independence of voxels.
-%-----------------------------------------------------------------------
-ff = compute_fudge_factor(obj.fwhm,vx,sk);
-
-% Load data into buffer
-%-----------------------------------------------------------------------
-[buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
 
 % Initialise weights
 %-----------------------------------------------------------------------
 if isfield(obj.segment,'wp'), wp = obj.segment.wp;
-else                          wp = ones(1,Kb)/Kb;
+else,                         wp = ones(1,Kb)/Kb;
 end
         
 part0 = lkp.part;
@@ -59,13 +46,26 @@ else
     lkp.part = 1:Kb;   
 end
 
+% Load template
+%-----------------------------------------------------------------------
+tpm = spm_load_logpriors(obj.pth_template,wp);
+M   = tpm.M\Affine*V(1).mat; % Affine matrix
+
+% Fudge Factor - to (approximately) account for non-independence of voxels.
+%-----------------------------------------------------------------------
+ff = compute_fudge_factor(obj.fwhm,vx,sk);
+
+% Load data into buffer
+%-----------------------------------------------------------------------
+[buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
+
 % Initialise bias field
 %-----------------------------------------------------------------------
 [buf,chan,llrb] = init_bf(buf,obj,V,x0,y0,z0,ff,scl_bf);
 
 % Initialise deformation and template
 %-----------------------------------------------------------------------
-[buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M);
+[buf,param,MT,sk4,Twarp,llr] = init_def_and_dat(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M);
 
 % Initialise GMM
 %-----------------------------------------------------------------------

@@ -1,4 +1,10 @@
 function shrink_template(obj,iter,verbose)
+% Shrink template according to bounding-boxes computed in push_resp
+% FORMAT shrink_template(obj,iter,verbose)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
 if nargin<3, verbose = true; end
 
 pth_template = obj{1}{1}.pth_template;

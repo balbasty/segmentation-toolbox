@@ -1,12 +1,48 @@
-function [ll,llr,buf,Twarp,L,armijo] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,tot_S,armijo,wp_lab)
+function varargout = update_def(varargin)
+% Update deformation parameters (in Twarp)
+% FORMAT varargout = update_def(varargin)
+%
+%__________________________________________________________________________
+% Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
+% Read function input
+%--------------------------------------------------------------------------
+ll       = varargin{1};
+llrb     = varargin{2};
+llr      = varargin{3};
+buf      = varargin{4};
+mg       = varargin{5};
+gmm      = varargin{6};
+wp       = varargin{7};
+lkp      = varargin{8};
+Twarp    = varargin{9};
+sk4      = varargin{10};
+M        = varargin{11};
+MT       = varargin{12};
+tpm      = varargin{13};
+x0       = varargin{14};
+y0       = varargin{15};
+z0       = varargin{16};
+param    = varargin{17};
+iter     = varargin{18};
+fig      = varargin{19};
+L        = varargin{20};
+print_ll = varargin{21};
+tot_S    = varargin{22};
+armijo   = varargin{23};
+wp_lab   = varargin{24};
+
+% Some parameters
 nz   = numel(buf);
 N    = numel(buf(1).f);
 K    = numel(lkp.part);
 Kb   = max(lkp.part);
 d    = size(buf(1).msk{1});
 
-Alpha = zeros([size(x0),nz,6],'single');
-Beta  = zeros([size(x0),nz,3],'single');
+% Compute first and second derivatives
+%--------------------------------------------------------------------------
+Alpha = zeros([size(x0),nz,6],'single'); % Second derivatives
+Beta  = zeros([size(x0),nz,3],'single'); % First derivatives
 for z=1:nz
     if ~buf(z).Nm, continue; end
 
@@ -104,7 +140,7 @@ Beta = Beta  + spm_diffeo('vel2mom',bsxfun(@times,Twarp,1./sk4),param);
 
 % Gauss-Newton increment
 Update = bsxfun(@times,spm_diffeo('fmg',Alpha,Beta,[param 2 2]),sk4);
-clear Alpha Beta
+clear Alpha Beta[ll,llr,buf,Twarp,L,armijo]
 
 % Line search to ensure objective function improves
 for line_search=1:12
@@ -181,6 +217,15 @@ for line_search=1:12
         break
     end
 end
+
+% Write function output
+%--------------------------------------------------------------------------
+varargout{1} = ll;
+varargout{2} = llr;
+varargout{3} = buf;
+varargout{4} = Twarp;
+varargout{5} = L;
+varargout{6} = armijo;
 %========================================================================== 
 
 %==========================================================================
