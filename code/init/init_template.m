@@ -17,7 +17,7 @@ if isempty(pars.pth_template)
         S = numel(pars.dat{m}.V);
         N = numel(pars.dat{m}.V{1});
 
-         for s=1:S
+        for s=1:S
             for n=1:N
                 Nii = nifti(pars.dat{m}.V{s}(n).fname);
                 M   = Nii.mat;

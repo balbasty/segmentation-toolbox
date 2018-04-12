@@ -5,10 +5,10 @@ function pars = init_ct(pars)
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 
 if ~isfield(pars,'K')
-    pars.K = 22;
+    pars.K = 10;
 end
 
-K = pars.K;
+Kb = pars.K;
 
 pars1 = read_images(pars,false);
 M     = numel(pars1.dat);
@@ -79,38 +79,34 @@ if ~isempty(npars1)
     X     = X(ix_mn(1):end);
     H     = H(ix_mn(1):end);
 
-    [mg1,mn,vr1] = spm_imbasics('fit_gmm2hist',H,X,K);
+    for K1=10:50
+        [~,mn,~] = spm_imbasics('fit_gmm2hist',H,X,K1);
 
-    % Sort parameters according to mean
-    [~,ix] = sort(mn);
-    mn     = mn(ix);
-%     mg1    = mg1(ix);
-%     vr1    = vr1(ix);
+        % Sort parameters according to mean
+        [~,ix] = sort(mn);
+        mn     = mn(ix);
 
-    % Partition tissue classes
-    p1 = mn<-200;
-    p2 = mn>= -200 & mn<200;
-    p3 = mn>=200;
+        % Partition tissue classes
+        p1 = mn<-200;
+        p2 = mn>= -200 & mn<200;
+        p3 = mn>=200;
 
-    part = [ones(1,nnz(p1)) repelem(1:ceil(nnz(p2)/2),1,2) + 1 (2 + ceil(nnz(p2)/2))*ones(1,nnz(p3))];
-    if numel(part)>K
-        ix              = find(p2>0);
-        part(ix(1:2))   = [];
-        mn(ix(1))       = [];
-        K               = numel(mn);
-        part(ix(1):end) = part(ix(1):end) - 1;
+        part = [ones(1,nnz(p1)) repelem(1:ceil(nnz(p2)/2),1,2) + 1 (2 + ceil(nnz(p2)/2))*ones(1,nnz(p3))];
+        if numel(part)>K1
+            ix              = find(p2>0);
+            part(ix(1:2))   = [];
+            mn(ix(1))       = [];            
+            part(ix(1):end) = part(ix(1):end) - 1;
+        end        
+        
+        if max(part)==Kb
+            K = numel(mn);
+            break 
+        end
     end
-    Kb = max(part);
-
-    % Reshape
-    mn  = reshape(mn,1,K);
-%     mg1 = reshape(mg1,1,K);
-%     vr1 = reshape(vr1,1,1,K);
-% 
-%     sd = (mx - nmn)/K;
-%     vr = sd^2;
-
+    
     % Init GMM struct
+    mn  = reshape(mn,1,K);
     gmm = struct;
     mg  = zeros(1,K);
     for m=1:M
@@ -137,11 +133,14 @@ if ~isempty(npars1)
     % Set pars struct
     pars.K = Kb;
     for m=1:M
-        S = numel(npars1.dat{m});
-        for s=1:S
-            pars.dat{m}.segment.mg       = mg;
-            pars.dat{m}.segment.lkp.part = part;
-            pars.dat{m}.segment.gmm      = gmm;
+        modality = pars.dat{m}.modality;
+        if strcmp(modality,'CT')
+            S = numel(npars1.dat{m});
+            for s=1:S
+                pars.dat{m}.segment.mg       = mg;
+                pars.dat{m}.segment.lkp.part = part;
+                pars.dat{m}.segment.gmm      = gmm;
+            end
         end
     end
 end

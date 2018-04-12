@@ -1,10 +1,19 @@
 function pars = pars_default(pars,test_level)
 if nargin<2, test_level = 0; end
 
+if isstring(pars) || ischar(pars)
+    % Parameters are in a JSON-file
+    pars = parse_json(pars);
+end
+
+% For CT data, initialises the GMM parameters by fitting a GMM to an
+% accumulated histogram of image intensities.
+pars = init_ct(pars);
+
 % General parameters
 %--------------------------------------------------------------------------
 if ~isfield(pars,'name')
-    pars.name = 'build-template';    
+    pars.name = 'segmentation-toolbox';    
 end
 if test_level==1 || test_level==2, pars.name = 'test-local';
 elseif test_level==3               pars.name = 'test-holly';   
@@ -275,4 +284,29 @@ function pars = append_dir(pars)
 f                 = pars.dir_output;
 pars.dir_output   = fullfile(f,['tmp-' pars.name]);
 pars.dir_template = fullfile(f,['res-' pars.name]);
+%==========================================================================
+
+%==========================================================================
+function pars = parse_json(pth)
+pars = spm_jsonread(pth);
+M    = numel(pars.dat);
+
+if isstruct(pars.dat)
+    % Convert dat from struct-array to cell-array    
+    opars    = pars;
+    pars     = rmfield(pars,'dat');    
+    pars.dat = cell(1,M);
+    for m=1:M
+        pars.dat{m} = opars.dat(m);
+    end
+end
+
+% Some cleaning up
+for m=1:M
+    if isfield(pars.dat{m},'S')
+        if isempty(pars.dat{m}.S)
+            pars.dat{m}.S = Inf;
+        end
+    end
+end
 %==========================================================================
