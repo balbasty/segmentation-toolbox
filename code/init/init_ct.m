@@ -94,8 +94,11 @@ if ~isempty(npars1)
 
     part = [ones(1,nnz(p1)) repelem(1:ceil(nnz(p2)/2),1,2) + 1 (2 + ceil(nnz(p2)/2))*ones(1,nnz(p3))];
     if numel(part)>K
-        ix          = find(p2>0);
-        part(ix(1)) = [];
+        ix              = find(p2>0);
+        part(ix(1:2))   = [];
+        mn(ix(1))       = [];
+        K               = numel(mn);
+        part(ix(1):end) = part(ix(1):end) - 1;
     end
     Kb = max(part);
 

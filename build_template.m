@@ -8,10 +8,10 @@ function build_template(pars,test_level)
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 
 if nargin<1, pars       = struct; end
-if nargin<2, test_level = 2; end
+if nargin<2, test_level = 0; end
 if ~isfield(pars,'dir_output')
-%     pars.dir_output = '/data/mbrud/tmp-build-tpm/';
-    pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
+    pars.dir_output = '/data/mbrud/tmp-build-tpm/';
+%     pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
 end
 if ~isfield(pars,'name')
     pars.name = 'segmentation-toolbox';  
@@ -53,10 +53,10 @@ pars.K = 30;
 
 m = m + 1;
 % pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/2D-Data/CT-w-lesion';
-pars.dat{m}.dir_data = '/data/mbrud/images/CT/CHROMIS_preproc-ra-cr-rn-vx/';
+pars.dat{m}.dir_data = '/data/mbrud/images/CT/CHROMIS_preproc-ra-cr-rn';
 pars.dat{m}.modality = 'CT';
-pars.dat{m}.S = 100;
-pars.dat{m}.segment.samp = 1;
+pars.dat{m}.S = Inf;
+pars.dat{m}.segment.samp = 2;
 pars.dat{m}.segment.mix_wp_reg = 0.9;
 pars.dat{m}.segment.do_bf = false;
 
@@ -92,7 +92,7 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = false;
-holly.job.mem       = '10G';
+holly.job.mem       = '8G';
 holly.job.use_dummy = true;
 
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
