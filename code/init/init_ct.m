@@ -75,9 +75,9 @@ if ~isempty(npars1)
     clear h x
 
     nmn   = -1050;
-    ix_mn = find(X==nmn);
-    X     = X(ix_mn:end);
-    H     = H(ix_mn:end);
+    ix_mn = find(X>=nmn);
+    X     = X(ix_mn(1):end);
+    H     = H(ix_mn(1):end);
 
     [mg1,mn,vr1] = spm_imbasics('fit_gmm2hist',H,X,K);
 

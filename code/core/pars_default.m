@@ -57,7 +57,7 @@ if ~isfield(pars,'sum_temp_der')
     pars.sum_temp_der = false;
 end
 if ~isfield(pars,'crop_template')
-    pars.crop_template = 15;
+    pars.crop_template = 0;
 end
 if ~isfield(pars,'mrf')
     pars.mrf = false;
@@ -80,7 +80,7 @@ for m=1:M
     if ~isfield(pars.dat{m},'S')
         pars.dat{m}.S = Inf;
         if test_level==2 || test_level==3, pars.dat{m}.S = 8;
-        elseif test_level==1,              pars.dat{m}.S = 1;   
+        elseif test_level==1,      28        pars.dat{m}.S = 1;   
         end 
     end    
     if ~isfield(pars.dat{m},'modality')

@@ -49,12 +49,14 @@ m = 0;
 
 % CROMIS
 % -----------------
-pars.K = 24;
+pars.K = 30;
 
 m = m + 1;
-pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/2D-Data/CT-w-lesion';
+% pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/2D-Data/CT-w-lesion';
+pars.dat{m}.dir_data = '/data/mbrud/images/CT/CHROMIS_preproc-ra-cr-rn-vx/';
 pars.dat{m}.modality = 'CT';
-pars.dat{m}.S = Inf;
+pars.dat{m}.S = 100;
+pars.dat{m}.segment.samp = 1;
 pars.dat{m}.segment.mix_wp_reg = 0.9;
 pars.dat{m}.segment.do_bf = false;
 
