@@ -8,7 +8,7 @@ end
 
 % For CT data, initialises the GMM parameters by fitting a GMM to an
 % accumulated histogram of image intensities.
-pars = init_ct(pars);
+pars = init_ct(pars,test_level);
 
 % General parameters
 %--------------------------------------------------------------------------
@@ -87,11 +87,11 @@ for m=1:M
     % General parameters
     %----------------------------------------------------------------------    
     if ~isfield(pars.dat{m},'S')
-        pars.dat{m}.S = Inf;
-        if test_level==2 || test_level==3, pars.dat{m}.S = 8;
-        elseif test_level==1,              pars.dat{m}.S = 1;   
-        end 
+        pars.dat{m}.S = Inf;        
     end    
+    if     test_level==2 || test_level==3, pars.dat{m}.S = 8;
+    elseif test_level==1,                  pars.dat{m}.S = 1;   
+    end 
     if ~isfield(pars.dat{m},'modality')
         pars.dat{m}.modality = 'MRI';
     end

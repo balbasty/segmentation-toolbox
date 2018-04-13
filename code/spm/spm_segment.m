@@ -216,8 +216,8 @@ for k=1:Kb
     kk  = sum(part==k);
     w   = 1./(1+exp(-(kk-1)*0.25))-0.5;
 
-    vr0           = inv(n0(k)*W0(:,:,k));
-    pr0           = inv(vr0*(1 - w));                        
+    vr0            = inv(n0(k)*W0(:,:,k));
+    pr0            = inv(vr0*(1 - w));                        
     b(part==k)     = b0(k)/kk;
     m(:,part==k)   = sqrtm(vr0)*randn(N,kk)*w + repmat(m0(:,k),[1,kk]);
     n(part==k)     = n0(k)/kk;

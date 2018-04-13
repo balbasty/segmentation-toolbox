@@ -6,16 +6,16 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS.json'; end
-if nargin<2, test_level = 2; end
+if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS-3d.json'; end
+if nargin<2, test_level = 3; end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-pth_distributed_toolbox = '/home/mbrud/dev/distributed-computing';
-pth_auxiliary_functions = '/home/mbrud/dev/auxiliary-functions';
-% pth2_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
-% pth2_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
+% pth_distributed_toolbox = '/home/mbrud/dev/distributed-computing';
+% pth_auxiliary_functions = '/home/mbrud/dev/auxiliary-functions';
+pth_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
+pth_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
 
 holly_server_login   = 'mbrud';
 holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox';
