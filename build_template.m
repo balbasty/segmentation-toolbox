@@ -3,7 +3,7 @@ if nargin<1, pars       = struct; end
 if nargin<2, test_level = 1; end % 0: no testing | 1: 1 subject | 2: 8 subjects (parfor) | 3: 8 subjects (holly)
 if ~isfield(pars,'dir_output')
 %     pars.dir_output = '/data/mbrud/tmp-build-tpm/';
-    pars.dir_output = '/home/mbrud/Data/temp-segmentation-toolbox';    
+    pars.dir_output = '/Users/balbasty/Desktop/IXI_2D_intensity/output';    
 end
 if ~isfield(pars,'name')
     pars.name = 'segmentation-toolbox';  
@@ -36,7 +36,7 @@ m = 0;
 % -----------------
 m = m + 1;
 
-pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
+pars.dat{m}.dir_data = '/Users/balbasty/Desktop/IXI_2D_intensity/2d_IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
 % pars.dat{m}.dir_data = '/home/mbrud/Dropbox/PhD/Data/IXI-test/IXI-T1T2PD_preproc-ra-cr-rn-reg-res-vx';
 pars.dat{m}.S = 8;
 pars.dat{m}.segment.samp = 1;
@@ -158,7 +158,7 @@ for iter=1:pars.niter
     if pars.niter>1
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
-        obj = update_intensity_prior(obj,iter);
+        obj = update_intensity_prior2(obj,iter,pars.constr_intprior);
     end
        
     % Save obj structs

@@ -1,0 +1,418 @@
+function obj = update_intensity_prior2(obj,iter,constrained)
+% FORMAT obj = update_intensity_prior2(obj,iter,constrained)
+% 
+% Hierarchical Gauss-Wishart intensity prior, with a Wishart hyper-prior on
+% prior Precision matrices to make them similar.
+% It should bias the GMM segmentation towards a "K-means" behaviour (were
+% all variances are the same).
+
+% M = number of modality families
+% N = number of channels / family
+% S = number of subjects
+% K = number of Gaussians in the mixture
+
+if nargin < 3
+    constrained = false;
+end
+
+dir_template = obj{1}{1}.dir_template;
+M            = numel(obj);
+
+all_ct = true;
+for m=1:M
+    if strcmp(obj{m}{1}.modality,'MRI')
+        all_ct = false;
+    end
+end
+% all_ct = false;
+
+% ------------------
+% Case with only CTs
+% ------------------
+if all_ct
+    cnt  = 1;
+    obj1 = {};
+    for m=1:M
+        S = numel(obj{m});                
+        for s=1:S
+            if obj{m}{s}.status==0
+                obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
+                cnt           = cnt + 1;
+            end
+        end
+    end
+    
+    pr = do_update(obj1,constrained);    
+
+    for m=1:M
+        for s=1:S
+            obj{m}{s}.segment.gmm.pr = pr;   
+        end
+    end
+    
+    pth1 = fileparts(obj{1}{1}.image(1).fname);
+    pth1 = strsplit(pth1,filesep);
+    pth1 = pth1{end - 1};
+
+    fname = fullfile(dir_template,['prior-' pth1 '.mat']);
+    save(fname,'pr');
+
+    for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end        
+
+
+% -----------------------------------
+% Case with only MRIs, or CT and MRIs
+% -----------------------------------
+else
+    for m=1:M
+        S    = numel(obj{m});
+        obj1 = {};
+        cnt  = 1;
+        for s=1:S
+            if obj{m}{s}.status==0
+                obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
+                cnt           = cnt + 1;
+            end
+        end
+
+        pr = do_update(obj1,constrained);    
+
+        for s=1:S
+            obj{m}{s}.segment.gmm.pr = pr;   
+        end
+
+        pth1 = fileparts(obj{m}{1}.image(1).fname);
+        pth1 = strsplit(pth1,filesep);
+        pth1 = pth1{end - 1};
+
+        fname = fullfile(dir_template,['prior-' pth1 '.mat']);
+        save(fname,'pr');
+
+        for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end    
+    end
+end
+%==========================================================================
+
+
+%==========================================================================
+function pr = do_update(obj, constrained)
+% FORMAT pr = do_update(obj, consrained)
+%
+% obj - cell of size S (the number of subjects) containing structures with
+%       the field gmm.pr
+%       > pr is a structure containing posterior parameters of the
+%         Gauss-Wishart distribution
+%
+% constrained - If true:  constrain covariances to be alike
+%               If false: mode estimate for all parameters
+%
+% pr  - structure with fields
+%       * m0, b0, W0, n0 (Gauss-Wishart prior)     -> length K
+%       if constrained:
+%       * p, V           (hyper-Wishart posterior) -> length K
+%       * p0, V0         (hyper-Wishart prior)     -> length 1
+%
+% Hierarchical Gauss-Wishart intensity prior, with a Wishart hyper-prior on
+% all prior scale matrices to make them similar.
+% It should bias the GMM segmentation towards a "K-means" behaviour (were
+% all variances are the same).
+
+% M = number of modality families
+% N = number of channels / family
+% S = number of subjects
+% K = number of Gaussians in the mixture
+
+S = numel(obj);
+
+% -------------------------------------------------------------------------
+% Starting estimates
+% > Compute sample means of all posterior Gauss-Wishart parameters
+m0 = 0;
+b0 = 0;
+n0 = 0;
+W0 = 0;
+for s=1:S
+    m0  = m0 + obj{s}.gmm.pr.m;
+    b0  = b0 + obj{s}.gmm.pr.b;
+    W0  = W0 + obj{s}.gmm.pr.W;
+    n0  = n0 + obj{s}.gmm.pr.n; 
+end
+m0 = m0/S;
+b0 = b0/S;
+W0 = W0/S;
+n0 = n0/S;
+
+N = size(m0,1);
+K = size(m0,2);
+
+% preallocate
+LogDetW0  = zeros(size(n0));
+V         = zeros(size(W0));
+p         = zeros(size(n0));
+p0        = 0;
+
+% -------------------------------------------------------------------------
+%   Gauss-Wishart "mean" parameters
+% -------------------------------------------------------------------------
+
+for k=1:K
+    
+    % ---------------------------------------------------------------------
+    % Update m0 (mode, closed-form)
+    
+    Lambda   = 0;
+    LambdaMu = 0;
+    for s=1:S
+        [m,~,W,n] = get_po(obj,s);
+        Lambda    = Lambda   + n(k)*W(:,:,k);
+        LambdaMu  = LambdaMu + n(k)*W(:,:,k)*m(:,k);
+    end
+    m0(:,k) = Lambda \ LambdaMu;
+    
+    % ---------------------------------------------------------------------
+
+    
+    % ---------------------------------------------------------------------
+    % Update b0 (mode, closed-form)
+
+    b0(k)= 0;
+    for s=1:S
+        [m,b,W,n] = get_po(obj,s);
+        m1 = m(:,k) - m0(:,k);
+        b0(k) = b0(k) + m1.' * (n(k)*W(:,:,k)) * m1 + N/b(k);
+    end
+    b0(k) = N*S/b0(k);
+    
+    % ---------------------------------------------------------------------
+
+end
+
+
+% =========================================================================
+% NOT CONSTRAINED
+if ~constrained
+    
+    % ---------------------------------------------------------------------
+    %   Gauss-Wishart "precision" parameters
+    % ---------------------------------------------------------------------
+
+    for k=1:K
+        
+        % ---
+        % Set up some constants
+        sumLogDet = 0;
+        sumPsi    = 0;
+        Wn        = 0;
+        for s=1:S
+            [~,~,W,n] = get_po(obj,s);
+            sumLogDet = sumLogDet + spm_matcomp('LogDet', W(:,:,k));
+            sumPsi    = sumPsi    + spm_prob('DiGamma', n(k)/2, N);
+            Wn        = Wn        + n(k)*W(:,:,k);
+        end
+        sumLogDet = sumLogDet/S;
+        sumPsi    = sumPsi/S;
+        Wn        = Wn/S;
+    
+    
+        % -----------------------------------------------------------------
+        % Update n0 (mode, Gauss-Newton [convex])
+        E = inf;
+        for gniter=1:1000
+
+            % -------------------------------------------------------------
+            % Update W0 (mode, closed-form)
+            W0(:,:,k)   = Wn/n0(k);
+            LogDetW0(k) = spm_matcomp('LogDet', W0(:,:,k));
+            % -------------------------------------------------------------
+            
+            % ---
+            % Objective function
+            Eprev = E;
+            E = 0.5*S*n0(k)*( LogDetW0(k) - sumLogDet - sumPsi ) ...
+                + S*spm_prob('LogGamma', n0(k)/2, N);
+            
+            if E == Eprev
+                break;
+            end
+
+            % ---
+            % Gradient & Hessian
+            g = 0.5*S*( LogDetW0(k) - sumLogDet - sumPsi ...
+                         +spm_prob('DiGamma', n0(k)/2, N) );
+            H = S/4*spm_prob('DiGamma', n0(k)/2, N, 1);
+
+            % ---
+            % Update
+            n0(k) = max(n0(k) - H\g, N-1+eps);
+
+        end
+        % -----------------------------------------------------------------
+        
+    end
+    
+    % ---------------------------------------------------------------------
+    %   Save results
+    % ---------------------------------------------------------------------
+    pr.b   = b0;
+    pr.m   = m0;
+    pr.n   = n0;
+    pr.W   = W0;
+    pr.ldW = LogDetW0;
+    pr.lb  = 0;
+    
+% =========================================================================
+% CONSTRAINED
+else
+
+    % ---
+    % Starting estimate
+    if p0 == 0
+        p0 = 0;
+        V0 = 0;
+        for k=1:K
+            p0 = p0 + S*n0(k);
+            for s=1:S
+                [~,~,W,n] = get_po(obj,s);
+                V0 = V0 + spm_matcomp('Inv', n(k)*W(:,:,k));
+            end
+        end
+        p0 = p0/K;
+        V0 = V0/K;
+    end
+    
+    % ---------------------------------------------------------------------
+    %   Gauss-Wishart "precision" parameters
+    % ---------------------------------------------------------------------
+
+    for k=1:K
+
+        % ---
+        % Set up some constants
+        % > compute sum E[logdet W] and sum psi(nu/2)
+        logDetW  = 0;
+        psiN     = 0;
+        Lambda   = 0;
+        for s=1:S
+            [~,~,W,n] = get_po(obj,s);
+            logDetW = logDetW  + spm_matcomp('Logdet', W(:,:,k));
+            psiN    = psiN     + spm_prob('DiGamma', n(k)/2, N);
+            Lambda  = Lambda   + n(k)*W(:,:,k);
+        end
+        logDetW  = logDetW/S;
+        psiN = psiN/S;
+
+
+        % -----------------------------------------------------------------
+        % Update n0 (mode, Gauss-Newton [convex])
+        E = inf;
+        for gniter=1:1000
+
+            % -------------------------------------------------------------
+            % Update {p,V} for W0 (posterior, closed form)
+            p(k)       = p0 + S*n0(k);
+            V(:,:,k)   = spm_matcomp('Inv', spm_matcomp('Inv', V0) + Lambda);
+            % Useful values
+            W0(:,:,k)   = spm_matcomp('Inv', spm_prob('W', 'E', V(:,:,k), p(k)));
+            LogDetW0(k) = -spm_prob('W', 'Elogdet', V(:,:,k), p(k));
+            % -------------------------------------------------------------
+
+            % ---
+            % Objective function
+            Eprev = E;
+            E = S*n0(k)/2 * (LogDetW0(k) - logDetW - psiN) ...
+                + S*spm_prob('LogGamma', n0(k)/2, N);
+            if E == Eprev
+                break;
+            end
+
+            % ---
+            % Gradient & Hessian
+            g = S/2*(LogDetW0(k) - logDetW - psiN + spm_prob('DiGamma', n0(k)/2, N));
+            H = S/4 * spm_prob('DiGamma', n0(k)/2, N, 1);
+
+            % ---
+            % Update
+            n0(k) = max(n0(k) - H\g, N-1+eps);
+        end
+        % -----------------------------------------------------------------
+        
+    end
+
+
+    % ---------------------------------------------------------------------
+    %   Inverse-Wishart parameters
+    % ---------------------------------------------------------------------
+
+    % ---
+    % Set up some constants
+    % > compute sum Logdet(psi) and sum psi(m/2)
+    sumlogV = 0;
+    sumPsi  = 0;
+    pV      = 0;
+    for k=1:K
+        sumlogV = sumlogV + spm_matcomp('LogDet', V(:,:,k));
+        sumPsi  = sumPsi  + spm_prob('DiGamma', p(k)/2, N);
+        pV      = pV      + p(k)*V(:,:,k);
+    end
+    sumlogV = sumlogV/K;
+    sumPsi  = sumPsi/K;
+    pV      = pV/K;
+
+
+    % ---------------------------------------------------------------------
+    % Update p0 (mode, Gauss-Newton [convex])
+    E = inf;
+    for gniter=1:1000
+        
+        % -----------------------------------------------------------------
+        % Update V0 (closed-form)
+        V0 = pV/p0;
+        LogDetV0 = spm_matcomp('LogDet', V0);
+        % -----------------------------------------------------------------
+        
+        % ---
+        % Objective function
+        Eprev = E;
+        E = p0*K/2*( N*LogDetV0 - sumlogV - sumPsi ) + K*spm_prob('LogGamma', p0/2, N);
+        if E == Eprev
+            break;
+        end
+
+        % ---
+        % Gradient & Hessian
+        g = K/2*( LogDetV0 - sumlogV - sumPsi + spm_prob('DiGamma', p0/2, N) );
+        H = K/4*spm_prob('DiGamma', p0/2, N, 1);
+
+        % ---
+        % Update
+        p0 = max(p0 - H\g, N-1+eps);
+
+    end
+    % ---------------------------------------------------------------------
+    
+
+    % ---------------------------------------------------------------------
+    %   Save results
+    % ---------------------------------------------------------------------
+    pr.b   = b0;
+    pr.m   = m0;
+    pr.n   = n0;
+    pr.W   = W0;
+    pr.ldW = LogDetW0;
+    pr.V   = V;
+    pr.p   = p;
+    pr.V0  = V0;
+    pr.p0  = p0;
+    pr.lb  = -spm_prob('Wishart', 'kl', V, p, V0, p0);
+    
+end
+%==========================================================================
+
+
+%==========================================================================
+function [m,b,W,n] = get_po(obj,s)
+m = obj{s}.gmm.po.m;
+b = obj{s}.gmm.po.b;
+W = obj{s}.gmm.po.W;
+n = obj{s}.gmm.po.n;
+%==========================================================================
