@@ -1,39 +1,30 @@
 clear;
 
-addpath(genpath('../code'))
-addpath('/cherhome/mbrud/dev/distributed-computing')
-addpath('/cherhome/mbrud/dev/auxiliary-functions')
-
 %--------------------------------------------------------------------------
-%% Set parameters
+% OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
+% pth_distributed_toolbox = '/home/mbrud/dev/distributed-computing';
+% pth_auxiliary_functions = '/home/mbrud/dev/auxiliary-functions';
+pth_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
+pth_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
 
-pars.name         = 'seg-subj';
-pars.dir_output   = '/data/mbrud/data-seg';
-pars.dat          = {};
-
-m = 1;
-pars.dat{m}.dir_data = '/data/mbrud/images/CT/CHROMIS-preproc-rn-ss/';
-pars.dat{m}.S = 1;
-pars.dat{m}.modality = 'CT';
-pars.dat{m}.segment.pth_prior = '/home/mbrud/Desktop/TEMP/processed-templates/mod-prior-CHROMIS-preproc-rn-ss.mat';
-pars.dat{m}.segment.print_ll = true;
-pars.dat{m}.segment.print_seg = true;
-pars.dat{m}.segment.verbose = true;
-pars.dat{m}.segment.do_write_res = true;
-pars.dat{m}.segment.mrf = 1;
-pars.dat{m}.segment.write_bf = [false true];
-pars.dat{m}.segment.samp = 2;
-
-pars.pth_template = '/home/mbrud/Desktop/TEMP/processed-templates/svmod-template.nii';
-% spm_check_registration(pars.pth_template)
-
-pars = pars_default(pars);
-
-%--------------------------------------------------------------------------
-%% Init
+% addpath
 %--------------------------------------------------------------------------
 
+addpath(genpath('./../code'))
+addpath(pth_distributed_toolbox)
+addpath(pth_auxiliary_functions)
+
+%--------------------------------------------------------------------------
+% Set algorithm parameters
+%--------------------------------------------------------------------------
+pars = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/segment-CROMIS-3d.json';
+
+pars = segment_default(pars); 
+
+%--------------------------------------------------------------------------
+% Initialise algorithm
+%--------------------------------------------------------------------------
 pars       = read_images(pars); 
 pars       = init_template(pars); 
 [obj,pars] = init_obj(pars);

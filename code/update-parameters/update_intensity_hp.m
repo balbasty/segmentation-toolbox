@@ -16,7 +16,7 @@ for m=1:M
 end
 % all_ct = false;
 
-if all_ct
+if 0
     cnt  = 1;
     obj1 = {};
     for m=1:M

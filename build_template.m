@@ -6,8 +6,8 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS-3d.json'; end
-if nargin<2, test_level = 3; end
+if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1-2d.json'; end
+if nargin<2, test_level = 2; end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
@@ -31,7 +31,7 @@ addpath(pth_auxiliary_functions)
 %--------------------------------------------------------------------------
 % Set algorithm parameters
 %--------------------------------------------------------------------------
-pars = pars_default(pars,test_level); 
+pars = segment_default(pars,test_level); 
 
 %--------------------------------------------------------------------------
 % Set distribute package parameters
@@ -49,6 +49,7 @@ holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = false;
 holly.job.mem       = '8G';
+holly.job.est_mem   = false;
 holly.job.use_dummy = true;
 
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
