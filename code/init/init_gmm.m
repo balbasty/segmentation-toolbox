@@ -17,7 +17,7 @@ if ~isfield(gmm,'po')
         mom = kmeans2mom(buf,lkp,mn,mx,obj); 
     else       
         % Use template to compute moments
-        mom = compute_moments(buf,Kb);
+        mom = compute_moments(buf);
     end
     
     % Estimate GMM parameters

@@ -35,7 +35,7 @@ for n=2:2^N
                 d        = bsxfun(@minus,cr(ind,msk0)',gmm.po.m(msk0,k));
                 Q        = chol(gmm.po.W(msk0,msk0,k))*d;
                 E        = N/gmm.po.b(k) + gmm.po.n(k)*dot(Q,Q,1);
-                L(ind,k) = 0.5*(Elogdet(gmm.po.W(msk0,msk0,k),gmm.po.n(k)) - E') + log(mg(k)) - N/2*log(2*pi) + log(prod(nbf(ind,msk0),2));
+                L(ind,k) = 0.5*(spm_prob('Wishart','Elogdet',gmm.po.W(msk0,msk0,k),gmm.po.n(k)) - E') + log(mg(k)) - N/2*log(2*pi) + log(prod(nbf(ind,msk0),2));
             end
         end
     end

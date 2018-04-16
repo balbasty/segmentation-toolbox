@@ -23,7 +23,7 @@ for k1=1:Kb
     end
 end
 
-logSumQ = logsumexp(Q,2);
+logSumQ = spm_matcomp('logsumexp',Q,2);
 logQ    = bsxfun(@minus,Q,logSumQ);
 Q       = exp(logQ);
 
@@ -44,7 +44,7 @@ if nargout==2
     L(2) = nansum(nansum(bsxfun(@times,Q,log(prod(bf,2)))));
 
     % TPMs
-    L(3) = nansum(nansum(Q(msk1,:).*bsxfun(@plus,B(:,lkp.part),log(mg)')));   
+    L(3) = nansum(nansum(Q(msk1,:).*bsxfun(@plus,B(:,lkp.part),log(mg))));   
 
     if ~isempty(labels)
         % Labels

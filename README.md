@@ -40,9 +40,7 @@ Furthermore, executable scripts depend on our [`distributed-computing` toolbox](
 
 ## TODO
 
-* Try k-means on histogram accumulated from all CT images
 * Finish label implementation (rem ~= lab)
 * Missing data
 * Improve registration (w. Yael)
-* Introduce use of more functions from auxiliary-functions 
 * Make results same on cluster and locally (when so, test summing to gr and H from push_resp)

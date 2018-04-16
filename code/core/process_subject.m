@@ -5,12 +5,24 @@ try
     
     do_template = obj.tot_S>1;
 
+    if obj.segment.est_fwhm && obj.iter==1 && obj.image(1).dim(3)>1
+        % Estimate FWHM of image smoothness
+        %------------------------------------------------------------------
+        N = numel(obj.image);
+        fwhm = zeros(1,N);
+        for n=1:N
+            fwhm(n) = estimate_fwhm(obj.image(n).fname,obj.modality);
+        end
+        
+        obj.fwhm = mean(fwhm);
+    end
+    
     if (~do_template && ~obj.uniform && obj.maff.do_maff) || ...
        (do_template && obj.maff.maff_done==false && ~obj.uniform && obj.maff.do_maff)
    
         % Affine registration
         %------------------------------------------------------------------
-        tpm = spm_load_logpriors(obj.pth_template);
+        tpm = spm_load_logpriors(obj.pth_template,obj.segment.wp);
 
         M                       = obj.image(1).mat;
         c                       = (obj.image(1).dim+1)/2;

@@ -147,7 +147,7 @@ for k=1:K
                 S2i(~ind, ind) = S2i( ind,~ind)';
                 s1             = s1 + s1i;
                 S2             = S2 + S2i;
-                L3             = L3 + 0.5*mom(i).s0(k)*(logdet(Lambdayy) - size(Lambdayy,1)*(1+log(2*pi)));
+                L3             = L3 + 0.5*mom(i).s0(k)*(spm_matcomp('LogDet',Lambdayy) - size(Lambdayy,1)*(1+log(2*pi)));
             end
         end
 
@@ -155,19 +155,19 @@ for k=1:K
             m(:,k)   = (beta0(k)*m0(:,k) + s1)/beta(k);
 
             W(:,:,k) = inv(beta0(k)*m0(:,k)*m0(:,k)' + S2 - beta(k)*m(:,k)*m(:,k)' + inv(W0(:,:,k)));
-            W(:,:,k) = threshold_eig(W(:,:,k));
+            W(:,:,k) = spm_matcomp('threshold_eig',W(:,:,k));
         end
 
         % E[log p(g,h|mu,Lambda)]
-        Eld = Elogdet(W(:,:,k),nu(k));
+        Eld = spm_prob('Wishart','Elogdet',W(:,:,k),nu(k));
         L1  = 0.5*s0*(Eld - N*log(2*pi) - trace((m(:,k)*m(:,k)' + inv(beta(k)*nu(k)*W(:,:,k)) + S2/s0 - 2*m(:,k)*s1'/s0)*nu(k)*W(:,:,k)));
 
         % E[log p(mu,Lambda)]
-        L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld - logWishartDen(W0(:,:,k),nu0(k)) ...
+        L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld - spm_prob('Wishart','logZ',W0(:,:,k),nu0(k)) ...
            - 0.5*nu(k)*beta0(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)) - 0.5*nu(k)*trace(W0(:,:,k)\W(:,:,k));
 
         % E[log q(mu,Lambda)]
-        L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld - logWishartDen(W(:,:,k),nu(k));
+        L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld - spm_prob('Wishart','logZ',W(:,:,k),nu(k));
 
         % Negative Free Energy
         L = L1 + L2 - L3 - L4;

@@ -1,4 +1,4 @@
-function [buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M)
+function [buf,param,MT,sk4,Twarp,llr] = init_def_and_dat(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M)
 nz      = numel(buf);
 Kb      = max(obj.segment.lkp.part);
 pth_vel = obj.pth_vel;
@@ -25,7 +25,7 @@ MT = [sk(1) 0 0 (1-sk(1));0 sk(2) 0 (1-sk(2)); 0 0 sk(3) (1-sk(3));0 0 0 1];
 sk4 = reshape(sk,[1 1 1 3]);
 
 if ~(exist(pth_vel,'file')==2)
-    create_nii(pth_vel,zeros([d 3],'single'),eye(4),obj.dt,'vel'); 
+    spm_misc('create_nii',pth_vel,zeros([d 3],'single'),eye(4),obj.dt,'vel');
 end
 
 Nii   = nifti(pth_vel);
@@ -47,4 +47,23 @@ for z=1:nz
 end
 
 debug_view('template',fig{3},obj.segment.lkp,buf,wp);  
-%=======================================================================
+%==========================================================================
+
+%==========================================================================
+function [x1,y1,z1] = make_deformation(Twarp,z,x0,y0,z0,M,msk)
+x1a = x0    + double(Twarp(:,:,z,1));
+y1a = y0    + double(Twarp(:,:,z,2));
+z1a = z0(z) + double(Twarp(:,:,z,3));
+if nargin>=7
+    x1a = x1a(msk);
+    y1a = y1a(msk);
+    z1a = z1a(msk);
+end
+x1  = M(1,1)*x1a + M(1,2)*y1a + M(1,3)*z1a + M(1,4);
+y1  = M(2,1)*x1a + M(2,2)*y1a + M(2,3)*z1a + M(2,4);
+z1  = M(3,1)*x1a + M(3,2)*y1a + M(3,3)*z1a + M(3,4);
+if numel(z0)==1
+   z1 = ones(size(z1));
+end
+return;
+%==========================================================================

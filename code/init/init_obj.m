@@ -59,7 +59,10 @@ for m=1:M
     pars.dat{m}.segment.biasfwhm = pars.dat{m}.segment.biasfwhm*ones(1,N);     
     
     if V{1}(1).dim(3)==1
+        % Data is 2D
+        %------------------------------------------------------------------
         pars.dat{m}.maff.do_maff = false;
+        pars.dat{m}.segment.samp = 1;
     end
     
     pars.dat{m}.write_res.write_bf = repmat(pars.dat{m}.write_res.write_bf,N,1);  
@@ -143,7 +146,9 @@ for m=1:M
         obj1.segment.lkp = lkp;
         
         % gmm
-        obj1.segment.gmm = struct;
+        if ~isfield(obj1.segment,'gmm')
+            obj1.segment.gmm = struct;
+        end
         pth_prior        = pars.dat{m}.segment.pth_prior;
         if ~isempty(pth_prior)
             tmp                 = load(pth_prior,'-mat');
@@ -197,5 +202,6 @@ for m=1:M
     end
 end
 
+% A random sample of subjects (used for visualising algorithm progress)
 pars.rand_subjs = rand_subjs;
 %==========================================================================

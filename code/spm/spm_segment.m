@@ -1,15 +1,11 @@
 function obj = spm_segment(obj,fig)
 
-% Load template
-%-----------------------------------------------------------------------
-tpm = spm_load_logpriors(obj.pth_template);
-
 % Parameters, etc.
 %-----------------------------------------------------------------------
 V         = obj.image; 
 N         = numel(V);
 d0        = V(1).dim(1:3);
-vx        = vxsize(V(1).mat);
+vx        = spm_misc('vxsize',V(1).mat);
 sk        = max([1 1 1],round(obj.segment.samp*[1 1 1]./vx));
 [x0,y0,o] = ndgrid(1:sk(1):d0(1),1:sk(2):d0(2),1);
 z0        = 1:sk(3):d0(3);
@@ -31,21 +27,12 @@ do_wp     = obj.segment.do_wp;
 print_ll  = obj.segment.print_ll;
 pth_vel   = obj.pth_vel;
 Affine    = obj.Affine;
-M         = tpm.M\Affine*V(1).mat;
 tot_S     = obj.tot_S;
-
-% Fudge Factor - to (approximately) account for non-independence of voxels.
-%-----------------------------------------------------------------------
-ff = compute_fudge_factor(obj.fwhm,vx,sk);
-
-% Load data into buffer
-%-----------------------------------------------------------------------
-[buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
 
 % Initialise weights
 %-----------------------------------------------------------------------
 if isfield(obj.segment,'wp'), wp = obj.segment.wp;
-else                          wp = ones(1,Kb)/Kb;
+else,                         wp = ones(1,Kb)/Kb;
 end
         
 part0 = lkp.part;
@@ -55,9 +42,22 @@ if isfield(obj.segment,'mg')
         lkp.part = 1:Kb;       
     end
 else              
-    mg       = ones(Kb,1);
+    mg       = ones(1,Kb);
     lkp.part = 1:Kb;   
 end
+
+% Load template
+%-----------------------------------------------------------------------
+tpm = spm_load_logpriors(obj.pth_template,wp);
+M   = tpm.M\Affine*V(1).mat; % Affine matrix
+
+% Fudge Factor - to (approximately) account for non-independence of voxels.
+%-----------------------------------------------------------------------
+ff = compute_fudge_factor(obj.fwhm,vx,sk);
+
+% Load data into buffer
+%-----------------------------------------------------------------------
+[buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S);
 
 % Initialise bias field
 %-----------------------------------------------------------------------
@@ -65,7 +65,7 @@ end
 
 % Initialise deformation and template
 %-----------------------------------------------------------------------
-[buf,param,MT,sk4,Twarp,llr] = init_def(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M);
+[buf,param,MT,sk4,Twarp,llr] = init_def_and_dat(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M);
 
 % Initialise GMM
 %-----------------------------------------------------------------------
@@ -98,17 +98,12 @@ for iter=1:niter
             % The aim is to save memory, and maybe make the computations
             % faster.
             %------------------------------------------------------------
-            [ll,llrb,buf,chan,L,armijo(1)] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_lab);
-        
-            debug_view('bf',fig{2},lkp,buf,modality);
+            [ll,llrb,buf,chan,L,armijo(1)] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_lab);                    
         end
         
+        debug_view('bf',fig{2},lkp,buf,modality);
+        
         if iter==1 && subit==1
-            % Most of the log-likelihood improvements are in the first iteration.
-            % Show only improvements after this, as they are more clearly visible.
-            spm_plot_convergence('Clear');
-            spm_plot_convergence('Init','Processing','Log-likelihood','Iteration');
-
             if numel(lkp.part) ~= numel(part0)
                 lkp.part = part0;
                 K        = numel(lkp.part);
@@ -174,7 +169,7 @@ return;
 
 %=======================================================================
 function [gmm,mg] = more_gmms(gmm,part,K,Kb)
-mg = ones(K,1)/K;
+mg = ones(1,K)/K;
 
 % Adjust priors
 %----------------------------------------------------------------------
@@ -221,8 +216,8 @@ for k=1:Kb
     kk  = sum(part==k);
     w   = 1./(1+exp(-(kk-1)*0.25))-0.5;
 
-    vr0           = inv(n0(k)*W0(:,:,k));
-    pr0           = inv(vr0*(1 - w));                        
+    vr0            = inv(n0(k)*W0(:,:,k));
+    pr0            = inv(vr0*(1 - w));                        
     b(part==k)     = b0(k)/kk;
     m(:,part==k)   = sqrtm(vr0)*randn(N,kk)*w + repmat(m0(:,k),[1,kk]);
     n(part==k)     = n0(k)/kk;

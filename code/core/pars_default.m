@@ -1,10 +1,19 @@
 function pars = pars_default(pars,test_level)
 if nargin<2, test_level = 0; end
 
+if isstring(pars) || ischar(pars)
+    % Parameters are in a JSON-file
+    pars = parse_json(pars);
+end
+
+% For CT data, initialises the GMM parameters by fitting a GMM to an
+% accumulated histogram of image intensities.
+pars = init_ct(pars,test_level);
+
 % General parameters
 %--------------------------------------------------------------------------
 if ~isfield(pars,'name')
-    pars.name = 'build-template';    
+    pars.name = 'segmentation-toolbox';    
 end
 if test_level==1 || test_level==2, pars.name = 'test-local';
 elseif test_level==3               pars.name = 'test-holly';   
@@ -45,7 +54,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0 30 30];
+    pars.sparam = [0 10 10];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -57,7 +66,7 @@ if ~isfield(pars,'sum_temp_der')
     pars.sum_temp_der = false;
 end
 if ~isfield(pars,'crop_template')
-    pars.crop_template = 15;
+    pars.crop_template = 0;
 end
 if ~isfield(pars,'mrf')
     pars.mrf = false;
@@ -78,11 +87,11 @@ for m=1:M
     % General parameters
     %----------------------------------------------------------------------    
     if ~isfield(pars.dat{m},'S')
-        pars.dat{m}.S = Inf;
-        if test_level==2 || test_level==3, pars.dat{m}.S = 8;
-        elseif test_level==1,              pars.dat{m}.S = 1;   
-        end 
+        pars.dat{m}.S = Inf;        
     end    
+    if     test_level==2 || test_level==3, pars.dat{m}.S = 8;
+    elseif test_level==1,                  pars.dat{m}.S = 1;   
+    end 
     if ~isfield(pars.dat{m},'modality')
         pars.dat{m}.modality = 'MRI';
     end
@@ -93,7 +102,7 @@ for m=1:M
         pars.dat{m}.fwhm = 1;
     end
     if ~isfield(pars.dat{m},'print_subj_info')
-        if test_level==1 %|| test_level==2
+        if test_level==1
             pars.dat{m}.print_subj_info = true;
         else
             pars.dat{m}.print_subj_info = false;
@@ -134,7 +143,7 @@ for m=1:M
     end    
     if ~isfield(pars.dat{m}.segment.lkp,'part')
         if isfield(pars.dat{m}.segment,'nlkp')
-            pars.dat{m}.segment.lkp.part = reshape(repmat(1:pars.K,pars.dat{m}.segment.nlkp,1),1,[]);
+            pars.dat{m}.segment.lkp.part = reshape(repelem(1:pars.K,1,pars.dat{m}.segment.nlkp),1,[]);
         else
             pars.dat{m}.segment.lkp.part = 1:pars.K;
         end                       
@@ -196,7 +205,7 @@ for m=1:M
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
     end
     if ~isfield(pars.dat{m}.segment,'biasreg')
-        pars.dat{m}.segment.biasreg = 1e-1;
+        pars.dat{m}.segment.biasreg = 1e-4;
     end
     if ~isfield(pars.dat{m}.segment,'biasfwhm')
         pars.dat{m}.segment.biasfwhm = 60;
@@ -211,13 +220,16 @@ for m=1:M
         pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 1e-5;
+        pars.dat{m}.segment.tol1 = 1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
         pars.dat{m}.segment.mix_wp_reg = 0.5;
     end    
-    if ~isfield(pars.dat{m}.segment,'kmeans_hist')
-        pars.dat{m}.segment.kmeans_hist = false;
+    if ~isfield(pars.dat{m}.segment,'est_fwhm')
+        pars.dat{m}.segment.est_fwhm = true;
+    end    
+    if ~isfield(pars.dat{m}.segment,'mg')
+        pars.dat{m}.segment.mg = ones(1,numel(pars.dat{m}.segment.lkp.part));
     end    
     if ~isfield(pars.dat{m}.segment,'constr_intprior')
         pars.dat{m}.segment.constr_intprior = false;
@@ -261,6 +273,12 @@ for m=1:M
     if ~isfield(pars.dat{m}.write_res,'write_df')
         pars.dat{m}.write_res.write_df = false(1,2);
     end       
+    
+%     % Data is CT
+%     %----------------------------------------------------------------------
+%     if strcmp(pars.dat{m}.modality,'CT')
+% %         pars.dat{m}.segment.do_bf = false;
+%     end
 end
 %==========================================================================
 
@@ -269,4 +287,29 @@ function pars = append_dir(pars)
 f                 = pars.dir_output;
 pars.dir_output   = fullfile(f,['tmp-' pars.name]);
 pars.dir_template = fullfile(f,['res-' pars.name]);
+%==========================================================================
+
+%==========================================================================
+function pars = parse_json(pth)
+pars = spm_jsonread(pth);
+M    = numel(pars.dat);
+
+if isstruct(pars.dat)
+    % Convert dat from struct-array to cell-array    
+    opars    = pars;
+    pars     = rmfield(pars,'dat');    
+    pars.dat = cell(1,M);
+    for m=1:M
+        pars.dat{m} = opars.dat(m);
+    end
+end
+
+% Some cleaning up
+for m=1:M
+    if isfield(pars.dat{m},'S')
+        if isempty(pars.dat{m}.S)
+            pars.dat{m}.S = Inf;
+        end
+    end
+end
 %==========================================================================

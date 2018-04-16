@@ -9,13 +9,12 @@ ff  = varargin{7};
 scl = varargin{8};
 
 N    = numel(buf(1).f);
-kron = @(a,b) spm_krutil(a,b);
 cl   = cell(N,1);
 args = {'C',cl,'B1',cl,'B2',cl,'B3',cl,'T',cl,'ll',cl};
 chan = struct(args{:});
 for n=1:N
     biasreg = obj.segment.biasreg(n)*ff; 
-    vx      = vxsize(V(n).mat);
+    vx      = spm_misc('vxsize',V(n).mat);
     fwhm    = obj.segment.biasfwhm(n);
     d0      = V(n).dim;
     
@@ -23,14 +22,8 @@ for n=1:N
     sd = vx(2)*d0(2)/fwhm; d3(2) = ceil(sd*2); krn_y = exp(-(0:(d3(2)-1)).^2/sd.^2)/sqrt(vx(2));
     sd = vx(3)*d0(3)/fwhm; d3(3) = ceil(sd*2); krn_z = exp(-(0:(d3(3)-1)).^2/sd.^2)/sqrt(vx(3));
     
-    if obj.tot_S==1
-        % GAUSSIAN REGULARISATION for bias correction
-        Cbias     = kron(krn_z,kron(krn_y,krn_x)).^(-2)*biasreg;        
-        chan(n).C = sparse(1:length(Cbias),1:length(Cbias),Cbias,length(Cbias),length(Cbias)); % Store prior covaricance for bias regularisation
-    else
-        % BENDING ENERGY regularisation for bias correction (when building TPMs)
-        chan(n).C = spm_sparse('precision','field',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0]);
-    end
+    % BENDING ENERGY regularisation for bias correction (when building TPMs)
+    chan(n).C = spm_sparse('precision','field',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0],'n');
     
     % Initial parameterisation of bias field
     if isfield(obj.segment,'Tbias') && ~isempty(obj.segment.Tbias{n})                

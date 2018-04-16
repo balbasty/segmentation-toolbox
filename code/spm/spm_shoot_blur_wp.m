@@ -53,7 +53,7 @@ for i=1:its,
                 % log-likelihood (using log-sum-exp)
                 sm0 = bsxfun(@plus,rotate_back(a1,R),lwp1);
                 sm1 = sum(t(:,:,z,:).*sm0,4);
-                sm2 = logsumexp(sm0,4).*sum(t(:,:,z,:),4);
+                sm2 = spm_matcomp('logsumexp',sm0,4).*sum(t(:,:,z,:),4);
                 ll0 = sum(sum(sm1 - sm2));                                
                 
                 lls = lls - ll0;
