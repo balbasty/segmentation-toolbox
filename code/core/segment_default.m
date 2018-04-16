@@ -1,4 +1,4 @@
-function pars = pars_default(pars,test_level)
+function pars = segment_default(pars,test_level)
 if nargin<2, test_level = 0; end
 
 if isstring(pars) || ischar(pars)
@@ -167,7 +167,7 @@ for m=1:M
         pars.dat{m}.segment.do_bf = true;
     end      
     if ~isfield(pars.dat{m}.segment,'do_def')
-        pars.dat{m}.segment.do_def = true;
+     pars.dat{m}.segment.tol1 = 1e-4;   pars.dat{m}.segment.do_def = true;
     end   
     if ~isfield(pars.dat{m}.segment,'do_wp')
         pars.dat{m}.segment.do_wp = true;
@@ -265,7 +265,8 @@ for m=1:M
         pars.dat{m}.write_res.mrf = 1;
     end
     if ~isfield(pars.dat{m}.write_res,'write_tc')
-        pars.dat{m}.write_res.write_tc = false(pars.K,4);        
+        pars.dat{m}.write_res.write_tc      = false(pars.K,4);        
+        pars.dat{m}.write_res.write_tc(:,1) = true;
     end    
     if ~isfield(pars.dat{m}.write_res,'write_bf')
         pars.dat{m}.write_res.write_bf = false(1,2);

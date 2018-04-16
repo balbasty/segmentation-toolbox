@@ -23,6 +23,7 @@ if test_level
     end
 end
 
+tot_S  = 0;
 npars1 = {};
 cnt    = 1;
 for m=1:M
@@ -33,12 +34,13 @@ for m=1:M
     end
     if strcmp(modality,'CT')
         npars1.dat{cnt} = pars1.dat{m};
+        tot_S           = npars1.dat{cnt}.S;
         cnt             = cnt + 1;
     end
 end
 clear pars1
 
-if ~isempty(npars1)
+if ~isempty(npars1) && tot_S>1
     % There are data that is CT -> perform CT init routine (below)
     %----------------------------------------------------------------------
     
@@ -56,8 +58,8 @@ if ~isempty(npars1)
             msk = msk_modality(img,'CT');
             img = img(msk(:));
 
-            x1     = min(img(:)):max(img(:));
-            h1     = hist(img(:),x1);
+            x1 = min(img(:)):max(img(:));
+            h1 = hist(img(:),x1);
 
             if max(x1)>mx
                 mx = max(x1);
