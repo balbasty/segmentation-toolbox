@@ -77,6 +77,7 @@ end
 
 nu0   = gmm.pr.n;
 W0    = gmm.pr.W;
+ldW0  = gmm.pr.ldW;
 beta0 = gmm.pr.b;
 m0    = gmm.pr.m;
 if numel(nu0)   == 1, nu0   = repmat(  nu0,[1 K  ]); end
@@ -163,11 +164,13 @@ for k=1:K
         L1  = 0.5*s0*(Eld - N*log(2*pi) - trace((m(:,k)*m(:,k)' + inv(beta(k)*nu(k)*W(:,:,k)) + S2/s0 - 2*m(:,k)*s1'/s0)*nu(k)*W(:,:,k)));
 
         % E[log p(mu,Lambda)]
-        L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld - spm_prob('Wishart','logZ',W0(:,:,k),nu0(k)) ...
-           - 0.5*nu(k)*beta0(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)) - 0.5*nu(k)*trace(W0(:,:,k)\W(:,:,k));
+        L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld ...
+            - nu0(k)*N/2*log(2) - nu0(k)/2*ldW0(k) - spm_prob('LogGamma',nu0(k)/2,N) ...
+            - 0.5*nu(k)*beta0(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)) - 0.5*nu(k)*trace(W0(:,:,k)\W(:,:,k));
 
         % E[log q(mu,Lambda)]
-        L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld - spm_prob('Wishart','logZ',W(:,:,k),nu(k));
+        L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld ...
+            - spm_prob('Wishart','logZ',W(:,:,k),nu(k));
 
         % Negative Free Energy
         L = L1 + L2 - L3 - L4;

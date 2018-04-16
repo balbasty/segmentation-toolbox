@@ -231,8 +231,8 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'mg')
         pars.dat{m}.segment.mg = ones(1,numel(pars.dat{m}.segment.lkp.part));
     end    
-    if ~isfield(pars.dat{m}.segment,'constr_intprior')
-        pars.dat{m}.segment.constr_intprior = false;
+    if ~isfield(pars.dat{m}.segment,'constr_inthp')
+        pars.dat{m}.segment.constr_inthp = false;
     end    
     
     % Push resps parameters

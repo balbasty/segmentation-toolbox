@@ -1,5 +1,5 @@
-function obj = update_intensity_prior2(obj,iter,constrained)
-% FORMAT obj = update_intensity_prior2(obj,iter,constrained)
+function obj = update_intensity_hp2(obj,iter,pars)
+% FORMAT obj = update_intensity_hp2(obj,iter,pars)
 % 
 % Hierarchical Gauss-Wishart intensity prior, with a Wishart hyper-prior on
 % prior Precision matrices to make them similar.
@@ -42,7 +42,7 @@ if all_ct
         end
     end
     
-    pr = do_update(obj1,constrained);    
+    pr = do_update(obj1,pars.dat{1}.segment.constr_inthp);
 
     for m=1:M
         for s=1:S
@@ -75,7 +75,7 @@ else
             end
         end
 
-        pr = do_update(obj1,constrained);    
+        pr = do_update(obj1,pars.dat{m}.segment.constr_inthp);    
 
         for s=1:S
             obj{m}{s}.segment.gmm.pr = pr;   
