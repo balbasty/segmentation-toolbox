@@ -31,7 +31,7 @@ for n=1:N
         
         if obj.tot_S>1
             % When building TPMs, mean correct DC component of bias field
-            chan(n).T(1,1,1) = chan(n).T(1,1,1) - obj.segment.avg_bf_dc(n); 
+            chan(n).T(1,1,1) = chan(n).T(1,1,1) - obj.segment.bf.avg_dc(n); 
         end
     else
         chan(n).T = zeros(d3);        

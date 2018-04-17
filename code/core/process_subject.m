@@ -102,7 +102,7 @@ if obj.print_subj_info
     fprintf('----------------------------------------------\n')
     fprintf('| wp = [%.3f, %s%.3f]\n',obj.segment.wp(1),sprintf('%.3f, ',obj.segment.wp(2:end - 1)),obj.segment.wp(end));
     fprintf('----------------------------------------------\n')
-    fprintf('| bf_dc = [%s] | avg_bf_dc = [%s] \n',sprintf('%.3f ', obj.segment.bf_dc),sprintf('%.3f ', obj.segment.avg_bf_dc));
+    fprintf('| dc = [%s] | avg_dc = [%s] \n',sprintf('%.3f ', obj.segment.bf.dc),sprintf('%.3f ', obj.segment.bf.avg_dc));
     fprintf('----------------------------------------------\n')    
     for n=1:size(obj.segment.gmm.po.m,1), fprintf('| po.m = [%.3f, %s%.3f]\n',obj.segment.gmm.po.m(n,1),sprintf('%.3f, ',obj.segment.gmm.po.m(n,2:end - 1)),obj.segment.gmm.po.m(n,end)); end
     fprintf('----------------------------------------------\n')

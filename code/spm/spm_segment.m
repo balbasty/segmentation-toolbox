@@ -135,17 +135,30 @@ for iter=1:niter
     debug_view('template',fig{3},lkp,buf,wp);  
     
     if iter>=10 && ~((ll-ooll)>2*tol1*nm)
-        % Finished
+        % Finishedobj{m}{s}.segment.gmm
         break
     end
 end
-clear buf tpm
+clear tpm
+
+% Compute moments, used for updating posteriors outside of main loop
+%--------------------------------------------------------------------------
+mom = compute_moments(buf,lkp,mg,gmm,wp,wp_lab);   
+clear buf
 
 % For setting the DC component of all the bias fields so that they
 % average to 0 (used for global signal normalisation).
 %--------------------------------------------------------------------------
-bf_dc               = zeros(1,N);
-for n=1:N, bf_dc(n) = chan(n).T(1,1,1); end 
+dc = zeros(1,N);
+b1 = zeros(1,N);
+b2 = zeros(1,N);
+b3 = zeros(1,N);
+for n=1:N    
+    dc(n) = chan(n).T(1,1,1); 
+    b1(n) = chan(n).B1(1,1); 
+    b2(n) = chan(n).B2(1,1); 
+    b3(n) = chan(n).B3(1,1); 
+end 
 
 % Save the results
 %--------------------------------------------------------------------------
@@ -163,7 +176,11 @@ obj.segment.wp    = wp;
 obj.segment.mg    = mg;
 obj.segment.gmm   = gmm;
 obj.segment.ll    = ll;
-obj.segment.bf_dc = bf_dc;
+obj.segment.bf.dc = dc;
+obj.segment.bf.b1 = b1;
+obj.segment.bf.b2 = b2;
+obj.segment.bf.b3 = b3;
+obj.segment.mom   = mom;
 return;
 %=======================================================================
 
