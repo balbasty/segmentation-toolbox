@@ -71,12 +71,24 @@ if ~isfield(gmm,'pr')
 
     gmm.pr.n = nu0;
     gmm.pr.W = W0;
+    gmm.pr.ldW = zeros(1,K);
+    for k=1:K
+        gmm.pr.ldW(k) = spm_matcomp('LogDet', gmm.pr.W(:,:,k));
+    end
     gmm.pr.b = beta0;
     gmm.pr.m = m0;
 end
 
 nu0   = gmm.pr.n;
 W0    = gmm.pr.W;
+if isfield(gmm.pr, 'ldW')
+    ldW0  = gmm.pr.ldW;
+else
+    ldW0 = zeros(1,K);
+    for k=1:K
+        ldW0(k) = spm_matcomp('LogDet', W0(:,:,k));
+    end
+end
 beta0 = gmm.pr.b;
 m0    = gmm.pr.m;
 if numel(nu0)   == 1, nu0   = repmat(  nu0,[1 K  ]); end
@@ -154,20 +166,26 @@ for k=1:K
         if nargout>1
             m(:,k)   = (beta0(k)*m0(:,k) + s1)/beta(k);
 
-            W(:,:,k) = inv(beta0(k)*m0(:,k)*m0(:,k)' + S2 - beta(k)*m(:,k)*m(:,k)' + inv(W0(:,:,k)));
-            W(:,:,k) = spm_matcomp('threshold_eig',W(:,:,k));
+            Wk = spm_matcomp('Inv',beta0(k)*m0(:,k)*m0(:,k)' + S2 - beta(k)*m(:,k)*m(:,k)' + spm_matcomp('Inv',W0(:,:,k)));
+            Wk = spm_matcomp('threshold_eig',Wk);
+            [~,p] = chol(Wk);
+            if p == 0
+                W(:,:,k) = Wk;
+            end
         end
 
         % E[log p(g,h|mu,Lambda)]
         Eld = spm_prob('Wishart','Elogdet',W(:,:,k),nu(k));
-        L1  = 0.5*s0*(Eld - N*log(2*pi) - trace((m(:,k)*m(:,k)' + inv(beta(k)*nu(k)*W(:,:,k)) + S2/s0 - 2*m(:,k)*s1'/s0)*nu(k)*W(:,:,k)));
+        L1  = 0.5*s0*(Eld - N*log(2*pi) - trace((m(:,k)*m(:,k)' + spm_matcomp('Inv',beta(k)*nu(k)*W(:,:,k)) + S2/s0 - 2*m(:,k)*s1'/s0)*nu(k)*W(:,:,k)));
 
         % E[log p(mu,Lambda)]
-        L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld - spm_prob('Wishart','logZ',W0(:,:,k),nu0(k)) ...
-           - 0.5*nu(k)*beta0(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)) - 0.5*nu(k)*trace(W0(:,:,k)\W(:,:,k));
-
+        L2 = 0.5*N*(log(beta0(k)/(2*pi)) - beta0(k)/beta(k)) + 0.5*(nu0(k) - N)*Eld ...
+            - nu0(k)*N/2*log(2) - nu0(k)/2*ldW0(k) - spm_prob('LogGamma',nu0(k)/2,N) ...
+            - 0.5*nu(k)*beta0(k)*(m(:,k)-m0(:,k))'*W(:,:,k)*(m(:,k)-m0(:,k)) - 0.5*nu(k)*trace(W0(:,:,k)\W(:,:,k));
+            
         % E[log q(mu,Lambda)]
-        L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld - spm_prob('Wishart','logZ',W(:,:,k),nu(k));
+        L4 = 0.5*N*(log(beta(k)/(2*pi)) - 1 - nu(k)) + 0.5*(nu(k)-N)*Eld ...
+            - spm_prob('Wishart','logZ',W(:,:,k),nu(k));
 
         % Negative Free Energy
         L = L1 + L2 - L3 - L4;
