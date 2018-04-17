@@ -108,6 +108,11 @@ a  = a - spm_field(W,gr,[prm(1:3) prm(4) prm(5:6) rits]); % Gauss-Newton update
     
 mu = rotate_back(a,R);
 L  = -(ll + ll1);
+for m=1:M
+    if isfield(obj{m}{1}.segment.gmm.pr, 'lb')
+        L = L + obj{m}{1}.segment.gmm.pr.lb; % Intensity hyper-prior KL
+    end
+end
 
 if sum(~isfinite(a(:))) || ~isfinite(L), 
     error('sum(~isfinite(a(:))) || ~isfinite(L)'); 
