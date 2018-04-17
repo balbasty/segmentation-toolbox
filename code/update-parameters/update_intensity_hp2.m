@@ -135,7 +135,7 @@ for s=1:S
     m0  = m0 + obj{s}.gmm.pr.m;
     b0  = b0 + obj{s}.gmm.pr.b;
     W0  = W0 + obj{s}.gmm.pr.W;
-    n0  = n0 + obj{s}.gmm.pr.n; 
+    n0  = n0 + obj{s}.gmm.pr.n;
 end
 m0 = m0/S;
 b0 = b0/S;
@@ -212,13 +212,12 @@ if ~constrained
         sumLogDet = sumLogDet/S;
         sumPsi    = sumPsi/S;
         Wn        = Wn/S;
-    
-    
+            
         % -----------------------------------------------------------------
         % Update n0 (mode, Gauss-Newton [convex])
         E = inf;
         for gniter=1:1000
-
+            
             % -------------------------------------------------------------
             % Update W0 (mode, closed-form)
             W0(:,:,k)   = Wn/n0(k);
@@ -238,16 +237,16 @@ if ~constrained
             % ---
             % Gradient & Hessian
             g = 0.5*S*( LogDetW0(k) - sumLogDet - sumPsi ...
-                         +spm_prob('DiGamma', n0(k)/2, N) );
+                         + spm_prob('DiGamma', n0(k)/2, N) );
             H = S/4*spm_prob('DiGamma', n0(k)/2, N, 1);
 
             % ---
             % Update
-            n0(k) = max(n0(k) - H\g, N-1+eps);
-
+            n0(k) = max(n0(k) - H\g, N-1+2*eps);
+            
         end
         % -----------------------------------------------------------------
-        
+    
     end
     
     % ---------------------------------------------------------------------
@@ -264,132 +263,149 @@ if ~constrained
 % CONSTRAINED
 else
 
-    % ---
-    % Starting estimate
-    if p0 == 0
-        p0 = 0;
-        V0 = 0;
-        for k=1:K
-            p0 = p0 + S*n0(k);
-            for s=1:S
-                [~,~,W,n] = get_po(obj,s);
-                V0 = V0 + spm_matcomp('Inv', n(k)*W(:,:,k));
-            end
-        end
-        p0 = p0/K;
-        V0 = V0/K;
-    end
-    
-    % ---------------------------------------------------------------------
-    %   Gauss-Wishart "precision" parameters
-    % ---------------------------------------------------------------------
-
-    for k=1:K
+    lb = -inf;
+    for em=1:100
 
         % ---
-        % Set up some constants
-        % > compute sum E[logdet W] and sum psi(nu/2)
-        logDetW  = 0;
-        psiN     = 0;
-        Lambda   = 0;
-        for s=1:S
-            [~,~,W,n] = get_po(obj,s);
-            logDetW = logDetW  + spm_matcomp('Logdet', W(:,:,k));
-            psiN    = psiN     + spm_prob('DiGamma', n(k)/2, N);
-            Lambda  = Lambda   + n(k)*W(:,:,k);
+        % Starting estimate
+        if p0 == 0
+            p0 = 0;
+            V0 = 0;
+            for k=1:K
+                p0 = p0 + S*n0(k);
+                for s=1:S
+                    [~,~,W,n] = get_po(obj,s);
+                    V0 = V0 + spm_matcomp('Inv', n(k)*W(:,:,k));
+                end
+            end
+            p0 = p0/K;
+            V0 = V0/K;
         end
-        logDetW  = logDetW/S;
-        psiN = psiN/S;
+
+        % -----------------------------------------------------------------
+        %   Gauss-Wishart "precision" parameters
+        % -----------------------------------------------------------------
+
+        for k=1:K
+
+            % ---
+            % Set up some constants
+            % > compute sum E[logdet W] and sum psi(nu/2)
+            logDetW  = 0;
+            psiN     = 0;
+            Lambda   = 0;
+            for s=1:S
+                [~,~,W,n] = get_po(obj,s);
+                logDetW = logDetW  + spm_matcomp('Logdet', W(:,:,k));
+                psiN    = psiN     + spm_prob('DiGamma', n(k)/2, N);
+                Lambda  = Lambda   + n(k)*W(:,:,k);
+            end
+            logDetW  = logDetW/S;
+            psiN = psiN/S;
+
+
+            % -------------------------------------------------------------
+            % Update n0 (mode, Gauss-Newton [convex])
+            E = inf;
+            for gniter=1:1000
+
+                % ---------------------------------------------------------
+                % Update {p,V} for W0 (posterior, closed form)
+                p(k)       = p0 + S*n0(k);
+                V(:,:,k)   = spm_matcomp('Inv', spm_matcomp('Inv', V0) + Lambda);
+                % Useful values
+                W0(:,:,k)   = spm_matcomp('Inv', spm_prob('W', 'E', V(:,:,k), p(k)));
+                LogDetW0(k) = -spm_prob('W', 'Elogdet', V(:,:,k), p(k));
+                % ---------------------------------------------------------
+
+                % ---
+                % Objective function
+                Eprev = E;
+                E = S*n0(k)/2 * (LogDetW0(k) - logDetW - psiN) ...
+                    + S*spm_prob('LogGamma', n0(k)/2, N);
+                if E == Eprev
+                    break;
+                end
+
+                % ---
+                % Gradient & Hessian
+                g = S/2*(LogDetW0(k) - logDetW - psiN + spm_prob('DiGamma', n0(k)/2, N));
+                H = S/4 * spm_prob('DiGamma', n0(k)/2, N, 1);
+
+                % ---
+                % Update
+                n0(k) = max(n0(k) - H\g, N-1+2*eps);
+            end
+            % ------------------------------------------------------------
+
+        end
 
 
         % -----------------------------------------------------------------
-        % Update n0 (mode, Gauss-Newton [convex])
+        %   Inverse-Wishart parameters
+        % -----------------------------------------------------------------
+
+        % ---
+        % Set up some constants
+        % > compute sum Logdet(psi) and sum psi(m/2)
+        sumlogV = 0;
+        sumPsi  = 0;
+        pV      = 0;
+        for k=1:K
+            sumlogV = sumlogV + spm_matcomp('LogDet', V(:,:,k));
+            sumPsi  = sumPsi  + spm_prob('DiGamma', p(k)/2, N);
+            pV      = pV      + p(k)*V(:,:,k);
+        end
+        sumlogV = sumlogV/K;
+        sumPsi  = sumPsi/K;
+        pV      = pV/K;
+
+
+        % -----------------------------------------------------------------
+        % Update p0 (mode, Gauss-Newton [convex])
         E = inf;
         for gniter=1:1000
 
             % -------------------------------------------------------------
-            % Update {p,V} for W0 (posterior, closed form)
-            p(k)       = p0 + S*n0(k);
-            V(:,:,k)   = spm_matcomp('Inv', spm_matcomp('Inv', V0) + Lambda);
-            % Useful values
-            W0(:,:,k)   = spm_matcomp('Inv', spm_prob('W', 'E', V(:,:,k), p(k)));
-            LogDetW0(k) = -spm_prob('W', 'Elogdet', V(:,:,k), p(k));
+            % Update V0 (closed-form)
+            V0 = pV/p0;
+            LogDetV0 = spm_matcomp('LogDet', V0);
             % -------------------------------------------------------------
 
             % ---
             % Objective function
             Eprev = E;
-            E = S*n0(k)/2 * (LogDetW0(k) - logDetW - psiN) ...
-                + S*spm_prob('LogGamma', n0(k)/2, N);
+            E = p0*K/2*( N*LogDetV0 - sumlogV - sumPsi ) + K*spm_prob('LogGamma', p0/2, N);
             if E == Eprev
                 break;
             end
 
             % ---
             % Gradient & Hessian
-            g = S/2*(LogDetW0(k) - logDetW - psiN + spm_prob('DiGamma', n0(k)/2, N));
-            H = S/4 * spm_prob('DiGamma', n0(k)/2, N, 1);
+            g = K/2*( LogDetV0 - sumlogV - sumPsi + spm_prob('DiGamma', p0/2, N) );
+            H = K/4*spm_prob('DiGamma', p0/2, N, 1);
 
             % ---
             % Update
-            n0(k) = max(n0(k) - H\g, N-1+eps);
+            p0 = max(p0 - H\g, N-1+2*eps);
+
         end
         % -----------------------------------------------------------------
-        
-    end
-
-
-    % ---------------------------------------------------------------------
-    %   Inverse-Wishart parameters
-    % ---------------------------------------------------------------------
-
-    % ---
-    % Set up some constants
-    % > compute sum Logdet(psi) and sum psi(m/2)
-    sumlogV = 0;
-    sumPsi  = 0;
-    pV      = 0;
-    for k=1:K
-        sumlogV = sumlogV + spm_matcomp('LogDet', V(:,:,k));
-        sumPsi  = sumPsi  + spm_prob('DiGamma', p(k)/2, N);
-        pV      = pV      + p(k)*V(:,:,k);
-    end
-    sumlogV = sumlogV/K;
-    sumPsi  = sumPsi/K;
-    pV      = pV/K;
-
-
-    % ---------------------------------------------------------------------
-    % Update p0 (mode, Gauss-Newton [convex])
-    E = inf;
-    for gniter=1:1000
-        
-        % -----------------------------------------------------------------
-        % Update V0 (closed-form)
-        V0 = pV/p0;
-        LogDetV0 = spm_matcomp('LogDet', V0);
-        % -----------------------------------------------------------------
+    
         
         % ---
         % Objective function
-        Eprev = E;
-        E = p0*K/2*( N*LogDetV0 - sumlogV - sumPsi ) + K*spm_prob('LogGamma', p0/2, N);
-        if E == Eprev
+        lb_prev = lb;
+        lb  = 0;
+        for k=1:K
+            lb  = lb - spm_prob('Wishart', 'kl', V(:,:,k), p(k), V0, p0);
+        end
+        if abs(lb_prev-lb) < 2*eps
             break;
         end
-
         % ---
-        % Gradient & Hessian
-        g = K/2*( LogDetV0 - sumlogV - sumPsi + spm_prob('DiGamma', p0/2, N) );
-        H = K/4*spm_prob('DiGamma', p0/2, N, 1);
-
-        % ---
-        % Update
-        p0 = max(p0 - H\g, N-1+eps);
-
-    end
-    % ---------------------------------------------------------------------
-    
+        
+    end % < "EM" loop
 
     % ---------------------------------------------------------------------
     %   Save results
@@ -403,9 +419,14 @@ else
     pr.p   = p;
     pr.V0  = V0;
     pr.p0  = p0;
-    pr.lb  = -spm_prob('Wishart', 'kl', V, p, V0, p0);
+    pr.lb  = 0;
+    for k=1:K
+        pr.lb  = pr.lb - spm_prob('Wishart', 'kl', V(:,:,k), p(k), V0, p0);
+    end
     
 end
+
+show_all_gaussians(obj, pr)
 %==========================================================================
 
 
@@ -415,4 +436,101 @@ m = obj{s}.gmm.po.m;
 b = obj{s}.gmm.po.b;
 W = obj{s}.gmm.po.W;
 n = obj{s}.gmm.po.n;
+%==========================================================================
+
+
+%==========================================================================
+function show_all_gaussians(obj, pr, figid)
+
+    if nargin < 3
+        figid = 123;
+    end
+    if figid > 0
+        fgauss = figure(figid);
+    else
+        return
+    end
+    
+    K = numel(pr.b);
+    S = numel(obj);
+    M = size(pr.W, 1);
+    
+    if isa(fgauss, 'matlab.ui.Figure')
+        
+        i = 0;
+        for m=1:M
+            
+            if M > 1
+                % ND case
+                if m == 1
+                    continue;
+                end
+                ind = [1 m];
+            else
+                % 1D case
+                ind = 1;
+            end
+            
+            
+            for k=1:K
+                i = i+1;
+                subplot(M-1,K,i)
+                for s=1:S
+                    [mu,~,W,n] = get_po(obj,s);
+                    plot_gaussian(mu(ind,k), n(k)*W(ind,ind,k), 'blue', s > 1);
+                end
+                if isfield(pr, 'V0')
+                    h = plot_gaussian(pr.m(ind,k), pr.n(k)*spm_matcomp('Inv', pr.p0*pr.V0), 'black', true);
+                    h.LineWidth = 2;
+                end
+                h = plot_gaussian(pr.m(ind,k), pr.n(k)*pr.W(ind,ind,k), 'red', true);
+                h.LineWidth = 2;
+            end
+        end
+        drawnow
+    end
+%==========================================================================
+
+
+%==========================================================================
+function h = plot_gaussian(mu, Lambda, colour, holdax)
+
+    if nargin < 4
+        holdax = false;
+        if nargin < 3
+            colour = 'b';
+        end
+    end
+    if holdax
+        hold on
+    end
+    
+    if numel(mu) > 1
+    
+        % 2D plot
+        
+        mu = mu(1:2);
+        Sigma2 = spm_matcomp('Inv', Lambda(1:2,1:2));
+        Sigma = sqrt(Sigma2);
+        [x1,x2] = meshgrid(linspace(mu(1)-3*Sigma(1,1),mu(1)+3*Sigma(1,1),25)', ...
+                           linspace(mu(2)-3*Sigma(2,2),mu(2)+3*Sigma(2,2),25)');
+        y = mvnpdf([x1(:) x2(:)],mu',Sigma2);
+        y = reshape(y, [length(x2) length(x1)]);
+        [~,h] = contour(x1,x2,y,1, 'color', colour);
+        
+    else
+        
+        % 1D plot
+        
+        Sigma2 = 1/Lambda;
+        Sigma  = sqrt(Sigma2);
+        x = linspace(mu-3*Sigma,mu+3*Sigma,25)';
+        y = normpdf(x,mu,Sigma2);
+        [~,h] = plot(x, y, 'color', colour);
+        
+    end
+    
+    if holdax
+        hold off
+    end
 %==========================================================================
