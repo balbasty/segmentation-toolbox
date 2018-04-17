@@ -10,6 +10,7 @@ for m=1:M
     
     % Average oexp(b1.*b2.*b3.*avg_dc)f bias field DC components
     avg_dc = sum_dc./S;
+    N      = numel(avg_dc);
     
     % Set average bias field DC component
     for s=1:S 
@@ -27,10 +28,15 @@ for m=1:M
     for s=1:S    
         mom = obj{m}{s}.segment.mom;
         gmm = obj{m}{s}.segment.gmm;
+        K   = numel(gmm.po.n);
         
-        for i=1:numel(mom)
-           mom(i).s1 = 1/scl*mom(i).s1;
-           mom(i).S2 = 1/(scl*scl)*mom(i).S2;
+        for i=2:numel(mom)
+            ind       = mom(i).ind;                        
+            scl1      = 1./scl(ind)';
+            mom(i).s1 = bsxfun(@times,mom(i).s1,scl1);
+            for k=1:K
+                mom(i).S2(:,:,k) = (scl1*scl1').*mom(i).S2(:,:,k);
+            end
         end
         
         [~,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);
