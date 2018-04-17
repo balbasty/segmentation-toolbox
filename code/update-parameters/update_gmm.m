@@ -32,7 +32,7 @@ for subit=1:nitgmm
     ll  = llrb + llr;
     
     % Compute responsibilities and moments
-    [mom,dll,mgm] = compute_moments(buf,mg,gmm,wp,lkp,wp_lab);        
+    [mom,dll,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_lab);        
     ll            = ll + dll;     
     
     % Add up 0:th moment

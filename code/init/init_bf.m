@@ -48,8 +48,9 @@ for n=1:N
         % init_buf
         b1 = chan(n).B1(1,1);
         b2 = chan(n).B2(1,1);
+        b3 = chan(n).B3(1,1);
                 
-        chan(n).T(1,1,1) = 1/(b1*b2)*log(scl(n));
+        chan(n).T(1,1,1) = 1/(b1*b2*b3)*log(scl(n));
     end
 end
 

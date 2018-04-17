@@ -22,7 +22,7 @@ if nargout<=1
         s{k}(msk1) = a;
         s{k}(msk2) = log(wp(k));     
         
-        mx = max(mx,max(s{k}));
+        mx = max(mx,s{k});
     end
     
     % Safe soft-max
@@ -47,7 +47,7 @@ else
         s{k}(msk1) = a;
         s{k}(msk2) = log(wp(k));        
         
-        mx = max(mx,max(s{k}));
+        mx = max(mx,s{k});
         
         ds1{k} = zeros(dx); ds1{k}(msk1) = da1;
         ds2{k} = zeros(dx); ds2{k}(msk1) = da2;

@@ -2,6 +2,7 @@ function obj = modify_obj(obj,iter,niter)
 M = numel(obj);    
 for m=1:M
     S         = numel(obj{m});    
+    modality  = obj{m}{1}.modality;
     sum_bf_dc = 0;
     cnt_S     = 0;
     for s=1:S            
@@ -12,20 +13,24 @@ for m=1:M
             obj{m}{s}.write_res.do_write_res = false;
             
             obj{m}{s}.segment.do_def = false;
-            obj{m}{s}.segment.do_bf  = false;
-            obj{m}{s}.segment.do_wp  = false;
+            obj{m}{s}.segment.do_bf  = false;                        
             obj{m}{s}.segment.niter  = 1;                 
-            obj{m}{s}.segment.nsubit = 1;
-            obj{m}{s}.segment.nitgmm = 1;
+            if strcmp(modality,'MRI')
+                obj{m}{s}.segment.do_wp  = false;
+                obj{m}{s}.segment.nsubit = 1;
+                obj{m}{s}.segment.nitgmm = 1;
+            end
         end
 
         if iter==2            
             obj{m}{s}.uniform = false;  
             
-            obj{m}{s}.segment.nsubit = 8;
-            obj{m}{s}.segment.nitgmm = 20;  
-            obj{m}{s}.segment.do_bf  = obj{m}{s}.segment.do_bf0;                                                  
-            obj{m}{s}.segment.do_wp  = obj{m}{s}.segment.do_wp0;    
+            if strcmp(modality,'MRI')
+                obj{m}{s}.segment.do_wp  = obj{m}{s}.segment.do_wp0;   
+                obj{m}{s}.segment.nsubit = 8;
+                obj{m}{s}.segment.nitgmm = 20;  
+            end
+            obj{m}{s}.segment.do_bf  = obj{m}{s}.segment.do_bf0;                                                               
         end
 
         if iter>=2

@@ -6,8 +6,8 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1-2d.json'; end
-if nargin<2, test_level = 2; end
+if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS-and-healthy-3d-vx-local.json'; end
+if nargin<2, test_level = 0; end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
@@ -18,7 +18,7 @@ pth_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
 pth_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
 
 holly_server_login   = 'mbrud';
-holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox';
+holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox-new';
 holly_matlab_add_aux = '/home/mbrud/dev/auxiliary-functions';
 
 % addpath
@@ -55,7 +55,7 @@ holly.job.use_dummy = true;
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
 elseif test_level==2, holly.server.ip  = ''; holly.client.workers = Inf;
 end
-% holly.server.ip = ''; holly.client.workers = Inf;
+holly.server.ip = ''; holly.client.workers = Inf;
 % holly.server.ip = ''; holly.client.workers = 0;
 
 holly = distribute_default(holly);
@@ -134,6 +134,7 @@ for iter=1:pars.niter
         if pars.verbose>1, show_template(pars.fig{6},pars.pth_template); end
         if pars.verbose>2, show_resp(pars.fig{7},obj,pars.rand_subjs); end      
         if pars.verbose>3, show_def(pars.fig{8},obj,pars.rand_subjs); end 
+        if pars.verbose>3, show_bf(pars.fig{9},obj,pars.rand_subjs); end 
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  

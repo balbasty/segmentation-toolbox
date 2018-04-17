@@ -5,7 +5,7 @@ try
     
     do_template = obj.tot_S>1;
 
-    if obj.segment.est_fwhm && obj.iter==1 && obj.image(1).dim(3)>1
+    if obj.est_fwhm && obj.iter==1 && obj.image(1).dim(3)>1
         % Estimate FWHM of image smoothness
         %------------------------------------------------------------------
         N = numel(obj.image);
@@ -22,7 +22,15 @@ try
    
         % Affine registration
         %------------------------------------------------------------------
-        tpm = spm_load_logpriors(obj.pth_template,obj.segment.wp);
+        if isfield(obj.segment,'wp')
+            wp = obj.segment.wp;
+        else
+            V  = spm_vol(obj.pth_template);
+            Kb = numel(V);
+            wp = ones(1,Kb)/Kb;
+        end
+        
+        tpm = spm_load_logpriors(obj.pth_template,wp);
 
         M                       = obj.image(1).mat;
         c                       = (obj.image(1).dim+1)/2;
