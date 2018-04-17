@@ -23,6 +23,10 @@ for i=1:tpm.V(1).dim(3)
 end
 
 % Convert into b-spline coefficients
+tpm.bg1 = zeros(Kb,1);
+tpm.bg2 = zeros(Kb,1);
 for k1=1:Kb
+    tpm.bg1(k1) = mean(mean(tpm.dat{k1}(:,:,1)));
+    tpm.bg2(k1) = mean(mean(tpm.dat{k1}(:,:,end)));
     tpm.dat{k1} = spm_bsplinc(tpm.dat{k1},[tpm.deg tpm.deg tpm.deg 0 0 0]);
 end
