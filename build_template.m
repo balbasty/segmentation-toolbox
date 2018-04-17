@@ -6,7 +6,7 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1T2PD-2d.json'; end
+if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1-2d.json'; end
 if nargin<2, test_level = 2; end
 
 %--------------------------------------------------------------------------
@@ -83,7 +83,9 @@ for iter=1:pars.niter
     end       
     
     %----------------------------------------------------------------------
-    % Segment a bunch of subjects 
+    % Segmentation part
+    % Here is where the VB-GMM, bias field, and registration parameters are
+    % updated
     %----------------------------------------------------------------------
     
     [obj,ix]    = unfold_cell(obj,2);
@@ -95,6 +97,7 @@ for iter=1:pars.niter
            
     %----------------------------------------------------------------------
     % Template specific
+    % Here is where the log-template is updated
     %----------------------------------------------------------------------
     
     if pars.niter>1
@@ -124,6 +127,7 @@ for iter=1:pars.niter
     
     %----------------------------------------------------------------------
     % Intensity specific
+    % Here is where the hyper-parameters of the VB-GMM are updated
     %----------------------------------------------------------------------
     
     if pars.niter>1
@@ -151,6 +155,7 @@ for iter=1:pars.niter
         if pars.verbose>2, show_resp(pars.fig{7},obj,pars.rand_subjs); end      
         if pars.verbose>3, show_def(pars.fig{8},obj,pars.rand_subjs); end 
         if pars.verbose>3, show_bf(pars.fig{9},obj,pars.rand_subjs); end 
+        if pars.verbose>3, show_intensity_hp(pars.fig{10},obj); end 
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  

@@ -114,7 +114,7 @@ if ~isempty(npars1) && tot_S>1
         
         % 1. Partition tissue classes
         p1 = mn<-50; % Background intensities have nnz(p1) Gaussians
-        p2 = mn>= -50 & mn<200; % Brain intensities have 2 Gaussians each
+        p2 = mn>=-50 & mn<200; % Brain intensities have 2 Gaussians each
         p3 = mn>=200; % Bone intensities have nnz(p2) Gaussians
 
         % Create lkp.part partitioning

@@ -31,7 +31,8 @@ ll = 0;
 W  = zeros([d(1:3) round(((d(4)-1)*d(4))/2)],'single'); % 2nd derivatives
 gr = zeros([d(1:3),d(4)-1],'single');                   % 1st derivatives
 
-for m=1:numel(obj)
+M = numel(obj);
+for m=1:M
     
     S = numel(obj{m}); 
     if verbose, fprintf(1,'%2d | Loading derivatives from subject (m=%d, S=%d) -    ',iter,m,S); end
