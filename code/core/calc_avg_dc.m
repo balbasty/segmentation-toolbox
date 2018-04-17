@@ -10,7 +10,6 @@ for m=1:M
     
     % Average oexp(b1.*b2.*b3.*avg_dc)f bias field DC components
     avg_dc = sum_dc./S;
-    N      = numel(avg_dc);
     
     % Set average bias field DC component
     for s=1:S 
