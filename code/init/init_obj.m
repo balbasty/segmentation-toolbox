@@ -24,11 +24,12 @@ if pars.dat{1}.segment.verbose
     for i=1:numel(fig), fig{i} = figure(i); clf(figure(i)); end    
 end
 if pars.niter>1
-    if pars.verbose>3, fig{9} = figure(9); clf(figure(9)); end
-    if pars.verbose>3, fig{8} = figure(8); clf(figure(8)); end
-    if pars.verbose>2, fig{7} = figure(7); clf(figure(7)); end
-    if pars.verbose>1, fig{6} = figure(6); clf(figure(6)); end
-    if pars.verbose>0, fig{5} = figure(5); clf(figure(5)); end        
+    if pars.verbose>3, fig{10} = figure(10); clf(figure(10)); end
+    if pars.verbose>3, fig{9}  = figure(9); clf(figure(9)); end
+    if pars.verbose>3, fig{8}  = figure(8); clf(figure(8)); end
+    if pars.verbose>2, fig{7}  = figure(7); clf(figure(7)); end
+    if pars.verbose>1, fig{6}  = figure(6); clf(figure(6)); end
+    if pars.verbose>0, fig{5}  = figure(5); clf(figure(5)); end        
 end
 drawnow
 
@@ -115,8 +116,8 @@ for m=1:M
         obj1.segment.do_def0 = pars.dat{m}.segment.do_def;
         obj1.segment.do_wp0  = pars.dat{m}.segment.do_wp;
            
-        obj1.segment.bf_dc     = zeros(1,N);
-        obj1.segment.avg_bf_dc = zeros(1,N);
+        obj1.segment.bf.dc     = zeros(1,N);
+        obj1.segment.bf.avg_dc = zeros(1,N);
         
         % lkp
         lkp = pars.dat{m}.segment.lkp;
