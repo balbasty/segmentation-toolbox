@@ -147,6 +147,11 @@ for i=1:its,
 end
 mu = rotate_back(a,R);
 L  = -(ll + ll1);
+for m=1:M
+    if isfield(obj{m}{1}.segment.gmm.pr, 'lb')
+        L = L + obj{m}{1}.segment.gmm.pr.lb; % Intensity hyper-prior KL
+    end
+end
 %==========================================================================
 
 %==========================================================================

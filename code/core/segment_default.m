@@ -231,6 +231,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'mg')
         pars.dat{m}.segment.mg = lkppart_to_mg(pars.dat{m}.segment.lkp.part);
     end    
+    if ~isfield(pars.dat{m}.segment,'constr_inthp')
+        pars.dat{m}.segment.constr_inthp = false;
+    end    
     
     % Push resps parameters
     %----------------------------------------------------------------------
