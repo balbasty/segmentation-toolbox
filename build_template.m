@@ -135,6 +135,7 @@ for iter=1:pars.niter
     if pars.niter>1
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
+%         obj = update_intensity_hp(obj,iter);
         obj = update_intensity_hp2(obj,iter,pars);
     end
        
