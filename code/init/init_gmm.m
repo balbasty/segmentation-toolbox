@@ -9,6 +9,11 @@ if ~isfield(gmm,'po')
     lkp = obj.segment.lkp;
     Kb  = max(lkp.part);
         
+    if isfield(gmm,'pr') && numel(lkp.keep)~=numel(lkp.part)
+        gmm.po = gmm.pr;
+        return
+    end
+    
     % Compute moments
     %----------------------------------------------------------------------
     if obj.uniform
@@ -17,7 +22,7 @@ if ~isfield(gmm,'po')
         mom = kmeans2mom(buf,lkp,mn,mx,obj); 
     else       
         % Use template to compute moments
-        mom = compute_moments(buf);
+        mom = compute_moments(buf,lkp);
     end
     
     % Estimate GMM parameters

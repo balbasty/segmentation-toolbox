@@ -6,7 +6,7 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1-2d.json'; end
+if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1T2PD-2d.json'; end
 if nargin<2, test_level = 2; end
 
 %--------------------------------------------------------------------------
@@ -18,7 +18,7 @@ pth_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
 pth_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
 
 holly_server_login   = 'mbrud';
-holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox';
+holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox-new';
 holly_matlab_add_aux = '/home/mbrud/dev/auxiliary-functions';
 
 % addpath
@@ -82,15 +82,20 @@ for iter=1:pars.niter
         obj = modify_obj(obj,iter,pars.niter);
     end       
     
+    %----------------------------------------------------------------------
     % Segment a bunch of subjects 
     %----------------------------------------------------------------------
+    
     [obj,ix]    = unfold_cell(obj,2);
     [holly,obj] = distribute(holly,'process_subject','inplace',obj,pars.fig);
     obj         = fold_cell(obj,ix);
     
     % Check if any subjects have status~=0
-    %----------------------------------------------------------------------
     print_jobs_failed(obj);
+           
+    %----------------------------------------------------------------------
+    % Template specific
+    %----------------------------------------------------------------------
     
     if pars.niter>1
         % Update template
@@ -117,6 +122,16 @@ for iter=1:pars.niter
         crop_template(pars.pth_template,iter);
     end
     
+    %----------------------------------------------------------------------
+    % Intensity specific
+    %----------------------------------------------------------------------
+    
+    if pars.niter>1
+        % For mean correcting bias field (also updated posteriors)
+        %------------------------------------------------------------------
+        obj = calc_avg_dc(obj);  
+    end  
+    
     if pars.niter>1
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
@@ -134,6 +149,7 @@ for iter=1:pars.niter
         if pars.verbose>1, show_template(pars.fig{6},pars.pth_template); end
         if pars.verbose>2, show_resp(pars.fig{7},obj,pars.rand_subjs); end      
         if pars.verbose>3, show_def(pars.fig{8},obj,pars.rand_subjs); end 
+        if pars.verbose>3, show_bf(pars.fig{9},obj,pars.rand_subjs); end 
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  

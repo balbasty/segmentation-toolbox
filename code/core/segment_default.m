@@ -54,7 +54,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0 10 10];
+    pars.sparam = [0 30 30];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -89,7 +89,7 @@ for m=1:M
     if ~isfield(pars.dat{m},'S')
         pars.dat{m}.S = Inf;        
     end    
-    if     test_level==2 || test_level==3, pars.dat{m}.S = 8;
+    if     test_level==2 || test_level==3, pars.dat{m}.S = min(8,pars.dat{m}.S);
     elseif test_level==1,                  pars.dat{m}.S = 1;   
     end 
     if ~isfield(pars.dat{m},'modality')
@@ -101,6 +101,9 @@ for m=1:M
     if ~isfield(pars.dat{m},'fwhm')
         pars.dat{m}.fwhm = 1;
     end
+    if ~isfield(pars.dat{m},'est_fwhm')
+        pars.dat{m}.est_fwhm = false;
+    end        
     if ~isfield(pars.dat{m},'print_subj_info')
         if test_level==1
             pars.dat{m}.print_subj_info = true;
@@ -220,16 +223,13 @@ for m=1:M
         pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 1e-4;
+        pars.dat{m}.segment.tol1 = 0.5*1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
-        pars.dat{m}.segment.mix_wp_reg = 0.5;
-    end    
-    if ~isfield(pars.dat{m}.segment,'est_fwhm')
-        pars.dat{m}.segment.est_fwhm = true;
-    end    
+        pars.dat{m}.segment.mix_wp_reg = 0.9;
+    end        
     if ~isfield(pars.dat{m}.segment,'mg')
-        pars.dat{m}.segment.mg = ones(1,numel(pars.dat{m}.segment.lkp.part));
+        pars.dat{m}.segment.mg = lkppart_to_mg(pars.dat{m}.segment.lkp.part);
     end    
     if ~isfield(pars.dat{m}.segment,'constr_inthp')
         pars.dat{m}.segment.constr_inthp = false;
@@ -274,12 +274,6 @@ for m=1:M
     if ~isfield(pars.dat{m}.write_res,'write_df')
         pars.dat{m}.write_res.write_df = false(1,2);
     end       
-    
-%     % Data is CT
-%     %----------------------------------------------------------------------
-%     if strcmp(pars.dat{m}.modality,'CT')
-% %         pars.dat{m}.segment.do_bf = false;
-%     end
 end
 %==========================================================================
 
@@ -312,5 +306,16 @@ for m=1:M
             pars.dat{m}.S = Inf;
         end
     end
+end
+%==========================================================================
+
+%==========================================================================
+function mg = lkppart_to_mg(lkppart)
+Kb = max(lkppart);
+K  = numel(lkppart);
+mg = ones(1,K);
+for k1=1:Kb
+    k     = find(lkppart==k1);
+    mg(k) = mg(k)/numel(k);
 end
 %==========================================================================

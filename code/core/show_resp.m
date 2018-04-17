@@ -8,12 +8,13 @@ for m=1:M
         K = numel(obj{m}{s}.pth_resp);
         
         for k=1:K    
-            Nii = nifti(obj{m}{s}.pth_resp{k});
-            img = Nii.dat(:,:,:);
-            dm  = size(img);
-            if numel(dm)==3
+            V  = spm_vol(obj{m}{s}.pth_resp{k});
+            dm = V.dim;                        
+            if dm(3)>1
                 zix = floor(dm(3)/2) + 1;
-                img = img(:,:,zix);            
+                img = V.private.dat(:,:,zix);            
+            else
+                img = V.private.dat(:,:,1);            
             end
             
             wp = round(obj{m}{s}.segment.wp(k),3);

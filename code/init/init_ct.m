@@ -17,7 +17,7 @@ M      = numel(pars1.dat);
 if test_level
     % Adjust number of subjects if testing
     for m=1:M
-        if     test_level==2 || test_level==3, pars1.dat{m}.S = 8;
+        if     test_level==2 || test_level==3, pars1.dat{m}.S = min(8,pars1.dat{m}.S);
         elseif test_level==1,                  pars1.dat{m}.S = 1;   
         end 
     end
@@ -103,7 +103,7 @@ if ~isempty(npars1) && tot_S>1
     % tissue classes in the TPM to be built. For CT each tissue class are
     % represented by a specific number of Gaussians (see [1] below). 
     %----------------------------------------------------------------------
-    for K1=Kb:50
+    for K1=(2*Kb + 2):50
         % Fit GMM to histogram
         [~,mn,vr] = spm_imbasics('fit_gmm2hist',H,X,K1);
 

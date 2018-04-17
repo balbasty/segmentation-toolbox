@@ -101,7 +101,7 @@ for n=1:N
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll] = compute_moments(buf,mg,gmm,wp,lkp,wp_lab);        
+            [mom,dll] = compute_moments(buf,lkp,mg,gmm,wp,wp_lab);        
             ll        = ll + dll; 
 
             % Compute missing data and VB components of ll

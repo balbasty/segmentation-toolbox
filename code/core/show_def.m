@@ -6,7 +6,7 @@ cnt = 1;
 for m=1:M                
     for s=rand_subjs{m} 
         Nii = nifti(obj{m}{s}.pth_vel);
-        img = Nii.dat(:,:,:,:);
+        img = single(Nii.dat(:,:,:,:));
         dm  = size(img);
         zix = floor(dm(3)/2) + 1; 
         

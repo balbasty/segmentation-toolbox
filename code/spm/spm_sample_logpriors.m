@@ -18,11 +18,11 @@ if nargout<=1
     for k=1:Kb
         a = spm_bsplins(tpm.dat{k},x1,x2,x3,[deg deg deg 0 0 0]); % interpolate log-template
                         
-        s{k}       = ones(dx)*log(wp(k));
+        s{k}       = ones(dx)*tpm.bg2(k);
         s{k}(msk1) = a;
-        s{k}(msk2) = log(wp(k));     
+        s{k}(msk2) = tpm.bg1(k);     
         
-        mx = max(mx,max(s{k}));
+        mx = max(mx,s{k});
     end
     
     % Safe soft-max
@@ -43,11 +43,11 @@ else
     for k=1:Kb
         [a,da1,da2,da3] = spm_bsplins(tpm.dat{k},x1,x2,x3,[deg deg deg 0 0 0]); % interpolate log-template and compute derivatives     
                 
-        s{k}       = ones(dx)*log(wp(k));
+        s{k}       = ones(dx)*tpm.bg2(k);
         s{k}(msk1) = a;
-        s{k}(msk2) = log(wp(k));        
+        s{k}(msk2) = tpm.bg1(k);        
         
-        mx = max(mx,max(s{k}));
+        mx = max(mx,s{k});
         
         ds1{k} = zeros(dx); ds1{k}(msk1) = da1;
         ds2{k} = zeros(dx); ds2{k}(msk1) = da2;

@@ -1,5 +1,5 @@
-function [mom,ll,mgm] = compute_moments(buf,mg,gmm,wp,lkp,wp_lab)
-K  = numel(mg);
+function [mom,ll,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_lab)
+K  = numel(lkp.part);
 nz = numel(buf);
 N  = numel(buf(1).f);
 
