@@ -426,7 +426,7 @@ else
     
 end
 
-show_all_gaussians(obj, pr)
+% show_all_gaussians(obj, pr)
 %==========================================================================
 
 
