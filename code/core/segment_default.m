@@ -54,7 +54,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0 20 20];
+    pars.sparam = [0 30 30];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -226,7 +226,7 @@ for m=1:M
         pars.dat{m}.segment.tol1 = 0.5*1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
-        pars.dat{m}.segment.mix_wp_reg = -1;
+        pars.dat{m}.segment.mix_wp_reg = 0.9;
     end        
     if ~isfield(pars.dat{m}.segment,'mg')
         pars.dat{m}.segment.mg = lkppart_to_mg(pars.dat{m}.segment.lkp.part);

@@ -141,7 +141,7 @@ for iter=1:niter
 end
 clear tpm
 
-% Compute moments, used for updating posteriors outside of main loop
+% Compute final moments, used for updating posteriors outside of main loop
 %--------------------------------------------------------------------------
 mom = compute_moments(buf,lkp,mg,gmm,wp,wp_lab);   
 clear buf

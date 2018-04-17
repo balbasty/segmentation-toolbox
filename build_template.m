@@ -6,7 +6,7 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1-2d.json'; end
+if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/IXI-T1T2PD-2d.json'; end
 if nargin<2, test_level = 2; end
 
 %--------------------------------------------------------------------------
