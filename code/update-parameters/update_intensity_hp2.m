@@ -11,10 +11,6 @@ function obj = update_intensity_hp2(obj,iter,pars)
 % S = number of subjects
 % K = number of Gaussians in the mixture
 
-if nargin < 3
-    constrained = false;
-end
-
 dir_template = obj{1}{1}.dir_template;
 M            = numel(obj);
 
