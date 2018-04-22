@@ -45,7 +45,7 @@ if ~isfield(pars,'tol')
     pars.tol = 1e-4;
 end
 if ~isfield(pars,'verbose')
-    pars.verbose = 4;
+    pars.verbose = 3;
 end
 if ~isfield(pars,'pth_template')
     pars.pth_template = '';
