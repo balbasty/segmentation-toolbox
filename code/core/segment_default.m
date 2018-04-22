@@ -226,10 +226,10 @@ for m=1:M
         pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 0.5*1e-4;
+        pars.dat{m}.segment.tol1 = 1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'mix_wp_reg')
-        pars.dat{m}.segment.mix_wp_reg = 0.9;
+        pars.dat{m}.segment.mix_wp_reg = -1;
     end        
     if ~isfield(pars.dat{m}.segment,'mg')
         pars.dat{m}.segment.mg = lkppart_to_mg(pars.dat{m}.segment.lkp.part);
