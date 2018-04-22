@@ -17,7 +17,7 @@ for m=1:M
                 img = V.private.dat(:,:,1);            
             end
             
-            wp = round(obj{m}{s}.segment.wp(k),3);
+            wp = round(obj{m}{s}.segment.wp(k),2);
             
             subplot(M*numel(rand_subjs{1}),K,cnt);
             imagesc(img'); axis off xy; colormap(gray);
