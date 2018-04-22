@@ -173,7 +173,7 @@ for m=1:M
         pars.dat{m}.segment.do_bf = true;
     end      
     if ~isfield(pars.dat{m}.segment,'do_def')
-     pars.dat{m}.segment.tol1 = 1e-4;   pars.dat{m}.segment.do_def = true;
+        pars.dat{m}.segment.do_def = true;
     end   
     if ~isfield(pars.dat{m}.segment,'do_wp')
         pars.dat{m}.segment.do_wp = true;
