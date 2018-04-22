@@ -63,8 +63,13 @@ holly = distribute_default(holly);
 %--------------------------------------------------------------------------
 % Initialise algorithm
 %--------------------------------------------------------------------------
-pars       = read_images(pars); 
-pars       = init_template(pars); 
+pars = read_images(pars); 
+pars = init_template(pars); 
+
+% Only if CT data, initialise the GMM parameters by fitting a GMM to an
+% accumulated histogram of image intensities.
+pars = init_ct_gmm(pars);
+
 [obj,pars] = init_obj(pars);
 
 %--------------------------------------------------------------------------
