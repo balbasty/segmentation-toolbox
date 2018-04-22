@@ -238,6 +238,14 @@ for m=1:M
         pars.dat{m}.segment.constr_inthp = false;
     end    
     
+    % CT specific segmentation parameters
+    if ~isfield(pars.dat{m}.segment,'ct')
+        pars.dat{m}.segment.ct = struct;
+    end
+    if ~isfield(pars.dat{m}.segment.ct,'ngauss')
+        pars.dat{m}.segment.ct.ngauss = 1;
+    end
+    
     % Push resps parameters
     %----------------------------------------------------------------------
     if ~isfield(pars.dat{m},'push_resp')
