@@ -95,6 +95,9 @@ for m=1:M
     if ~isfield(pars.dat{m},'modality')
         pars.dat{m}.modality = 'MRI';
     end
+    if ~isfield(pars.dat{m},'healthy')
+        pars.dat{m}.healthy = true;
+    end    
     if ~isfield(pars.dat{m},'trunc_ct')
         pars.dat{m}.trunc_ct = [];
     end   
