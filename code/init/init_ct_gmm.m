@@ -1,31 +1,16 @@
-function pars = init_ct(pars,test_level)
+function pars = init_ct_gmm(pars)
 % Init GMM when data is CT
-% FORMAT pars = init_ct(pars)
+% FORMAT pars = init_ct_gmm(pars)
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<2, test_level = 0; end
 
-if ~isfield(pars,'K')
-    pars.K = 10;
-end
-Kb = pars.K; % Requested number of tissue classes
+Kb = pars.K; 
+M  = numel(pars.dat);
 
-% Read only CT data-sets into a new pars structure (pars1)
-pars1 = read_images(pars,false);
-M     = numel(pars1.dat);
-
-if test_level
-    % Adjust number of subjects if testing
-    for m=1:M
-        if     test_level==2 || test_level==3, pars1.dat{m}.S = min(8,pars1.dat{m}.S);
-        elseif test_level==1,                  pars1.dat{m}.S = 1;   
-        end 
-    end
-end
-
-tot_S  = 0;
-npars1 = {};
-cnt    = 1;
+% Read CT populations into new struct (pars_ct)
+tot_S   = 0;
+pars_ct = {};
+cnt     = 1;
 for m=1:M
     if isfield(pars.dat{m},'modality')
         modality = pars.dat{m}.modality;
@@ -33,13 +18,13 @@ for m=1:M
         continue
     end
     if strcmp(modality,'CT')
-        npars1.dat{cnt} = pars1.dat{m};
-        tot_S           = npars1.dat{cnt}.S;
-        cnt             = cnt + 1;
+        pars_ct.dat{cnt} = pars.dat{m};
+        tot_S            = pars_ct.dat{cnt}.S;
+        cnt              = cnt + 1;
     end
 end
 
-if ~isempty(npars1) && tot_S>1
+if ~isempty(pars_ct) && tot_S>1
     % There are data that is CT -> perform CT init routine (below)
     %----------------------------------------------------------------------
     
@@ -50,9 +35,9 @@ if ~isempty(npars1) && tot_S>1
     mn  = Inf;
     mx  = -Inf;
     for m=1:M
-        S = npars1.dat{m}.S;
+        S = pars_ct.dat{m}.S;
         for s=1:S
-            Nii = nifti(npars1.dat{m}.V{s}.fname);
+            Nii = nifti(pars_ct.dat{m}.V{s}.fname);
             img = single(Nii.dat(:,:,:));
             msk = msk_modality(img,'CT');
             img = img(msk(:));
@@ -113,7 +98,7 @@ if ~isempty(npars1) && tot_S>1
     [~,ix]          = find(X>=0 & X<=80);
     [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k); 
             
-    ngauss = npars1.dat{m}.segment.ct.ngauss; % Number of Gaussians for each brain tissue class
+    ngauss = pars_ct.dat{m}.segment.ct.ngauss; % Number of Gaussians for each brain tissue class
     if ngauss>1
         % Use more than one Gaussian per class within the brain. This
         % requires correcting the Gauss-Wishart parameters estimated by the
@@ -177,7 +162,7 @@ if ~isempty(npars1) && tot_S>1
     gmm = struct;
     mg  = zeros(1,K);
     for m1=1:M
-        S = numel(npars1.dat{m1});
+        S = numel(pars_ct.dat{m1});
         for s=1:S
             for k=1:Kb
                 ix = find(part==k);
@@ -198,13 +183,12 @@ if ~isempty(npars1) && tot_S>1
     end
 
     % Set CT GMM structs
-    %----------------------------------------------------------------------
-    pars.K = Kb;
+    %----------------------------------------------------------------------    
     for m=1:M
-        modality = pars1.dat{m}.modality;
-        healthy  = pars1.dat{m}.healthy;
+        modality = pars.dat{m}.modality;
+        healthy  = pars.dat{m}.healthy;
         if strcmp(modality,'CT')
-            S = numel(npars1.dat{m});
+            S = numel(pars_ct.dat{m});
             for s=1:S
                 pars.dat{m}.segment.mg       = mg;
                 pars.dat{m}.segment.lkp.part = part;                
