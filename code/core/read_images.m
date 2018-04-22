@@ -11,7 +11,9 @@ for m=1:M % Loop over populations
     dir_subj   = dir_subj([dir_subj.isdir]);
     S1         = numel(dir_subj);
     if S>S1, S = S1; end
-      
+    
+    pars.dat{m}.S = S;  
+    
     dir_channels = dir(fullfile(pth,dir_subj(1).name,'scans'));  
     dir_channels = dir_channels(3:end);            
     dir_channels = dir_channels([dir_channels.isdir]);
