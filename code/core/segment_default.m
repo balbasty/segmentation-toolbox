@@ -6,10 +6,6 @@ if isstring(pars) || ischar(pars)
     pars = parse_json(pars);
 end
 
-% For CT data, initialises the GMM parameters by fitting a GMM to an
-% accumulated histogram of image intensities.
-pars = init_ct(pars,test_level);
-
 % General parameters
 %--------------------------------------------------------------------------
 if ~isfield(pars,'name')
