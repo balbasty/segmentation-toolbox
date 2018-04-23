@@ -95,8 +95,8 @@ end
 
 
 %==========================================================================
-function pr = do_update(obj, constrained)
-% FORMAT pr = do_update(obj, consrained)
+function pr = do_update(obj,constrained,tol)
+% FORMAT pr = do_update(obj,consrained,tol)
 %
 % obj - cell of size S (the number of subjects) containing structures with
 %       the field gmm.pr
@@ -105,6 +105,8 @@ function pr = do_update(obj, constrained)
 %
 % constrained - If true:  constrain covariances to be alike
 %               If false: mode estimate for all parameters
+%
+% tol - stopping tolerance [1e-4]
 %
 % pr  - structure with fields
 %       * m0, b0, W0, n0 (Gauss-Wishart prior)     -> length K
@@ -121,6 +123,7 @@ function pr = do_update(obj, constrained)
 % N = number of channels / family
 % S = number of subjects
 % K = number of Gaussians in the mixture
+if nargin<3, tol = 1e-4; end
 
 S = numel(obj);
 
@@ -400,7 +403,13 @@ else
         for k=1:K
             lb  = lb - spm_prob('Wishart', 'kl', V(:,:,k), p(k), V0, p0);
         end
-        if abs(lb_prev-lb) < 2*eps
+        
+        d = abs((lb_prev*(1 + 10*eps) - lb)/lb);
+        if 0
+            fprintf('%2d | lb = %0.0f | d = %0.5f\n',em,lb,d);  
+        end
+        
+        if d<tol
             break;
         end
         % ---
