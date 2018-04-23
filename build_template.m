@@ -156,8 +156,8 @@ for iter=1:pars.niter
         if pars.verbose>0, plot_ll(pars.fig{5},L); end
         if pars.verbose>1, show_template(pars.fig{6},pars.pth_template); end
         if pars.verbose>2, show_resp(pars.fig{7},obj,pars.rand_subjs); end      
-        if pars.verbose>3, show_def(pars.fig{8},obj,pars.rand_subjs); end         
-        if pars.verbose>3, show_intensity_hp(pars.fig{9},obj); end 
+        if pars.verbose>2, show_intensity_hp(pars.fig{8},obj); end 
+        if pars.verbose>3, show_def(pars.fig{9},obj,pars.rand_subjs); end                 
         if pars.verbose>3, show_bf(pars.fig{10},obj,pars.rand_subjs); end 
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
