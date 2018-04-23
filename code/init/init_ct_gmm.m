@@ -76,20 +76,19 @@ if ~isempty(pars_ct) && tot_S>1
     end
     clear c x
 
+    % Smooth histogram a little bit
+    krn = spm_smoothkern(4,(-256:256)',0);
+    C   = conv(C,krn,'same');
+    
     % Remove intensity values smaller than a threshold (nmn)
-    nmn   = -1040;
-    ix_mn = find(X>=nmn);
-    X     = X(ix_mn(1):end);
-    C     = C(ix_mn(1):end);
+    nmn = -1040;
+    nmx = 2000;
+    nix = find(X>=nmn & X<=nmx);
+    X   = X(nix);
+    C   = C(nix);
 
     % Fit VB-GMM to background
-    [~,ix] = find(X<0);
-%     lb     = [];
-%     for k=1:10
-%         [a,m,b,n,W,~,dlb] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k);  
-%         lb                = [dlb,lb];        
-%     end
-%     [~,mx]       = max(lb);
+    [~,ix]          = find(X<0);
     [~,m1,b1,n1,W1] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),6);      
     lkp1            = ones(1,6);
     
@@ -135,13 +134,7 @@ if ~isempty(pars_ct) && tot_S>1
     lkp2 = repelem(2:Kb - 1,1,ngauss);
     
     % Fit VB-GMM to bone
-    [~,ix] = find(X>80);
-%     lb     = [];
-%     for k=1:10
-%         [a,m,b,n,W,~,dlb] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k);  
-%         lb                = [dlb,lb];        
-%     end
-%     [~,mx]       = max(lb);
+    [~,ix]          = find(X>80);
     [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),6);     
     lkp3            = Kb*ones(1,6);
      
@@ -152,7 +145,7 @@ if ~isempty(pars_ct) && tot_S>1
     part = [lkp1,lkp2,lkp3];
     K    = numel(part);
     
-    [~,ix_rem] = min(abs(m - 60)); % Get index of lesion class
+    [~,ix_rem] = min(abs(m - 65)); % Get index of lesion class
     rem        = part(ix_rem);
   
     % Init VB-GMM posteriors

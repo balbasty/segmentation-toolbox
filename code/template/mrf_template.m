@@ -20,7 +20,7 @@ Q = exp(Q);
 Q = bsxfun(@rdivide,Q,sum(Q,4));
 
 nmrf_its = 10;
-T        = 2;
+T        = 1;
 G        = T*ones([Kb,1],'single');
 P        = zeros(dm,'uint8');
 
