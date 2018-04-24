@@ -82,21 +82,24 @@ if ~isempty(pars_ct) && tot_S>1
     
     % Remove intensity values smaller than a threshold (nmn)
     nmn = -1040;
-    nmx = 2000;
+    nmx = 3000;
     nix = find(X>=nmn & X<=nmx);
     X   = X(nix);
     C   = C(nix);
 
     % Fit VB-GMM to background
     [~,ix]          = find(X<0);
-    [~,m1,b1,n1,W1] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),6);      
-    lkp1            = ones(1,6);
+    [~,m1,b1,n1,W1] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),5);      
+    lkp1            = ones(1,5);
     
     % Fit VB-GMM to brain
     k               = Kb - 2;
     [~,ix]          = find(X>=0 & X<=80);
     [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k); 
             
+    mx2 = max(X(ix));
+    mn2 = min(X(ix));    
+    
     ngauss = pars_ct.dat{m}.segment.ct.ngauss; % Number of Gaussians for each brain tissue class
     if ngauss>1
         % Use more than one Gaussian per class within the brain. This
@@ -133,10 +136,12 @@ if ~isempty(pars_ct) && tot_S>1
     end
     lkp2 = repelem(2:Kb - 1,1,ngauss);
     
+    m2 = [10 25 35 50 65];
+    
     % Fit VB-GMM to bone
     [~,ix]          = find(X>80);
-    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),6);     
-    lkp3            = Kb*ones(1,6);
+    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),4);     
+    lkp3            = Kb*ones(1,4);
      
     m    = [m1,m2,m3];
     W    = [W1,W2,W3];
@@ -163,14 +168,14 @@ if ~isempty(pars_ct) && tot_S>1
                 mg(ix) = 1/nnz(ix);
 
                 gmm.pr.m(:,ix)   = m(ix);
-                gmm.pr.b(ix)     = b(ix);
-                gmm.pr.n(ix)     = n(ix);
-                gmm.pr.W(:,:,ix) = W(ix);
+                gmm.pr.b(ix)     = 1;
+                gmm.pr.n(ix)     = 1;
+                gmm.pr.W(:,:,ix) = 1;
 
                 gmm.po.m(:,ix)   = m(ix);
-                gmm.po.b(ix)     = b(ix);
-                gmm.po.n(ix)     = n(ix);
-                gmm.po.W(:,:,ix) = W(ix);                
+                gmm.po.b(ix)     = 1;
+                gmm.po.n(ix)     = 1;
+                gmm.po.W(:,:,ix) = 1;      
             end
         end
     end
@@ -191,11 +196,11 @@ if ~isempty(pars_ct) && tot_S>1
                     % If labelleled healthy, remove class with intensity
                     % closest to intensity of blood in CT. Also set that
                     % class' posterior and prior m hyper-parameter to zero.
-                    pars.dat{m}.segment.lkp.rem  = rem;
+                    pars.dat{m}.segment.lkp.rem  = 6;
                     
                     for i=1:ngauss
-                        pars.dat{m}.segment.gmm.po.m(ix_rem + i - 1) = 0;
-                        pars.dat{m}.segment.gmm.pr.m(ix_rem + i - 1) = 0;
+                        pars.dat{m}.segment.gmm.po.m(11) = 0;
+                        pars.dat{m}.segment.gmm.pr.m(11) = 0;
                     end
                 end
             end
