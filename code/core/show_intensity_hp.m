@@ -2,6 +2,18 @@ function show_intensity_hp(fig,obj)
 set(0,'CurrentFigure',fig); clf(fig);    
 
 M = numel(obj);
+
+all_ct = true;
+for m=1:M
+    if strcmp(obj{m}{1}.modality,'MRI')
+        all_ct = false;
+    end
+end
+
+if all_ct
+    M = 1;    
+end
+
 i = 0;
 for m=1:M
     pr  = obj{m}{1}.segment.gmm.pr;
@@ -40,6 +52,10 @@ for m=1:M
             labels{k} = ['k' num2str(k1)];
         end
         legend(labels);
+    end
+    
+    if all_ct
+        break;
     end
 end                                  
 drawnow

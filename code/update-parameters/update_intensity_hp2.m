@@ -24,7 +24,6 @@ for m=1:M
         all_ct = false;
     end
 end
-all_ct = false; % Not used for now
 
 % ------------------
 % Case with only CTs
@@ -37,7 +36,13 @@ if all_ct
         for s=1:S
             if obj{m}{s}.status==0
                 obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
-                cnt           = cnt + 1;
+                if ~isempty(obj{m}{s}.segment.lkp.rem)
+                    obj1{cnt}.rem = find(obj{m}{s}.segment.lkp.part == obj{m}{s}.segment.lkp.rem);
+                else
+                    obj1{cnt}.rem = [];
+                end
+                
+                cnt = cnt + 1;
             end
         end
     end
@@ -71,6 +76,8 @@ else
         for s=1:S
             if obj{m}{s}.status==0
                 obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
+                obj1{cnt}.rem = []; 
+                                
                 cnt           = cnt + 1;
             end
         end
@@ -92,7 +99,6 @@ else
     end
 end
 %==========================================================================
-
 
 %==========================================================================
 function pr = do_update(obj,constrained,tol)
@@ -126,27 +132,36 @@ function pr = do_update(obj,constrained,tol)
 if nargin<3, tol = 1e-4; end
 
 S = numel(obj);
+N = size(obj{1}.gmm.pr.m,1);
+K = size(obj{1}.gmm.pr.m,2);
 
 % -------------------------------------------------------------------------
 % Starting estimates
 % > Compute sample means of all posterior Gauss-Wishart parameters
-m0 = 0;
-b0 = 0;
-n0 = 0;
-W0 = 0;
+m0  = zeros(N,K);
+b0  = zeros(1,K);
+n0  = zeros(1,K);
+W0  = zeros(N,N,K);
+cnt = zeros(1,K);
 for s=1:S
-    m0  = m0 + obj{s}.gmm.pr.m;
-    b0  = b0 + obj{s}.gmm.pr.b;
-    W0  = W0 + obj{s}.gmm.pr.W;
-    n0  = n0 + obj{s}.gmm.pr.n;
+    for k=1:K
+        if k==obj{s}.rem, continue; end
+        
+        m0(:,k)   = m0(:,k)   + obj{s}.gmm.pr.m(:,k);
+        b0(k)     = b0(k)     + obj{s}.gmm.pr.b(k);
+        W0(:,:,k) = W0(:,:,k) + obj{s}.gmm.pr.W(:,:,k);
+        n0(k)     = n0(k)     + obj{s}.gmm.pr.n(k);
+        
+        cnt(k) = cnt(k) + 1;
+    end
 end
-m0 = m0/S;
-b0 = b0/S;
-W0 = W0/S;
-n0 = n0/S;
 
-N = size(m0,1);
-K = size(m0,2);
+for k=1:K
+    m0(:,k)   = m0(:,k)/cnt(k);
+    b0(k)     = b0(k)/cnt(k);  
+    W0(:,:,k) = W0(:,:,k)/cnt(k);
+    n0(k)     = n0(k)/cnt(k);
+end
 
 % preallocate
 LogDetW0  = zeros(size(n0));
@@ -160,12 +175,21 @@ p0        = 0;
 
 for k=1:K
     
+    S0 = 0;
+    for s=1:S
+        if k==obj{s}.rem, continue; end
+        
+        S0 = S0 + 1;
+    end
+    
     % ---------------------------------------------------------------------
     % Update m0 (mode, closed-form)
     
     Lambda   = 0;
     LambdaMu = 0;
     for s=1:S
+        if k==obj{s}.rem, continue; end
+        
         [m,~,W,n] = get_po(obj,s);
         Lambda    = Lambda   + n(k)*W(:,:,k);
         LambdaMu  = LambdaMu + n(k)*W(:,:,k)*m(:,k);
@@ -180,11 +204,13 @@ for k=1:K
 
     b0(k)= 0;
     for s=1:S
+        if k==obj{s}.rem, continue; end
+        
         [m,b,W,n] = get_po(obj,s);
         m1 = m(:,k) - m0(:,k);
         b0(k) = b0(k) + m1.' * (n(k)*W(:,:,k)) * m1 + N/b(k);
     end
-    b0(k) = N*S/b0(k);
+    b0(k) = N*S0/b0(k);
     
     % ---------------------------------------------------------------------
 
@@ -201,20 +227,29 @@ if ~constrained
 
     for k=1:K
         
+        S0 = 0;
+        for s=1:S
+            if k==obj{s}.rem, continue; end
+
+            S0 = S0 + 1;
+        end
+
         % ---
         % Set up some constants
         sumLogDet = 0;
         sumPsi    = 0;
         Wn        = 0;
         for s=1:S
+            if k==obj{s}.rem, continue; end
+            
             [~,~,W,n] = get_po(obj,s);
             sumLogDet = sumLogDet + spm_matcomp('LogDet', W(:,:,k));
             sumPsi    = sumPsi    + spm_prob('DiGamma', n(k)/2, N);
             Wn        = Wn        + n(k)*W(:,:,k);
         end
-        sumLogDet = sumLogDet/S;
-        sumPsi    = sumPsi/S;
-        Wn        = Wn/S;
+        sumLogDet = sumLogDet/S0;
+        sumPsi    = sumPsi/S0;
+        Wn        = Wn/S0;
             
         % -----------------------------------------------------------------
         % Update n0 (mode, Gauss-Newton [convex])
@@ -230,8 +265,8 @@ if ~constrained
             % ---
             % Objective function
             Eprev = E;
-            E = 0.5*S*n0(k)*( LogDetW0(k) - sumLogDet - sumPsi ) ...
-                + S*spm_prob('LogGamma', n0(k)/2, N);
+            E = 0.5*S0*n0(k)*( LogDetW0(k) - sumLogDet - sumPsi ) ...
+                + S0*spm_prob('LogGamma', n0(k)/2, N);
             
             if E == Eprev
                 break;
@@ -239,9 +274,9 @@ if ~constrained
 
             % ---
             % Gradient & Hessian
-            g = 0.5*S*( LogDetW0(k) - sumLogDet - sumPsi ...
+            g = 0.5*S0*( LogDetW0(k) - sumLogDet - sumPsi ...
                          + spm_prob('DiGamma', n0(k)/2, N) );
-            H = S/4*spm_prob('DiGamma', n0(k)/2, N, 1);
+            H = S0/4*spm_prob('DiGamma', n0(k)/2, N, 1);
 
             % ---
             % Update
@@ -274,12 +309,19 @@ else
         if p0 == 0
             p0 = 0;
             V0 = 0;
-            for k=1:K
-                p0 = p0 + S*n0(k);
+            for k=1:K             
+                
+                S0 = 0;
                 for s=1:S
+                    if k==obj{s}.rem, continue; end
+                    
                     [~,~,W,n] = get_po(obj,s);
                     V0 = V0 + spm_matcomp('Inv', n(k)*W(:,:,k));
+                    
+                    S0 = S0 + 1;
                 end
+                
+                p0 = p0 + S0*n0(k);
             end
             p0 = p0/K;
             V0 = V0/K;
@@ -291,6 +333,13 @@ else
 
         for k=1:K
 
+            S0 = 0;
+            for s=1:S
+                if k==obj{s}.rem, continue; end
+
+                S0 = S0 + 1;
+            end
+
             % ---
             % Set up some constants
             % > compute sum E[logdet W] and sum psi(nu/2)
@@ -298,13 +347,15 @@ else
             psiN     = 0;
             Lambda   = 0;
             for s=1:S
+                if k==obj{s}.rem, continue; end
+                
                 [~,~,W,n] = get_po(obj,s);
                 logDetW = logDetW  + spm_matcomp('Logdet', W(:,:,k));
                 psiN    = psiN     + spm_prob('DiGamma', n(k)/2, N);
                 Lambda  = Lambda   + n(k)*W(:,:,k);
             end
-            logDetW  = logDetW/S;
-            psiN = psiN/S;
+            logDetW  = logDetW/S0;
+            psiN = psiN/S0;
 
 
             % -------------------------------------------------------------
@@ -314,7 +365,7 @@ else
 
                 % ---------------------------------------------------------
                 % Update {p,V} for W0 (posterior, closed form)
-                p(k)       = p0 + S*n0(k);
+                p(k)       = p0 + S0*n0(k);
                 V(:,:,k)   = spm_matcomp('Inv', spm_matcomp('Inv', V0) + Lambda);
                 % Useful values
                 W0(:,:,k)   = spm_matcomp('Inv', spm_prob('W', 'E', V(:,:,k), p(k)));
@@ -324,16 +375,16 @@ else
                 % ---
                 % Objective function
                 Eprev = E;
-                E = S*n0(k)/2 * (LogDetW0(k) - logDetW - psiN) ...
-                    + S*spm_prob('LogGamma', n0(k)/2, N);
+                E = S0*n0(k)/2 * (LogDetW0(k) - logDetW - psiN) ...
+                    + S0*spm_prob('LogGamma', n0(k)/2, N);
                 if E == Eprev
                     break;
                 end
 
                 % ---
                 % Gradient & Hessian
-                g = S/2*(LogDetW0(k) - logDetW - psiN + spm_prob('DiGamma', n0(k)/2, N));
-                H = S/4 * spm_prob('DiGamma', n0(k)/2, N, 1);
+                g = S0/2*(LogDetW0(k) - logDetW - psiN + spm_prob('DiGamma', n0(k)/2, N));
+                H = S0/4 * spm_prob('DiGamma', n0(k)/2, N, 1);
 
                 % ---
                 % Update
