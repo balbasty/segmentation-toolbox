@@ -163,14 +163,14 @@ if ~isempty(pars_ct) && tot_S>1
                 mg(ix) = 1/nnz(ix);
 
                 gmm.pr.m(:,ix)   = m(ix);
-                gmm.pr.b(ix)     = 1;%b(ix);
-                gmm.pr.n(ix)     = 1;%n(ix);
-                gmm.pr.W(:,:,ix) = 1;%W(ix);
+                gmm.pr.b(ix)     = b(ix);
+                gmm.pr.n(ix)     = n(ix);
+                gmm.pr.W(:,:,ix) = W(ix);
 
                 gmm.po.m(:,ix)   = m(ix);
-                gmm.po.b(ix)     = 1;%b(ix);
-                gmm.po.n(ix)     = 1;%n(ix);
-                gmm.po.W(:,:,ix) = 1;%W(ix);                
+                gmm.po.b(ix)     = b(ix);
+                gmm.po.n(ix)     = n(ix);
+                gmm.po.W(:,:,ix) = W(ix);                
             end
         end
     end
