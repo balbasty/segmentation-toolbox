@@ -6,17 +6,31 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<1, pars       = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS-and-healthy-2d-dropbox.json'; end
 if nargin<2, test_level = 0; end
+
+if test_level==0 || test_level==3
+    dir_pars = '/data/mbrud/pars/segmentation-toolbox/'; 
+else
+    dir_pars = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/'; 
+end
+
+if nargin<1 
+    pars = [dir_pars 'CROMIS-and-healthy-3d-vx.json']; 
+end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-pth_distributed_toolbox = '/home/mbrud/dev/distributed-computing';
-pth_auxiliary_functions = '/home/mbrud/dev/auxiliary-functions';
+if test_level==0 || test_level==3
+    pth_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
+    pth_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
+else
+    pth_distributed_toolbox = '/home/mbrud/dev/WTCN-computational-anatomy-group/distributed-computing';
+    pth_auxiliary_functions = '/home/mbrud/dev/WTCN-computational-anatomy-group/auxiliary-functions';
+end
 
 holly_server_login   = 'mbrud';
-holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox-new';
+holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox';
 holly_matlab_add_aux = '/home/mbrud/dev/auxiliary-functions';
 
 % addpath
@@ -46,14 +60,14 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = false;
-holly.job.mem       = '8G';
-holly.job.est_mem   = false;
+holly.job.mem       = '5G';
+holly.job.est_mem   = true;
 holly.job.use_dummy = true;
 
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
 elseif test_level==2, holly.server.ip  = ''; holly.client.workers = Inf;
 end
-holly.server.ip = ''; holly.client.workers = Inf;
+% holly.server.ip = ''; holly.client.workers = Inf;
 % holly.server.ip = ''; holly.client.workers = 0;
 
 holly = distribute_default(holly);
