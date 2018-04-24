@@ -34,7 +34,7 @@ for m=1:M
                 k1 = k1 + 1;  
             end
             
-            subplot(m,ncol,i)
+            subplot(M,ncol,i)
             h = plot_gaussian(pr.m(ind,k), pr.n(k)*pr.W(ind,ind,k), CM(k1,:), K > 1);
             h.LineWidth = 1;
             labels{k} = ['k' num2str(k1)];
