@@ -239,7 +239,7 @@ for m=1:M
         pars.dat{m}.segment.ct = struct;
     end
     if ~isfield(pars.dat{m}.segment.ct,'ngauss')
-        pars.dat{m}.segment.ct.ngauss = 2;
+        pars.dat{m}.segment.ct.ngauss = 1;
     end
     
     % Push resps parameters
