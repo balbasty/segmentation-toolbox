@@ -1,8 +1,10 @@
-function pars = init_ct_gmm(pars)
+function pars = init_ct_gmm(pars,verbose)
 % Init GMM when data is CT
 % FORMAT pars = init_ct_gmm(pars)
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
+
+if nargin<2, verbose = true; end
 
 Kb = pars.K; 
 M  = numel(pars.dat);
@@ -36,7 +38,21 @@ if ~isempty(pars_ct) && tot_S>1
     mx  = -Inf;
     for m=1:M
         S = pars_ct.dat{m}.S;
+        if verbose, fprintf(1,'Getting histogram from subject (m=%d, S=%d) -    ',m,S); end
         for s=1:S
+            
+            if verbose                
+                if s<10
+                    fprintf(1,'\b%d',s);
+                elseif s<100
+                    fprintf(1,'\b\b%d',s);
+                elseif s<1000
+                    fprintf(1,'\b\b\b%d',s);
+                elseif s<10000
+                    fprintf(1,'\b\b\b\b%d',s);
+                end                
+            end
+        
             Nii = nifti(pars_ct.dat{m}.V{s}.fname);
             img = single(Nii.dat(:,:,:));
             msk = msk_modality(img,'CT');
@@ -58,6 +74,7 @@ if ~isempty(pars_ct) && tot_S>1
 
             cnt = cnt + 1;
         end
+        fprintf(' | DONE!\n')   
     end
     clear c1 x1
 
@@ -77,8 +94,8 @@ if ~isempty(pars_ct) && tot_S>1
     clear c x
 
     % Smooth histogram a little bit
-    krn = spm_smoothkern(4,(-256:256)',0);
-    C   = conv(C,krn,'same');
+%     krn = spm_smoothkern(4,(-256:256)',0);
+%     C   = conv(C,krn,'same');
     
     % Remove intensity values smaller than a threshold (nmn)
     nmn = -1040;
@@ -148,10 +165,7 @@ if ~isempty(pars_ct) && tot_S>1
     b    = [b1,b2,b3];
     n    = [n1,n2,n3];
     part = [lkp1,lkp2,lkp3];
-    K    = numel(part);
-    
-    [~,ix_rem] = min(abs(m - 65)); % Get index of lesion class
-    rem        = part(ix_rem);
+    K    = numel(part);    
   
     % Init VB-GMM posteriors
     %----------------------------------------------------------------------
