@@ -59,10 +59,11 @@ holly.matlab.add    = holly_matlab_add_aux;
 holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
-holly.verbose       = false;
-holly.job.mem       = '5G';
+holly.verbose       = true;
+holly.job.batch     = true;
+holly.job.mem       = '4G';
 holly.job.est_mem   = true;
-holly.job.use_dummy = true;
+holly.job.use_dummy = false;
 
 if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
 elseif test_level==2, holly.server.ip  = ''; holly.client.workers = Inf;
