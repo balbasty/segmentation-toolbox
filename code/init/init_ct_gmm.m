@@ -156,9 +156,9 @@ if ~isempty(pars_ct) && tot_S>1
     m2 = [10 25 35 50 65];
     
     % Fit VB-GMM to bone
-    [~,ix]          = find(X>80);
-    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),4);     
-    lkp3            = Kb*ones(1,4);
+    [~,ix]          = find(X>100);
+    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),3);     
+    lkp3            = Kb*ones(1,3);
      
     m    = [m1,m2,m3];
     W    = [W1,W2,W3];
