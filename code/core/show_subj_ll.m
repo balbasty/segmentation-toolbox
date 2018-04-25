@@ -9,7 +9,12 @@ for m=1:M
         
         ll = obj{m}{s}.segment.ll_all;        
                 
-        plot(0:numel(ll) - 1,ll,'b-'); title(['ll_{m=' num2str(m) ', s=' num2str(s) '}'])
+        if numel(ll)>2
+            plot(0:numel(ll) - 2,ll(2:end),'b-'); 
+        else
+            plot(0:numel(ll) - 1,ll,'b-'); 
+        end
+        title(['ll_{m=' num2str(m) ', s=' num2str(s) '}'])
         
         cnt = cnt + 1;
     end
