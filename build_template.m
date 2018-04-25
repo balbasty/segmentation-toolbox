@@ -171,8 +171,9 @@ for iter=1:pars.niter
         if pars.verbose>1, show_template(pars.fig{6},pars.pth_template); end
         if pars.verbose>2, show_resp(pars.fig{7},obj,pars.rand_subjs); end      
         if pars.verbose>2, show_intensity_hp(pars.fig{8},obj); end 
-        if pars.verbose>3, show_def(pars.fig{9},obj,pars.rand_subjs); end                 
-        if pars.verbose>3, show_bf(pars.fig{10},obj,pars.rand_subjs); end 
+        if pars.verbose>2, show_subj_ll(pars.fig{9},obj,pars.rand_subjs); end
+        if pars.verbose>2, show_def(pars.fig{10},obj,pars.rand_subjs); end                 
+        if pars.verbose>3, show_bf(pars.fig{11},obj,pars.rand_subjs); end 
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  

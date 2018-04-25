@@ -168,19 +168,23 @@ for i=1:3
 end
 clear Twarp Nii
 
-obj.Affine        = Affine;
-obj.segment.lkp   = lkp;
-obj.segment.MT    = MT;
-obj.segment.Tbias = {chan(:).T};
-obj.segment.wp    = wp;
-obj.segment.mg    = mg;
-obj.segment.gmm   = gmm;
-obj.segment.ll    = ll;
+obj.Affine         = Affine;
+
+obj.segment.lkp    = lkp;
+obj.segment.MT     = MT;
+obj.segment.Tbias  = {chan(:).T};
+obj.segment.wp     = wp;
+obj.segment.mg     = mg;
+obj.segment.mom    = mom;
+obj.segment.gmm    = gmm;
+obj.segment.ll     = ll;
+obj.segment.ll_all = [obj.segment.ll_all ll];
+
 obj.segment.bf.dc = dc;
 obj.segment.bf.b1 = b1;
 obj.segment.bf.b2 = b2;
 obj.segment.bf.b3 = b3;
-obj.segment.mom   = mom;
+
 return;
 %=======================================================================
 
