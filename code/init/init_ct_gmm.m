@@ -111,7 +111,7 @@ if ~isempty(pars_ct) && tot_S>1
     
     % Fit VB-GMM to brain
     k               = Kb - 2;
-    [~,ix]          = find(X>=-100 & X<=80);
+    [~,ix]          = find(X>=-100 & X<=200);
     [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k); 
             
 %     mx2 = max(X(ix));
@@ -153,13 +153,13 @@ if ~isempty(pars_ct) && tot_S>1
 %     end
 %     lkp2 = repelem(2:Kb - 1,1,ngauss);
     
-    m2   = [-50 10 25 35 50 65];
+    m2   = [-50 10 25 35 45 65 100];
     lkp2 = 2:numel(m2) + 1;
     
     % Fit VB-GMM to bone
-    [~,ix]          = find(X>80);
-    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),4);     
-    lkp3            = Kb*ones(1,4);
+    [~,ix]          = find(X>200);
+    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),3);     
+    lkp3            = Kb*ones(1,3);
      
     m    = [m1,m2,m3];
     W    = [W1,W2,W3];
