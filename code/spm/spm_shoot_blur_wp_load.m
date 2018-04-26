@@ -57,13 +57,29 @@ for m=1:M
             rngz = bb(3,1):bb(3,2);
             
             for k=1:size(gr,4)
-                Nii                  = nifti(obj{m}{s}.pth_gr{k});
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    Nii = nifti(obj{m}{s}.pth_gr_local{k});
+                else
+                    Nii = nifti(obj{m}{s}.pth_gr{k});
+                end
                 gr(rngx,rngy,rngz,k) = gr(rngx,rngy,rngz,k) + single(Nii.dat(:,:,:));
+                
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    delete(obj{m}{s}.pth_gr_local{k});
+                end
             end
             
             for k=1:size(W,4)
-                Nii                 = nifti(obj{m}{s}.pth_H{k});
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    Nii = nifti(obj{m}{s}.pth_H_local{k});
+                else                                  
+                    Nii = nifti(obj{m}{s}.pth_H{k});
+                end
                 W(rngx,rngy,rngz,k) = W(rngx,rngy,rngz,k) + single(Nii.dat(:,:,:));
+                
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    delete(obj{m}{s}.pth_H_local{k});
+                end
             end
             
             ll = ll + obj{m}{s}.ll_template; 

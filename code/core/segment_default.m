@@ -17,6 +17,12 @@ end
 if ~isfield(pars,'dir_output')
     pars.dir_output = './temp-data/';
 end
+if ~isfield(pars,'dir_local')
+    pars.dir_local = '';
+end
+if ~isfield(pars,'address_local')
+    pars.address_local = '';
+end
 if ~isfield(pars,'dir_template')
     pars.dir_template = pars.dir_output;
 end   

@@ -5,6 +5,9 @@ M = numel(pars.dat);
 dir_subjects = fullfile(pars.dir_output,'subjects');
 if exist(dir_subjects,'dir'), rmdir(dir_subjects,'s'); end; mkdir(dir_subjects);   
 
+dir_local = pars.dir_local;
+if exist(dir_local,'dir'), rmdir(dir_local,'s'); end; mkdir(dir_local);   
+
 %--------------------------------------------------------------------------
 tot_S = 0;
 for m=1:M
@@ -55,7 +58,7 @@ for m=1:M
     V             = pars.dat{m}.V;
     N             = numel(V{1});
     S             = numel(V);
-    rand_subjs{m} = randperm(S,min(S0,S));   
+    rand_subjs{m} = 1:min(S0,S);%randperm(S,min(S0,S));   
     obj{m}        = cell(1,S);
     
     pars.dat{m}.segment.biasreg  = pars.dat{m}.segment.biasreg*ones(1,N);
@@ -78,6 +81,11 @@ for m=1:M
         obj1.dir_s = dir_s;
         mkdir(dir_s);         
         
+        if ~isempty(dir_local)
+            dir_local_s = fullfile(dir_local,['s-' num2str(s) '_m-' num2str(m)]);
+            mkdir(dir_local_s); 
+        end
+        
         %------------------------------------------------------------------        
         obj1.image  = V{s};
         obj1.labels = pars.dat{m}.labels{s};
@@ -99,6 +107,8 @@ for m=1:M
         obj1.ll_template     = 0;
         obj1.status          = 0;
         obj1.iter            = 1;
+        
+        obj1.address_local = pars.address_local;        
         
         %------------------------------------------------------------------
         obj1.maff = pars.dat{m}.maff;
@@ -173,9 +183,18 @@ for m=1:M
         end
         obj1.pth_resp = pth_resp;
     
-        dir_der = fullfile(dir_s,'der');      
-        mkdir(dir_der);
-
+        dir_der      = fullfile(dir_s,'der');      
+        obj1.dir_der = dir_der;
+        mkdir(dir_der);        
+        
+        if ~isempty(dir_local)
+            dir_der_local      = fullfile(dir_local_s,'der');      
+            obj1.dir_der_local = dir_der_local;
+            mkdir(dir_der_local);  
+        else
+            obj1.dir_der_local = '';
+        end
+        
         pth_gr = cell(1,d_gr(end));
         for k=1:d_gr(end)
             fname     = fullfile(dir_der,['gr-', num2str(k), '-' nam, '.nii']);
@@ -183,6 +202,15 @@ for m=1:M
         end
         obj1.pth_gr = pth_gr;
 
+        if ~isempty(dir_local)
+            pth_gr = cell(1,d_gr(end));
+            for k=1:d_gr(end)
+                fname     = fullfile(dir_der_local,['gr-', num2str(k), '-' nam, '.nii']);
+                pth_gr{k} = fname;  
+            end
+            obj1.pth_gr_local = pth_gr;
+        end
+                
         pth_H = cell(1,d_H(end));
         for k=1:d_H(end)
             fname    = fullfile(dir_der,['H-', num2str(k), '-' nam, '.nii']);
@@ -190,6 +218,15 @@ for m=1:M
         end
         obj1.pth_H = pth_H;
 
+        if ~isempty(dir_local)
+            pth_H = cell(1,d_H(end));
+            for k=1:d_H(end)
+                fname    = fullfile(dir_der_local,['H-', num2str(k), '-' nam, '.nii']);
+                pth_H{k} = fname;  
+            end
+            obj1.pth_H_local = pth_H;
+        end
+                
         dir_vel = fullfile(dir_s,'vel');   
         mkdir(dir_vel);
 

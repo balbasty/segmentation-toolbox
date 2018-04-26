@@ -345,6 +345,12 @@ for k1=1:d(4)
     Nii.dat(:,:,:) = W(:,:,:,k1);        
 end
 clear Nii Nii1 W
+
+if ~isempty(obj.dir_der_local)
+    % SSH copy from Holly to local machine
+    cmd = ['scp -r ' fullfile(obj.dir_der,'*') ' ' obj.address_local ':' obj.dir_der_local];
+    system(cmd);
+end
 %==========================================================================
 
 %==========================================================================
