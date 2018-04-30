@@ -76,14 +76,14 @@ holly = distribute_default(holly);
 %--------------------------------------------------------------------------
 % Initialise algorithm
 %--------------------------------------------------------------------------
-pars = read_images(pars); 
+pars = read_images_segment(pars); 
 pars = init_template(pars); 
 
 % Only if CT data, initialise the GMM parameters by fitting a GMM to an
 % accumulated histogram of image intensities.
 pars = init_ct_gmm(pars);
 
-[obj,pars] = init_obj(pars);
+[obj,pars] = init_obj_segment(pars);
 
 %--------------------------------------------------------------------------
 % Start the algorithm
@@ -107,7 +107,7 @@ for iter=1:pars.niter
     %----------------------------------------------------------------------
     
     [obj,ix]    = unfold_cell(obj,2);
-    [holly,obj] = distribute(holly,'process_subject','inplace',obj,pars.fig);
+    [holly,obj] = distribute(holly,'process_subject_segment','inplace',obj,pars.fig);
     obj         = fold_cell(obj,ix);
     
     % Check if any subjects have status~=0

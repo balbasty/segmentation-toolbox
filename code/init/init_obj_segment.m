@@ -1,4 +1,4 @@
-function [obj,pars] = init_obj(pars)
+function [obj,pars] = init_obj_segment(pars)
 M = numel(pars.dat);
 
 %--------------------------------------------------------------------------
@@ -6,7 +6,9 @@ dir_subjects = fullfile(pars.dir_output,'subjects');
 if exist(dir_subjects,'dir'), rmdir(dir_subjects,'s'); end; mkdir(dir_subjects);   
 
 dir_local = pars.dir_local;
-if exist(dir_local,'dir'), rmdir(dir_local,'s'); end; mkdir(dir_local);   
+if ~isempty(dir_local)
+    if exist(dir_local,'dir'), rmdir(dir_local,'s'); end; mkdir(dir_local);   
+end
 
 %--------------------------------------------------------------------------
 tot_S = 0;

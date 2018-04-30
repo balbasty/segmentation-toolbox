@@ -1,4 +1,4 @@
-function pars = read_images(pars,verbose)
+function pars = read_images_segment(pars,verbose)
 if nargin<2, verbose = true; end
 
 M = numel(pars.dat);

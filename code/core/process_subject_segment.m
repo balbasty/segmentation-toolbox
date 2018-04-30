@@ -1,4 +1,4 @@
-function obj = process_subject(obj,fig) 
+function obj = process_subject_segment(obj,fig) 
 try
     rng('default');
     rng(obj.s);
@@ -43,8 +43,12 @@ try
 
     % Write results
     %--------------------------------------------------------------
-    if obj.write_res.do_write_res      
+    if obj.write_res.do_write_res  
         write_res(obj);
+        
+%         f1 = obj.image(1).fname;
+%         f2 = spm_select('FPList',obj.dir_write,'^c.*\.nii$');
+%         spm_check_registration(char({f1,f2}))
     end    
 
     % Verbose
