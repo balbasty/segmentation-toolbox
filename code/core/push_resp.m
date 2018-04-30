@@ -73,7 +73,7 @@ for z=1:length(x3)
     msk = cell(1,N);
     for n=1:N
         f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
-        msk{n} = msk_modality(f{n},obj.modality,obj.trunc_ct);
+        msk{n} = spm_misc('msk_modality',f{n},obj.modality);
     end
     
     if ~obj.segment.do_missing_data
