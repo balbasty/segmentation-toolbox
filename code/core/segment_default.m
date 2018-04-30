@@ -32,7 +32,7 @@ pars = append_dir(pars);
 % Template specific parameters
 %--------------------------------------------------------------------------
 if ~isfield(pars,'K')
-    pars.K = 6;
+    pars.K = 6;            
     if isfield(pars,'pth_template')
         if ~isempty(pars.pth_template)
             V1     = spm_vol(pars.pth_template); 
@@ -40,6 +40,10 @@ if ~isfield(pars,'K')
         end
     end            
 end
+if has_ct_data(pars)
+    pars.K = 9; 
+end
+    
 if ~isfield(pars,'niter')
     pars.niter = 30;
 end
@@ -56,7 +60,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0 30 30];
+    pars.sparam = [0 50 50];
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -100,9 +104,6 @@ for m=1:M
     if ~isfield(pars.dat{m},'healthy')
         pars.dat{m}.healthy = true;
     end    
-    if ~isfield(pars.dat{m},'trunc_ct')
-        pars.dat{m}.trunc_ct = [];
-    end   
     if ~isfield(pars.dat{m},'fwhm')
         pars.dat{m}.fwhm = 1;
     end
@@ -244,8 +245,8 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'ct')
         pars.dat{m}.segment.ct = struct;
     end
-    if ~isfield(pars.dat{m}.segment.ct,'ngauss')
-        pars.dat{m}.segment.ct.ngauss = 1;
+    if ~isfield(pars.dat{m}.segment.ct,'ngauss_lesion')
+        pars.dat{m}.segment.ct.ngauss_lesion = 3;
     end
     
     % Push resps parameters
@@ -286,7 +287,7 @@ for m=1:M
     end    
     if ~isfield(pars.dat{m}.write_res,'write_df')
         pars.dat{m}.write_res.write_df = false(1,2);
-    end       
+    end           
 end
 %==========================================================================
 
@@ -318,6 +319,17 @@ for m=1:M
         if isempty(pars.dat{m}.S)
             pars.dat{m}.S = Inf;
         end
+    end
+end
+%==========================================================================
+
+%==========================================================================
+function ct = has_ct_data(pars)
+ct = false;
+for m=1:numel(pars.dat)
+    if strcmp(pars.dat{m}.modality,'CT')
+        ct = true;
+        return
     end
 end
 %==========================================================================

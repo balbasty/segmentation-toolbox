@@ -102,7 +102,6 @@ for m=1:M
         obj1.dt              = pars.dt;        
         obj1.uniform         = pars.uniform;    
         obj1.dir_template    = pars.dir_template;    
-        obj1.trunc_ct        = pars.dat{m}.trunc_ct;
         obj1.fwhm            = pars.dat{m}.fwhm;
         obj1.Affine          = pars.dat{m}.Affine;
         obj1.print_subj_info = pars.dat{m}.print_subj_info;
