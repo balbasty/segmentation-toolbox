@@ -6,17 +6,10 @@ function build_template(pars,test_level)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-if nargin<2, test_level = 0; end
-
-if test_level==0 || test_level==3
-    dir_pars = '/data/mbrud/pars/segmentation-toolbox/'; 
-else
-    dir_pars = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/'; 
-end
-
 if nargin<1 
-    pars = [dir_pars 'CROMIS-and-healthy-3d-vx.json']; 
+    pars = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS-and-healthy-3d-vx.json'; 
 end
+if nargin<2, test_level = 0; end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
@@ -61,7 +54,7 @@ holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = true;
 holly.job.batch     = true;
-holly.job.mem       = '4G';
+holly.job.mem       = '6G';
 holly.job.est_mem   = true;
 holly.job.use_dummy = false;
 
