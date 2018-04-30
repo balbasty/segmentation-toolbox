@@ -145,7 +145,7 @@ W0  = zeros(N,N,K);
 cnt = zeros(1,K);
 for s=1:S
     for k=1:K
-        if k==obj{s}.rem, continue; end
+        if any(k==obj{s}.rem), continue; end
         
         m0(:,k)   = m0(:,k)   + obj{s}.gmm.pr.m(:,k);
         b0(k)     = b0(k)     + obj{s}.gmm.pr.b(k);
@@ -177,7 +177,7 @@ for k=1:K
     
     S0 = 0;
     for s=1:S
-        if k==obj{s}.rem, continue; end
+        if any(k==obj{s}.rem), continue; end
         
         S0 = S0 + 1;
     end
@@ -188,7 +188,7 @@ for k=1:K
     Lambda   = 0;
     LambdaMu = 0;
     for s=1:S
-        if k==obj{s}.rem, continue; end
+        if any(k==obj{s}.rem), continue; end
         
         [m,~,W,n] = get_po(obj,s);
         Lambda    = Lambda   + n(k)*W(:,:,k);
@@ -204,7 +204,7 @@ for k=1:K
 
     b0(k)= 0;
     for s=1:S
-        if k==obj{s}.rem, continue; end
+        if any(k==obj{s}.rem), continue; end
         
         [m,b,W,n] = get_po(obj,s);
         m1 = m(:,k) - m0(:,k);
@@ -229,7 +229,7 @@ if ~constrained
         
         S0 = 0;
         for s=1:S
-            if k==obj{s}.rem, continue; end
+            if any(k==obj{s}.rem), continue; end
 
             S0 = S0 + 1;
         end
@@ -240,7 +240,7 @@ if ~constrained
         sumPsi    = 0;
         Wn        = 0;
         for s=1:S
-            if k==obj{s}.rem, continue; end
+            if any(k==obj{s}.rem), continue; end
             
             [~,~,W,n] = get_po(obj,s);
             sumLogDet = sumLogDet + spm_matcomp('LogDet', W(:,:,k));
@@ -313,7 +313,7 @@ else
                 
                 S0 = 0;
                 for s=1:S
-                    if k==obj{s}.rem, continue; end
+                    if any(k==obj{s}.rem), continue; end
                     
                     [~,~,W,n] = get_po(obj,s);
                     V0 = V0 + spm_matcomp('Inv', n(k)*W(:,:,k));
@@ -335,7 +335,7 @@ else
 
             S0 = 0;
             for s=1:S
-                if k==obj{s}.rem, continue; end
+                if any(k==obj{s}.rem), continue; end
 
                 S0 = S0 + 1;
             end
@@ -347,7 +347,7 @@ else
             psiN     = 0;
             Lambda   = 0;
             for s=1:S
-                if k==obj{s}.rem, continue; end
+                if any(k==obj{s}.rem), continue; end
                 
                 [~,~,W,n] = get_po(obj,s);
                 logDetW = logDetW  + spm_matcomp('Logdet', W(:,:,k));
