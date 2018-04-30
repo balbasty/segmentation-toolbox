@@ -21,7 +21,7 @@ for m=1:M
     end
     if strcmp(modality,'CT')
         pars_ct.dat{cnt} = pars.dat{m};
-        tot_S            = pars_ct.dat{cnt}.S;
+        tot_S            = tot_S + pars_ct.dat{cnt}.S;
         cnt              = cnt + 1;
     end
 end
@@ -55,7 +55,7 @@ if ~isempty(pars_ct) && tot_S>1
         
             Nii = nifti(pars_ct.dat{m}.V{s}.fname);
             img = single(Nii.dat(:,:,:));
-            msk = msk_modality(img,'CT');
+            msk = spm_misc('msk_modality',img,'CT');
             img = img(msk(:));
 
             x1 = min(img(:)):max(img(:));
@@ -93,11 +93,14 @@ if ~isempty(pars_ct) && tot_S>1
     end
     clear c x
 
+    % Divide count by total number of subjects
+    C = C/tot_S;
+        
     % Smooth histogram a little bit
 %     krn = spm_smoothkern(4,(-256:256)',0);
 %     C   = conv(C,krn,'same');
     
-    % Remove intensity values smaller than a threshold (nmn)
+    % Remove intensity values smaller than an upper and lower threshold
     nmn = -1040;
     nmx = 3000;
     nix = find(X>=nmn & X<=nmx);
@@ -105,73 +108,58 @@ if ~isempty(pars_ct) && tot_S>1
     C   = C(nix);
 
     % Fit VB-GMM to background
-    [~,ix]          = find(X<-100);
-    [~,m1,b1,n1,W1] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),5);      
-    lkp1            = ones(1,5);
+    [~,ix]          = find(X<-200);
+    [~,m1,b1,n1,W1] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),4);      
+    lkp1            = ones(1,4);
     
-    % Fit VB-GMM to brain
-    k               = Kb - 2;
-    [~,ix]          = find(X>=-100 & X<=200);
-    [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k); 
-            
-%     mx2 = max(X(ix));
-%     mn2 = min(X(ix));    
-%     
-%     ngauss = pars_ct.dat{m}.segment.ct.ngauss; % Number of Gaussians for each brain tissue class
-%     if ngauss>1
-%         % Use more than one Gaussian per class within the brain. This
-%         % requires correcting the Gauss-Wishart parameters estimated by the
-%         % histogram fit.
-%         vr = 1./(n2.*W2); % variance
-%                 
-%         nm2 = [];
-%         nb2 = [];
-%         nn2 = [];
-%         nW2 = [];
-%         
-%         w  = 1./(1+exp(-(ngauss - 1)*0.25)) - 0.5;
-%         pr = 1./(vr*(1 - w));  
-%         
-%         for k1=1:k                        
-%             m22 = sqrtm(vr(k1))*randn(1,ngauss)*w + repmat(m2(k1),[1,ngauss]);   
-%             nm2 = [nm2,m22];
-%             
-%             b22 = b2(k1)/ngauss*ones(1,ngauss);
-%             nb2 = [nb2,b22];
-%             
-%             n22 = n2(k1)/ngauss*ones(1,ngauss);
-%             nn2 = [nn2,n22];
-%                         
-%             W22 = pr(k1)/n2(k1)*ones(1,ngauss);
-%             nW2 = [nW2,W22];
-%         end
-% 
-%         m2 = nm2;
-%         b2 = nb2;
-%         n2 = nn2;
-%         W2 = nW2;
-%     end
-%     lkp2 = repelem(2:Kb - 1,1,ngauss);
+    % Fit VB-GMM to soft tissue
+    [~,ix]          = find(X>=-200 & X<0);
+    [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),2);      
+    lkp2            = 2*ones(1,2);
     
-    m2   = [-50 10 25 35 45 65 100];
-    lkp2 = 2:numel(m2) + 1;
-    
+    % Fit VB-GMM to brain    
+    [~,ix]          = find(X>=0 & X<80);
+    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),6); 
+    lkp3            = 3:numel(m3) + 2;            
+        
     % Fit VB-GMM to bone
-    [~,ix]          = find(X>200);
-    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),3);     
-    lkp3            = Kb*ones(1,3);
+    [~,ix]          = find(X>=80);
+    [~,m4,b4,n4,W4] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),3);     
+    lkp4            = Kb*ones(1,3);
      
-    m    = [m1,m2,m3];
-    W    = [W1,W2,W3];
-    b    = [b1,b2,b3];
-    n    = [n1,n2,n3];
-    part = [lkp1,lkp2,lkp3];
-    K    = numel(part);    
+    m    = [m1,m2,m3,m4];
+    b    = [b1,b2,b3,b4];
+    n    = [n1,n2,n3,n4];
+    W    = [W1,W2,W3,W4];
+    part = [lkp1,lkp2,lkp3,lkp4];      
   
+    % Get index of lesions class
+    [~,ix_rem] = min(abs(m - 60)); % 60 should in CT contain (mostly) lesion
+    
+    % Model lesion with a GMM
+    ngauss_lesion = pars_ct.dat{1}.segment.ct.ngauss_lesion;
+    vr_l          = 1./(n(ix_rem).*W(ix_rem));    
+    w_l           = 1./(1 + exp(-(ngauss_lesion - 1)*0.25)) - 0.5;
+    pr_l          = 1./(vr_l*(1 - w_l));  
+    
+    m_l = sqrtm(vr_l)*randn(1,ngauss_lesion)*w_l + repmat(m(ix_rem),[1,ngauss_lesion]);      
+    b_l = b(ix_rem)/ngauss_lesion*ones(1,ngauss_lesion);    
+    n_l = n(ix_rem)/ngauss_lesion*ones(1,ngauss_lesion);    
+    W_l = pr_l/n(ix_rem)*ones(1,ngauss_lesion);                
+    
+    % Adjust GMM parameters
+    m = [m(1:ix_rem - 1) m_l m(ix_rem + 1:end)];
+    b = [b(1:ix_rem - 1) b_l b(ix_rem + 1:end)];
+    n = [n(1:ix_rem - 1) n_l n(ix_rem + 1:end)];
+    W = [W(1:ix_rem - 1) W_l W(ix_rem + 1:end)];        
+    
+    part = [part(1:ix_rem - 1) repmat(part(ix_rem),1,ngauss_lesion) part(ix_rem + 1:end)];
+    K    = numel(part);   
+    
+    ix_rem = ix_rem:ix_rem + (ngauss_lesion - 1);
+    
     % Init VB-GMM posteriors
-    %----------------------------------------------------------------------
-    W   = reshape(W,1,1,K);
-    m   = reshape(m,1,K);
+    %----------------------------------------------------------------------    
     gmm = struct;
     mg  = zeros(1,K);
     for m1=1:M
@@ -183,14 +171,14 @@ if ~isempty(pars_ct) && tot_S>1
                 mg(ix) = 1/nnz(ix);
 
                 gmm.pr.m(:,ix)   = m(ix);
-                gmm.pr.b(ix)     = 1;
-                gmm.pr.n(ix)     = 1;
-                gmm.pr.W(:,:,ix) = 1;
+                gmm.pr.b(ix)     = b(ix);
+                gmm.pr.n(ix)     = n(ix);
+                gmm.pr.W(:,:,ix) = reshape(W(ix),1,1,numel(ix));
 
                 gmm.po.m(:,ix)   = m(ix);
-                gmm.po.b(ix)     = 1;
-                gmm.po.n(ix)     = 1;
-                gmm.po.W(:,:,ix) = 1;      
+                gmm.po.b(ix)     = b(ix);
+                gmm.po.n(ix)     = n(ix);
+                gmm.po.W(:,:,ix) = reshape(W(ix),1,1,numel(ix));      
             end
         end
     end
@@ -211,12 +199,16 @@ if ~isempty(pars_ct) && tot_S>1
                     % If labelleled healthy, remove class with intensity
                     % closest to intensity of blood in CT. Also set that
                     % class' posterior and prior m hyper-parameter to zero.
-                    pars.dat{m}.segment.lkp.rem  = 7;
+                    pars.dat{m}.segment.lkp.rem  = part(ix_rem(1));
                     
-%                     for i=1:ngauss
-                        pars.dat{m}.segment.gmm.po.m(11) = 0;
-                        pars.dat{m}.segment.gmm.pr.m(11) = 0;
-%                     end
+                    pars.dat{m}.segment.gmm.po.m(ix_rem) = 0;
+                    pars.dat{m}.segment.gmm.pr.m(ix_rem) = 0;
+                    pars.dat{m}.segment.gmm.po.n(ix_rem) = 1;
+                    pars.dat{m}.segment.gmm.pr.n(ix_rem) = 1;
+                    pars.dat{m}.segment.gmm.po.b(ix_rem) = 1;
+                    pars.dat{m}.segment.gmm.pr.b(ix_rem) = 1;
+                    pars.dat{m}.segment.gmm.po.W(ix_rem) = 1;
+                    pars.dat{m}.segment.gmm.pr.W(ix_rem) = 1;
                 end
             end
         end
