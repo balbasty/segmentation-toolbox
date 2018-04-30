@@ -9,7 +9,7 @@ if ~isfield(gmm,'po')
     lkp = obj.segment.lkp;
     Kb  = max(lkp.part);
         
-    if isfield(gmm,'pr') && numel(lkp.keep)~=numel(lkp.part)
+    if isfield(gmm,'pr') && obj.uniform
         gmm.po = gmm.pr;
         return
     end

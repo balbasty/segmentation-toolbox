@@ -27,10 +27,9 @@ for z=1:nz
         ll      = ll + dll;
     else
         msk1 = buf(z).code>0;
-        q    = NaN(numel(buf(z).msk{1}),N);
-        Kb   = size(buf(1).dat,2);
-        for k=1:Kb
-            q(msk1,k) = double(buf(z).dat(:,k));
+        q    = NaN(numel(buf(z).msk{1}),K);        
+        for k=1:K
+            q(msk1,k) = double(buf(z).dat(:,lkp.part(k)))/sum(lkp.part==lkp.part(k));
         end
     end
     
