@@ -46,38 +46,7 @@ function [out_L,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm)
 
 K    = size(mom(1).s0,2);
 N    = numel(mom(1).ind);
-vr0  = gmm.vr0;
 tiny = eps*eps;
-
-
-% Init priors
-%----------------------------------------------------------------------
-if ~isfield(gmm,'pr')   
-    mom1 = mom_John2Bishop(mom);
-    
-%     vr2 = zeros(N,N);
-%     for k=1:K
-%         vr2 = vr2 + (mom1(end).S2(:,:,k) - mom1(end).s1(:,k)*mom1(end).s1(:,k)'/mom1(end).s0(k)); 
-%     end
-%     vr2 = (vr2 + N*vr0)/(sum(mom1(end).s0) + N);  
-
-    m0    = mom1(end).s1;                       
-    beta0 = ones(1,K);
-    nu0   = N*ones(1,K); 
-    W0    = zeros(N,N,K);
-    for k=1:K
-        W0(:,:,k) = eye(N);
-    end   
-
-    gmm.pr.n = nu0;
-    gmm.pr.W = W0;
-    gmm.pr.ldW = zeros(1,K);
-    for k=1:K
-        gmm.pr.ldW(k) = spm_matcomp('LogDet', gmm.pr.W(:,:,k));
-    end
-    gmm.pr.b = beta0;
-    gmm.pr.m = m0;
-end
 
 nu0   = gmm.pr.n;
 W0    = gmm.pr.W;
@@ -202,19 +171,4 @@ gmm.po.m = m;
 gmm.po.W = W;
 gmm.po.n = nu;
 gmm.po.b = beta;
-%==========================================================================
-
-%==========================================================================
-function mom = mom_John2Bishop(mom)
-K = numel(mom(1).s0);
-for i=1:numel(mom) 
-    s1 = zeros(size(mom(i).s1));
-    S2 = zeros(size(mom(i).S2));
-    for k=1:K
-        s1(:,k)   = mom(i).s1(:,k)/mom(i).s0(k);
-        S2(:,:,k) = mom(i).S2(:,:,k)/mom(i).s0(k) - (mom(i).s1(:,k)/mom(i).s0(k))*(mom(i).s1(:,k)/mom(i).s0(k))';
-    end
-    mom(i).s1 = s1;
-    mom(i).S2 = S2;
-end
 %==========================================================================
