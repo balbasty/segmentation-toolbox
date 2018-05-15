@@ -10,9 +10,10 @@ Kb = pars.K;
 M  = numel(pars.dat);
 
 % Read CT populations into new struct (pars_ct)
-tot_S   = 0;
+S_ct    = 0;
 pars_ct = {};
 cnt     = 1;
+healthy = []; 
 for m=1:M
     if isfield(pars.dat{m},'modality')
         modality = pars.dat{m}.modality;
@@ -21,14 +22,31 @@ for m=1:M
     end
     if strcmp(modality,'CT')
         pars_ct.dat{cnt} = pars.dat{m};
-        tot_S            = tot_S + pars_ct.dat{cnt}.S;
+        S_ct             = S_ct + pars_ct.dat{cnt}.S;
         cnt              = cnt + 1;
+        
+        healthy = [healthy pars.dat{m}.healthy]; 
     end
 end
 
-if ~isempty(pars_ct) && tot_S>1
+if ~isempty(pars_ct) && pars.do_template
     % There are data that is CT -> perform CT init routine (below)
     %----------------------------------------------------------------------
+    
+    M1            = numel(pars_ct.dat); 
+    ngauss_lesion = pars_ct.dat{1}.segment.ct.ngauss_lesion; 
+    ngauss_brain  = pars_ct.dat{1}.segment.ct.ngauss_brain;     
+    
+    if sum(healthy)==M1 
+        % All healthy 
+        flag_healthy_ct = 0; 
+    elseif sum(healthy)==0 
+        % All lesion 
+        flag_healthy_ct = 1; 
+    else 
+        % Mix of healthy and lesion         
+        flag_healthy_ct = 2; 
+    end 
     
     % Calculate histogram for each CT image and store the histograms
     c   = {};
@@ -36,7 +54,7 @@ if ~isempty(pars_ct) && tot_S>1
     cnt = 1;
     mn  = Inf;
     mx  = -Inf;
-    for m=1:M
+    for m=1:M1
         S = pars_ct.dat{m}.S;
         if verbose, fprintf(1,'Getting histogram from subject (m=%d, S=%d) -    ',m,S); end
         for s=1:S
@@ -94,7 +112,7 @@ if ~isempty(pars_ct) && tot_S>1
     clear c x
 
     % Divide count by total number of subjects
-    C = C/tot_S;
+    C = C/S_ct;
         
     % Smooth histogram a little bit
 %     krn = spm_smoothkern(4,(-256:256)',0);
@@ -107,109 +125,142 @@ if ~isempty(pars_ct) && tot_S>1
     X   = X(nix);
     C   = C(nix);
 
+    % k1 = 5, k2 = 1, ngauss_brain = 1 | old was k1 = 4, k2 = 2,
+    % ngauss_brain = 2
+    
     % Fit VB-GMM to background
+    k1              = 5;
     [~,ix]          = find(X<-200);
-    [~,m1,b1,n1,W1] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),4);      
-    lkp1            = ones(1,4);
+    [~,m1,b1,n1,W1] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k1);      
+    lkp1            = ones(1,k1);
     
     % Fit VB-GMM to soft tissue
+    k2              = 1;
     [~,ix]          = find(X>=-200 & X<0);
-    [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),2);      
-    lkp2            = 2*ones(1,2);
+    [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k2);      
+    lkp2            = 2*ones(1,k2);
     
     % Fit VB-GMM to brain    
+    if flag_healthy_ct==0 
+        k3 = 5;
+    elseif flag_healthy_ct==1 || flag_healthy_ct==2 
+        k3 = 6;
+    end
     [~,ix]          = find(X>=0 & X<80);
-    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),6); 
-    lkp3            = 3:numel(m3) + 2;            
+    [~,m3,b3,n3,W3] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k3);     
+    lkp3            = repelem(1:k3,1,ngauss_brain);
         
+    if flag_healthy_ct~=0
+        [~,ix_les] = min(abs(m3 - 60)); % 60 should in CT contain (mostly) lesion   
+        
+        lkp3(lkp3==ix_les) = []; 
+        ix0                = find(lkp3==ix_les - 1); 
+        ix1                = find(lkp3==ix_les + 1); 
+        if isempty(ix0) 
+            lkp3 = [ix_les*ones(1,ngauss_lesion) lkp3(ix1(1):end)];     
+        elseif isempty(ix1) 
+            lkp3 = [lkp3(1:ix0(end)) ix_les*ones(1,ngauss_lesion)]; 
+        else 
+            lkp3 = [lkp3(1:ix0(end)) ix_les*ones(1,ngauss_lesion) lkp3(ix1(1):end)]; 
+        end     
+        
+        ix_les = ix_les + 2;
+    end
+    
+    tmp_gmm.pr.m = m3;
+    tmp_gmm.pr.n = n3;
+    tmp_gmm.pr.b = b3;
+    tmp_gmm.pr.W = W3;
+    tmp_gmm.po   = tmp_gmm.pr;
+    tmp_gmm      = more_gaussians(tmp_gmm,lkp3);
+    m3           = tmp_gmm.po.m;
+    n3           = tmp_gmm.po.n;
+    b3           = tmp_gmm.po.b;
+    W3           = squeeze(tmp_gmm.po.W)';
+    clear tmp_gmm
+    
+    lkp3 = lkp3 + 2;
+    
+    % Fit VB-GMM to calcification        
+    k4              = 1;
+    [~,ix]          = find(X>=80 & X<200);
+    [~,m4,b4,n4,W4] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k4); 
+    lkp4            = (Kb - 1)*ones(1,k4);
+    
     % Fit VB-GMM to bone
-    [~,ix]          = find(X>=80);
-    [~,m4,b4,n4,W4] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),3);     
-    lkp4            = Kb*ones(1,3);
+    k5              = 3;
+    [~,ix]          = find(X>=200);
+    [~,m5,b5,n5,W5] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k5);     
+    lkp5            = Kb*ones(1,k5);
      
-    m    = [m1,m2,m3,m4];
-    b    = [b1,b2,b3,b4];
-    n    = [n1,n2,n3,n4];
-    W    = [W1,W2,W3,W4];
-    part = [lkp1,lkp2,lkp3,lkp4];      
-  
-    % Get index of lesions class
-    [~,ix_rem] = min(abs(m - 60)); % 60 should in CT contain (mostly) lesion
-    
-    % Model lesion with a GMM
-    ngauss_lesion = pars_ct.dat{1}.segment.ct.ngauss_lesion;
-    vr_l          = 1./(n(ix_rem).*W(ix_rem));    
-    w_l           = 1./(1 + exp(-(ngauss_lesion - 1)*0.25)) - 0.5;
-    pr_l          = 1./(vr_l*(1 - w_l));  
-    
-    m_l = sqrtm(vr_l)*randn(1,ngauss_lesion)*w_l + repmat(m(ix_rem),[1,ngauss_lesion]);      
-    b_l = b(ix_rem)/ngauss_lesion*ones(1,ngauss_lesion);    
-    n_l = n(ix_rem)/ngauss_lesion*ones(1,ngauss_lesion);    
-    W_l = pr_l/n(ix_rem)*ones(1,ngauss_lesion);                
-    
-    % Adjust GMM parameters
-    m = [m(1:ix_rem - 1) m_l m(ix_rem + 1:end)];
-    b = [b(1:ix_rem - 1) b_l b(ix_rem + 1:end)];
-    n = [n(1:ix_rem - 1) n_l n(ix_rem + 1:end)];
-    W = [W(1:ix_rem - 1) W_l W(ix_rem + 1:end)];        
-    
-    part = [part(1:ix_rem - 1) repmat(part(ix_rem),1,ngauss_lesion) part(ix_rem + 1:end)];
-    K    = numel(part);   
-    
-    ix_rem = ix_rem:ix_rem + (ngauss_lesion - 1);
+    m    = [m1,m2,m3,m4,m5];
+    b    = [b1,b2,b3,b4,b5];
+    n    = [n1,n2,n3,n4,n5];
+    W    = [W1,W2,W3,W4,W5];
+    part = [lkp1,lkp2,lkp3,lkp4,lkp5];        
+    K    = numel(part);       
     
     % Init VB-GMM posteriors
     %----------------------------------------------------------------------    
     gmm = struct;
     mg  = zeros(1,K);
-    for m1=1:M
-        S = numel(pars_ct.dat{m1});
-        for s=1:S
-            for k=1:Kb
-                ix = find(part==k);
+    for k=1:Kb
+        ix = find(part==k);
 
-                mg(ix) = 1/nnz(ix);
+        mg(ix) = 1/nnz(ix);
 
-                gmm.pr.m(:,ix)   = m(ix);
-                gmm.pr.b(ix)     = b(ix);
-                gmm.pr.n(ix)     = n(ix);
-                gmm.pr.W(:,:,ix) = reshape(W(ix),1,1,numel(ix));
+        gmm.pr.m(:,ix)   = m(ix);
+        gmm.pr.b(ix)     = b(ix);
+        gmm.pr.n(ix)     = n(ix);
+        gmm.pr.W(:,:,ix) = reshape(W(ix),1,1,numel(ix));                    
+    end
+    
+    % If user-specified class order is given, change order of GMM
+    % parameters
+    %----------------------------------------------------------------------    
+    class_ix = pars_ct.dat{1}.segment.class_ix; 
+    if ~isempty(class_ix)
 
-                gmm.po.m(:,ix)   = m(ix);
-                gmm.po.b(ix)     = b(ix);
-                gmm.po.n(ix)     = n(ix);
-                gmm.po.W(:,:,ix) = reshape(W(ix),1,1,numel(ix));      
+        cnt   = 1;
+        npart = zeros(1,K);
+        nmg   = zeros(1,K);
+        for k=1:Kb
+            kk = find(class_ix(k)==part);
+            for k1=kk
+                ngmm.pr.b(cnt)     = gmm.pr.b(k1);
+                ngmm.pr.n(cnt)     = gmm.pr.n(k1);
+                ngmm.pr.m(:,cnt)   = gmm.pr.m(:,k1);
+                ngmm.pr.W(:,:,cnt) = gmm.pr.W(:,:,k1);
+                npart(cnt)         = k;
+                nmg(cnt)           = 1/numel(kk);
+                
+                cnt = cnt + 1;                    
             end
         end
+        
+        gmm  = ngmm;
+        part = npart;
+        mg   = nmg;
     end
 
+    
     % Set CT GMM structs
     %----------------------------------------------------------------------    
     for m=1:M
         modality = pars.dat{m}.modality;
         healthy  = pars.dat{m}.healthy;
         if strcmp(modality,'CT')
-            S = numel(pars_ct.dat{m});
+            S = numel(pars.dat{m});
             for s=1:S
                 pars.dat{m}.segment.mg       = mg;
                 pars.dat{m}.segment.lkp.part = part;                
                 pars.dat{m}.segment.gmm      = gmm;
                 
-                if healthy
+                if healthy && flag_healthy_ct==2
                     % If labelleled healthy, remove class with intensity
-                    % closest to intensity of blood in CT. Also set that
-                    % class' posterior and prior m hyper-parameter to zero.
-                    pars.dat{m}.segment.lkp.rem  = part(ix_rem(1));
-                    
-                    pars.dat{m}.segment.gmm.po.m(ix_rem) = 0;
-                    pars.dat{m}.segment.gmm.pr.m(ix_rem) = 0;
-                    pars.dat{m}.segment.gmm.po.n(ix_rem) = 1;
-                    pars.dat{m}.segment.gmm.pr.n(ix_rem) = 1;
-                    pars.dat{m}.segment.gmm.po.b(ix_rem) = 1;
-                    pars.dat{m}.segment.gmm.pr.b(ix_rem) = 1;
-                    pars.dat{m}.segment.gmm.po.W(ix_rem) = 1;
-                    pars.dat{m}.segment.gmm.pr.W(ix_rem) = 1;
-                end
+                    % closest to intensity of blood in CT.
+                    pars.dat{m}.segment.lkp.rem  = ix_les;
+                end                
             end
         end
     end
