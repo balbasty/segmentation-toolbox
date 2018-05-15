@@ -7,25 +7,21 @@ function build_template(pars,test_level)
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 if nargin<1 
-    pars = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS-and-healthy-3d-vx.json'; 
+    pars = '/data/mbrud/jobs/segmentation-toolbox/ROB-IXI_3d.json'; 
 end
-if nargin<2, test_level = 0; end
+if nargin<2, test_level = 3; end
+
 spm_field('boundary',1); % BOUND_CIRCULANT 0, BOUND_NEUMANN 1
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-if test_level==0 || test_level==3
-    pth_distributed_toolbox = '/cherhome/mbrud/dev/distributed-computing';
-    pth_auxiliary_functions = '/cherhome/mbrud/dev/auxiliary-functions';
-else
-    pth_distributed_toolbox = '/home/mbrud/dev/WTCN-computational-anatomy-group/distributed-computing';
-    pth_auxiliary_functions = '/home/mbrud/dev/WTCN-computational-anatomy-group/auxiliary-functions';
-end
+pth_distributed_toolbox = '/data/mbrud/dev/distributed-computing';
+pth_auxiliary_functions = '/data/mbrud/dev/auxiliary-functions';
 
 holly_server_login   = 'mbrud';
-holly_matlab_add_src = '/home/mbrud/dev/segmentation-toolbox';
-holly_matlab_add_aux = '/home/mbrud/dev/auxiliary-functions';
+holly_matlab_add_src = '/data/mbrud/dev/segmentation-toolbox';
+holly_matlab_add_aux = pth_auxiliary_functions;
 
 % addpath
 %--------------------------------------------------------------------------
@@ -34,7 +30,7 @@ addpath(genpath('./code'))
 addpath(pth_distributed_toolbox)
 addpath(pth_auxiliary_functions)
 
-%--------------------------------------------------------------------------\
+%--------------------------------------------------------------------------
 % Set algorithm parameters
 %--------------------------------------------------------------------------
 pars = segment_default(pars,test_level); 
@@ -46,24 +42,24 @@ holly               = struct;
 holly.server.ip     = 'holly';
 holly.server.login  = holly_server_login;
 holly.client.folder = fullfile(pars.dir_output,'cluster');
-holly.server.folder = holly.client.folder;
+holly.server.folder = ['/' holly.client.folder(7:end)];
 holly.matlab.bin    = '/share/apps/matlab';
 holly.matlab.addsub = holly_matlab_add_src;
 holly.matlab.add    = holly_matlab_add_aux;
+holly.translate     = {'/data-scratch/','/scratch/'};
 holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = true;
 holly.job.batch     = true;
 holly.job.mem       = '6G';
-holly.job.est_mem   = true;
+holly.job.est_mem   = false;
 holly.job.use_dummy = false;
+holly.mode          = 'qsub';
 
-if     test_level==1, holly.server.ip  = ''; holly.client.workers = 0;
-elseif test_level==2, holly.server.ip  = ''; holly.client.workers = Inf;
+if     test_level==1, holly.mode = 'for';
+elseif test_level==2, holly.mode = 'parfor';
 end
-% holly.server.ip = ''; holly.client.workers = Inf;
-% holly.server.ip = ''; holly.client.workers = 0;
 
 holly = distribute_default(holly);
 
@@ -87,7 +83,7 @@ print_algorithm_progress('started');
 L = -Inf;
 for iter=1:pars.niter        
     
-    if pars.niter>1
+    if pars.do_template
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
         %----------------------------------------------------------------------    
@@ -112,29 +108,29 @@ for iter=1:pars.niter
     % Here is where the log-template is updated
     %----------------------------------------------------------------------
     
-    if pars.niter>1
+    if pars.do_template
         % Update template
         %------------------------------------------------------------------
         L = update_template(L,obj,pars,iter);                              
     end        
-    
-    if pars.niter>1 && pars.mrf
-        % Use a MRF cleanup procedure
-        %------------------------------------------------------------------
-        mrf_template(pars.pth_template);
-    end
-        
-    if pars.niter>1
+                
+    if pars.do_template
         % Automatically decrease the size of the template based on bounding
         % boxes computed for each pushed responsibility image
         %------------------------------------------------------------------
         shrink_template(obj,iter);    
     end
     
-    if pars.niter>1 && pars.crop_template==iter
+    if pars.do_template && pars.crop_template==iter
         % Crop template to size of the default SPM template
         %------------------------------------------------------------------
         crop_template(pars.pth_template,iter);
+    end
+    
+    if pars.do_template && pars.mrf
+        % Use a MRF cleanup procedure
+        %------------------------------------------------------------------
+        mrf_template(pars.pth_template);
     end
     
     %----------------------------------------------------------------------
@@ -142,23 +138,23 @@ for iter=1:pars.niter
     % Here is where the hyper-parameters of the VB-GMM are updated
     %----------------------------------------------------------------------
     
-    if pars.niter>1
-        % For mean correcting bias field (also updated posteriors)
+    if pars.do_template
+        % For mean correcting bias field (also updates posteriors)
         %------------------------------------------------------------------
         obj = modify_bf_dc(obj,iter);  
     end  
     
-    if pars.niter>1
+    if pars.do_template
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
-        obj = update_intensity_hp2(obj,iter,pars);
+        obj = update_intensity_hp2(obj,pars);
     end
        
     % Save obj structs
-    %------------------------------------------------------------------
+    %----------------------------------------------------------------------
     save(fullfile(pars.dir_template,'obj.mat'),'obj');
     
-    if pars.niter>1
+    if pars.do_template
         % Some verbose
         %------------------------------------------------------------------
         show_results(pars,obj,L,iter);
@@ -166,7 +162,7 @@ for iter=1:pars.niter
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
         
-%         if d<pars.tol
+%         if d<pars.tol && iter>10
 %            break 
 %         end
     end
