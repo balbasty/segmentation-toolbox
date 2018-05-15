@@ -291,7 +291,7 @@ for m=1:M
         pars.dat{m}.write_res.cleanup = false;
     end
     if ~isfield(pars.dat{m}.write_res,'mrf')
-        pars.dat{m}.write_res.mrf = 2;
+        pars.dat{m}.write_res.mrf = 1;
     end
     if ~isfield(pars.dat{m}.write_res,'write_tc')
         pars.dat{m}.write_res.write_tc = true(pars.K,4);                
