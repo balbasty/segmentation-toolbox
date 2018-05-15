@@ -137,6 +137,9 @@ for iter=1:niter
         
     if iter>=10 && ~((ll-ooll)>2*tol1*nm)
         % Finished
+        if print_ll
+            fprintf('spm_segment converged in %i iterations',iter);
+        end
         break
     end
     ooll = ll;
