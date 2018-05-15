@@ -1,5 +1,5 @@
-function obj = update_intensity_hp2(obj,iter,pars)
-% FORMAT obj = update_intensity_hp2(obj,iter,pars)
+function obj = update_intensity_hp2(obj,pars)
+% FORMAT obj = update_intensity_hp2(obj,pars)
 % 
 % Hierarchical Gauss-Wishart intensity prior, with a Wishart hyper-prior on
 % prior Precision matrices to make them similar.
@@ -20,12 +20,11 @@ for m=1:M
         all_ct = false;
     end
 end
-all_ct = false; % Not used for now
 
-% ------------------
-% Case with only CTs
-% ------------------
 if all_ct
+    % ------------------
+    % Case with only CTs
+    % ------------------
     cnt  = 1;
     obj1 = {};
     for m=1:M
@@ -44,22 +43,14 @@ if all_ct
         for s=1:S
             obj{m}{s}.segment.gmm.pr = pr;   
         end
-    end
-    
-    pth1 = fileparts(obj{1}{1}.image(1).fname);
-    pth1 = strsplit(pth1,filesep);
-    pth1 = pth1{end - 1};
+    end    
 
-    fname = fullfile(dir_template,['prior-' pth1 '.mat']);
+    fname = fullfile(dir_template,['prior-ct.mat']);
     save(fname,'pr');
-
-%     for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end        
-
-
-% -----------------------------------
-% Case with only MRIs, or CT and MRIs
-% -----------------------------------
 else
+    % -----------------------------------
+    % Case with only MRIs, or CT and MRIs
+    % -----------------------------------
     for m=1:M
         S    = numel(obj{m});
         obj1 = {};
@@ -76,23 +67,17 @@ else
         for s=1:S
             obj{m}{s}.segment.gmm.pr = pr;   
         end
-
-        pth1 = fileparts(obj{m}{1}.image(1).fname);
-        pth1 = strsplit(pth1,filesep);
-        pth1 = pth1{end - 1};
-
-        fname = fullfile(dir_template,['prior-' pth1 '.mat']);
+        
+        fname = fullfile(dir_template,['prior-' num2str(m) '.mat']);
         save(fname,'pr');
-
-%         for n=1:size(pr.m,1), fprintf('%2d | pr.m = [%.3f, %s%.3f]\n',iter,pr.m(n,1),sprintf('%.3f, ',pr.m(n,2:end - 1)),pr.m(n,end)); end    
     end
 end
 %==========================================================================
 
 
 %==========================================================================
-function pr = do_update(obj, constrained)
-% FORMAT pr = do_update(obj, consrained)
+function pr = do_update(obj,constrained,tol)
+% FORMAT pr = do_update(obj,consrained,tol)
 %
 % obj - cell of size S (the number of subjects) containing structures with
 %       the field gmm.pr
@@ -101,6 +86,8 @@ function pr = do_update(obj, constrained)
 %
 % constrained - If true:  constrain covariances to be alike
 %               If false: mode estimate for all parameters
+%
+% tol - stopping tolerance [1e-4]
 %
 % pr  - structure with fields
 %       * m0, b0, W0, n0 (Gauss-Wishart prior)     -> length K
@@ -117,6 +104,7 @@ function pr = do_update(obj, constrained)
 % N = number of channels / family
 % S = number of subjects
 % K = number of Gaussians in the mixture
+if nargin<3, tol = 1e-4; end
 
 S = numel(obj);
 
@@ -396,7 +384,13 @@ else
         for k=1:K
             lb  = lb - spm_prob('Wishart', 'kl', V(:,:,k), p(k), V0, p0);
         end
-        if abs(lb_prev-lb) < 2*eps
+        
+        d = abs((lb_prev*(1 + 10*eps) - lb)/lb);
+        if 0
+            fprintf('%2d | lb = %0.0f | d = %0.5f\n',em,lb,d);  
+        end
+        
+        if d<tol
             break;
         end
         % ---

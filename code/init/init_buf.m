@@ -1,4 +1,4 @@
-function [buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
+function [buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm)
 Kb = max(obj.segment.lkp.part);
 d  = [size(x0) length(z0)];
 
@@ -40,15 +40,13 @@ end
 mom0 = zeros(1,N);
 mom1 = zeros(1,N);
 mom2 = zeros(1,N);  
-
-sint    = zeros(1,N);
-nms     = zeros(1,N);
-scl_bf = zeros(1,N);
+sint = zeros(1,N);
+nms  = zeros(1,N);
 
 cl   = cell(length(z0),1);
 buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'labels',cl);
 for z=1:length(z0)
-    if tot_S==1
+    if ~obj.do_template
         % Load only those voxels that are more than 5mm up
         % from the bottom of the tissue probability map.  This
         % assumes that the affine transformation is pretty close.
@@ -76,7 +74,7 @@ for z=1:length(z0)
     fz = cell(1,N);
     for n=1:N
         fz{n}         = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
-        buf(z).msk{n} = msk_modality(fz{n},obj.modality,obj.trunc_ct);
+        buf(z).msk{n} = spm_misc('msk_modality',fz{n},obj.modality);
         buf(z).nm(n)  = nnz(buf(z).msk{n});
     end                  
     
@@ -108,13 +106,17 @@ for z=1:length(z0)
         msk = code>0;
         tmp = uint8(spm_sample_vol(obj.labels,x0,y0,o*z0(z),0));            
         tmp = tmp(msk);        
+        tmp = tmp(:);
         
         msk       = ismember(tmp,obj.segment.lkp.lab);
         tmp(~msk) = 0;
         
-        nlabels = zeros([numel(tmp) Kb],'logical');
+        nlabels = zeros([numel(tmp) 1],'uint8'); 
         for k=1:Kb
-            nlabels(:,k) = tmp==obj.segment.lkp.lab(k) & tmp~=0;             
+            if obj.segment.lkp.lab(k) 
+                msk          = tmp==obj.segment.lkp.lab(k) & tmp~=0; 
+                nlabels(msk) = obj.segment.lkp.lab(k);              
+            end            
         end
         
         buf(z).labels = nlabels;
@@ -153,9 +155,8 @@ for z=1:length(z0)
 end
 
 % For simple form of intensity normalisation
-for n=1:N
-    scl_bf(n) = (1024/(sint(n)/nms(n)));
-end
+% https://uk.mathworks.com/matlabcentral/answers/226279-how-to-make-image-intensity-equalization-for-multiple-images
+scl_bf = 100./(sint./nms);
 
 % Construct a ``Wishart-style prior'' (vr0)
 vr0 = diag(mom2./mom0 - (mom1./mom0).^2)/Kb^2;

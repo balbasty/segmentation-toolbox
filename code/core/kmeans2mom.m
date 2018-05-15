@@ -1,40 +1,9 @@
 function mom = kmeans2mom(buf,lkp,mn,mx,obj)
-N = numel(buf(1).f);
-K = numel(lkp.keep);
+N  = numel(buf(1).f); 
+Kb = max(lkp.part); 
 
-C = spm_misc('linspace_vec',mn,mx,K);
-if size(C,1)~=K, C = C'; end
-    
-if ~isempty(lkp.lab)    
-    Nii    = nifti(obj.labels.fname);
-    labels = uint8(Nii.dat(:,:,:));        
-    if min(labels(:))==0
-        labels = labels + 1;
-    end
-    
-    avg_int = zeros(K,N);
-    
-    for n=1:N
-        Nii = nifti(obj.image(n).fname);
-        img = single(Nii.dat(:,:,:));
-    
-        for k=lkp.lab
-            if k==0, continue; end
-
-            msk          = labels==k;
-            avg_int(k,n) = mean(img(msk(:)));
-        end
-    end
-    clear labels img
-    
-    for k=lkp.lab
-        if k==0, continue; end
-        
-        C(k,:) = avg_int(k,:);
-    end
-    
-    C(lkp.lab==0,:) = spm_misc('linspace_vec',mn,mx,nnz(lkp.lab==0))';
-end
+C = spm_misc('linspace_vec',mn,mx,Kb);
+if size(C,1)~=Kb, C = C'; end    
 
 F = [];
 for z=1:numel(buf)          
@@ -46,10 +15,10 @@ for z=1:numel(buf)
     clear cr    
 end
 
-Q = label_data(F,K,C,obj.segment.kmeans_dist);
+Q = label_data(F,Kb,C,obj.segment.kmeans_dist);
 
-mom = moments_struct(K,N);  
-for k=1:K
+mom = moments_struct(Kb,N);  
+for k=1:Kb
     mom(end).s0(1,k)   = mom(end).s0(1,k)   + sum(Q(:,k));
     mom(end).s1(:,k)   = mom(end).s1(:,k)   + F(:,:)'*Q(:,k);
     mom(end).S2(:,:,k) = mom(end).S2(:,:,k) + bsxfun(@times,Q(:,k),F(:,:))'*F(:,:);
@@ -59,16 +28,19 @@ end
 if ~isempty(obj.segment.init_clust)
     if strcmp(obj.segment.init_clust,'random')
         % Randomise sufficient statistics        
-        ix = randperm(K);        
+        ix = randperm(Kb);        
     elseif  strcmp(obj.segment.init_clust,'total')
         % Sort sufficient statistics according total amount of each class (0th moment)
         [~,ix] = sort(mom(end).s0);  
+    elseif  strcmp(obj.segment.init_clust,'magnitude')
+        % Reverse sufficient statistics
+        [~,ix] = sort(sum(sqrt(mom(end).s1.^2),1));
     elseif  strcmp(obj.segment.init_clust,'reverse')
         % Reverse sufficient statistics
-        ix = fliplr(1:K);   
+        ix = fliplr(1:Kb);   
     elseif  strcmp(obj.segment.init_clust,'user')
         % Used-defined
-        ix = obj.segment.kmeans_ix;        
+        ix = obj.segment.class_ix;        
     end
     
     for i=1:numel(mom) 

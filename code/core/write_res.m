@@ -10,6 +10,8 @@ if ~isfield(obj.write_res,'mrf'),      obj.write_res.mrf = 1;         end % MRF 
 if ~isfield(obj.write_res,'cleanup'),  obj.write_res.cleanup = 1;     end % Run the ad hoc cleanup
 if ~isfield(obj.write_res,'bb'),       obj.write_res.bb = NaN(2,3);   end % Default to TPM bounding box
 if ~isfield(obj.write_res,'vx'),       obj.write_res.vx = NaN;        end % Default to TPM voxel size
+if ~isfield(obj.write_res,'G'),        obj.write_res.G = ones([Kb,1],'single'); end 
+if ~isfield(obj.write_res,'nmrf_its'), obj.write_res.nmrf_its = 10; end 
 if ~isfield(obj,'dir_write'),          obj.dir_write = [];       end % Output directory
 
 write_tc = obj.write_res.write_tc;
@@ -19,6 +21,8 @@ mrf      = obj.write_res.mrf;
 cleanup  = obj.write_res.cleanup;
 bb       = obj.write_res.bb;
 vx       = obj.write_res.vx;
+G        = obj.write_res.G*mrf;
+nmrf_its = obj.write_res.nmrf_its;
 odir     = obj.dir_write;
 
 % Load template
@@ -198,7 +202,7 @@ for z=1:length(x3)
     msk = cell(1,N);
     for n=1:N
         f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
-        msk{n} = msk_modality(f{n},obj.modality,obj.trunc_ct);        
+        msk{n} = spm_misc('msk_modality',f{n},obj.modality);        
         bf{n}  = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));  
         
         if ~isempty(chan(n).Nc),
@@ -282,10 +286,8 @@ if do_cls
         end
         clear sQ
     else
-        % Use a MRF cleanup procedure
-        nmrf_its = 10;
+        % Use a MRF cleanup procedure        
         spm_progress_bar('init',nmrf_its,['MRF: Working on ' nam],'Iterations completed');
-        G   = ones([Kb,1],'single')*mrf;
         vx2 = 1./single(sum(obj.image(1).mat(1:3,1:3).^2));
         for iter=1:nmrf_its
             spm_mrf(P,Q,G,vx2);

@@ -21,7 +21,7 @@ fig      = varargin{10};
 L        = varargin{11};
 print_ll = varargin{12};
 armijo   = varargin{13};
-wp_lab   = varargin{14};
+wp_l     = varargin{14};
 
 % Some parameters
 nz = numel(buf);
@@ -49,7 +49,7 @@ for n=1:N
             cr                 = cell(N,1);
             for n1=1:N, cr{n1} = double(buf(z).f{n1}).*double(buf(z).bf{n1}); end
 
-            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
+            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
 
             w1 = zeros(buf(z).nm(n),1);
             w2 = zeros(buf(z).nm(n),1);
@@ -101,7 +101,7 @@ for n=1:N
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll] = compute_moments(buf,lkp,mg,gmm,wp,wp_lab);        
+            [mom,dll] = compute_moments(buf,lkp,mg,gmm,wp,wp_l);        
             ll        = ll + dll; 
 
             % Compute missing data and VB components of ll

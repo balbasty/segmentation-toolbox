@@ -1,10 +1,10 @@
-function obj = process_subject(obj,fig) 
+function obj = process_subject_segment(obj,fig) 
 try
+    spm_diffeo('boundary',1); % BOUND_CIRCULANT 0, BOUND_NEUMANN 1
+    
     rng('default');
     rng(obj.s);
-    
-    do_template = obj.tot_S>1;
-
+        
     if obj.est_fwhm && obj.iter==1 && obj.image(1).dim(3)>1
         % Estimate FWHM of image smoothness
         %------------------------------------------------------------------
@@ -17,43 +17,12 @@ try
         obj.fwhm = mean(fwhm);
     end
     
-    if (~do_template && ~obj.uniform && obj.maff.do_maff) || ...
-       (do_template && obj.maff.maff_done==false && ~obj.uniform && obj.maff.do_maff)
-   
-        % Affine registration
+    if (~obj.do_template && ~obj.uniform && obj.maff.do_maff) || ...
+       (obj.do_template && obj.maff.maff_done==false && ~obj.uniform && obj.maff.do_maff)   
+        % MI affine registration
         %------------------------------------------------------------------
-        if isfield(obj.segment,'wp')
-            wp = obj.segment.wp;
-        else
-            V  = spm_vol(obj.pth_template);
-            Kb = numel(V);
-            wp = ones(1,Kb)/Kb;
-        end
-        
-        tpm = spm_load_logpriors(obj.pth_template,wp);
-
-        M                       = obj.image(1).mat;
-        c                       = (obj.image(1).dim+1)/2;
-        obj.image(1).mat(1:3,4) = -M(1:3,1:3)*c(:);
-
-        [Affine1,ll1]    = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,obj.Affine,obj.maff.affreg);
-        Affine1          = Affine1*(obj.image(1).mat/M);
-        obj.image(1).mat = M;
-
-        % Run using the origin from the header
-        [Affine2,ll2] = spm_maff_new(obj.image(1),8,(0+1)*16,tpm,obj.Affine,obj.maff.affreg);
-
-        % Pick the result with the best fit
-        if ll1>ll2, obj.Affine = Affine1; else obj.Affine = Affine2; end
-
-        % Initial affine registration.
-        obj.Affine = spm_maff_new(obj.image(1),4,(obj.fwhm+1)*16,tpm,obj.Affine,obj.maff.affreg);            
-        obj.Affine = spm_maff_new(obj.image(1),3,obj.fwhm,tpm,obj.Affine,obj.maff.affreg);                            
-        clear tpm         
-        
-        obj.maff.maff_done = true;
-        obj.segment.do_def = obj.segment.do_def0;
-    elseif do_template && ~obj.uniform && ~obj.maff.do_maff && obj.iter==2
+        obj = mi_aff_reg_template(obj);        
+    elseif obj.do_template && ~obj.uniform && ~obj.maff.do_maff && obj.iter==2
         obj.segment.do_def = obj.segment.do_def0;
     end 
 
@@ -74,8 +43,12 @@ try
 
     % Write results
     %--------------------------------------------------------------
-    if obj.write_res.do_write_res      
+    if obj.write_res.do_write_res  
         write_res(obj);
+        
+%         f1 = obj.image(1).fname;
+%         f2 = spm_select('FPList',obj.dir_write,'^c.*\.nii$');
+%         spm_check_registration(char({f1,f2}))
     end    
 
     % Verbose

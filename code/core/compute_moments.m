@@ -1,4 +1,4 @@
-function [mom,ll,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_lab)
+function [mom,ll,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_l)
 K  = numel(lkp.part);
 nz = numel(buf);
 N  = numel(buf(1).f);
@@ -23,14 +23,13 @@ for z=1:nz
     for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end    
     
     if nargin>2
-        [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,B,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
+        [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,B,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
         ll      = ll + dll;
     else
         msk1 = buf(z).code>0;
-        q    = NaN(numel(buf(z).msk{1}),N);
-        Kb   = size(buf(1).dat,2);
-        for k=1:Kb
-            q(msk1,k) = double(buf(z).dat(:,k));
+        q    = NaN(numel(buf(z).msk{1}),K);        
+        for k=1:K
+            q(msk1,k) = double(buf(z).dat(:,lkp.part(k)))/sum(lkp.part==lkp.part(k));
         end
     end
     

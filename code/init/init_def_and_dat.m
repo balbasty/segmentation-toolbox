@@ -3,8 +3,6 @@ nz      = numel(buf);
 Kb      = max(obj.segment.lkp.part);
 pth_vel = obj.pth_vel;
 
-spm_diffeo('boundary',1);
-
 % This part is fiddly because of the regularisation of the warps.
 % The fact that displacement fields are only parameterised every few
 % voxels means that the functions in spm_diffeo need tweaking to

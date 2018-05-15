@@ -1,4 +1,4 @@
-function [mu,L] = spm_shoot_blur_wp_load(obj,mu,prm,iter,verbose)
+function [a,L] = spm_shoot_blur_wp_load(obj,a0,prm,iter,verbose)
 % A function for blurring ("smoothing") tissue probability maps
 % FORMAT [sig,a_new] = spm_shoot_blur(t,prm,its,sig)
 %     t   - sufficient statistics
@@ -24,7 +24,7 @@ function [mu,L] = spm_shoot_blur_wp_load(obj,mu,prm,iter,verbose)
 
 if nargin<5, verbose = 1; end
 
-d    = [size(mu),1,1,1];
+d    = [size(a0),1,1,1];
 rits = [1 1]; % No. cycles and no. relaxation iterations
 
 ll = 0;
@@ -57,13 +57,29 @@ for m=1:M
             rngz = bb(3,1):bb(3,2);
             
             for k=1:size(gr,4)
-                Nii                  = nifti(obj{m}{s}.pth_gr{k});
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    Nii = nifti(obj{m}{s}.pth_gr_local{k});
+                else
+                    Nii = nifti(obj{m}{s}.pth_gr{k});
+                end
                 gr(rngx,rngy,rngz,k) = gr(rngx,rngy,rngz,k) + single(Nii.dat(:,:,:));
+                
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    delete(obj{m}{s}.pth_gr_local{k});
+                end
             end
             
             for k=1:size(W,4)
-                Nii                 = nifti(obj{m}{s}.pth_H{k});
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    Nii = nifti(obj{m}{s}.pth_H_local{k});
+                else                                  
+                    Nii = nifti(obj{m}{s}.pth_H{k});
+                end
                 W(rngx,rngy,rngz,k) = W(rngx,rngy,rngz,k) + single(Nii.dat(:,:,:));
+                
+                if ~isempty(obj{m}{s}.dir_der_local)
+                    delete(obj{m}{s}.pth_H_local{k});
+                end
             end
             
             ll = ll + obj{m}{s}.ll_template; 
@@ -80,7 +96,7 @@ R = null(ones(1,d(4)));
 % Initial starting estimates
 a = zeros([d(1:3),d(4)-1],'single');
 for z=1:d(3), % Loop over planes
-    sz = mu(:,:,z,:);
+    sz = a0(:,:,z,:);
     for j1=1:(d(4)-1),
         az = zeros(d(1:2));
         for j2=1:d(4),
@@ -105,9 +121,9 @@ if verbose>1
     fprintf('%2d | %8.7f %8.7f %8.7f %8.7f\n',iter,ll/prod(d(1:3)),ll1/prod(d(1:3)),(ll + ll1)/prod(d(1:3)),(ss2)/prod(d(1:3)));
 end
 
-a  = a - spm_field(W,gr,[prm(1:3) prm(4) prm(5:6) rits]); % Gauss-Newton update  
-    
-mu = rotate_back(a,R);
+a = a - spm_field(W,gr,[prm(1:3) prm(4:6) rits]); % Gauss-Newton update    
+a = rotate_back(a,R);
+
 L  = -(ll + ll1);
 for m=1:M
     if isfield(obj{m}{1}.segment.gmm.pr, 'lb')
@@ -118,7 +134,7 @@ end
 if sum(~isfinite(a(:))) || ~isfinite(L), 
     error('sum(~isfinite(a(:))) || ~isfinite(L)'); 
 end
-%%==========================================================================
+%==========================================================================
 
 %==========================================================================
 function sig = rotate_back(a,R)

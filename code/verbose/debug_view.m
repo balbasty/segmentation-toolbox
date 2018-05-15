@@ -15,38 +15,43 @@ if ~isempty(fig)
     
     % Responsibilities
     if strcmp(type,'responsibilities')
-        gmm     = varargin{2}; 
-        mg      = varargin{3}; 
-        wp      = varargin{4}; 
-        wp_lab  = varargin{5};
+        gmm   = varargin{2}; 
+        mg    = varargin{3}; 
+        wp    = varargin{4}; 
+        wp_l  = varargin{5};
         
-        Q = zeros([d K],'single');
+        Q = zeros([d Kb],'single');
         for z=1:nz
-            q          = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab);            
-            Q(:,:,z,:) = reshape(single(q),[d(1:2) 1 K]);
+            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l);      
+            
+            for k=1:Kb
+                k1 = find(lkp.part==k);
+               
+                Q(:,:,z,k) = reshape(sum(q(:,k1),2),d(1:2));
+            end            
         end        
                
         if d(3)>1
-            for k=1:K      
-                subplot(3,K,k);
+            for k=1:Kb   
+                subplot(3,Kb,k);
                 slice = Q(:,:,floor(d(3)/2) + 1,k);
-                imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp.part(k))]); colormap(gray);               
+                imagesc(slice',[0 1]); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);               
 
-                subplot(3,K,K + k);
+                subplot(3,Kb,Kb + k);
                 slice = permute(Q(:,floor(d(2)/2) + 1,:,k),[3 1 2]);
-                imagesc(slice); axis image xy off; title(['q, k=' num2str(lkp.part(k))]); colormap(gray);   
+                imagesc(slice,[0 1]); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
 
-                subplot(3,K,2*K + k);
+                subplot(3,Kb,2*Kb + k);
                 slice = permute(Q(floor(d(1)/2) + 1,:,:,k),[2 3 1]);
-                imagesc(slice'); axis image xy off; title(['q, k=' num2str(lkp.part(k))]); colormap(gray);   
+                imagesc(slice',[0 1]); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
             end 
         else
-            K1 = floor(sqrt(K));
-            K2 = ceil(K/K1);      
-            for k=1:K
+            K1 = floor(sqrt(Kb));
+            K2 = ceil(Kb/K1);      
+            for k=1:Kb
                 subplot(K1,K2,k);
                 slice = Q(:,:,floor(d(3)/2) + 1,k);
-                imagesc(slice'); axis image xy off; title(['k=' num2str(lkp.part(k))]); colormap(gray);  
+                imagesc(slice',[0 1]); axis image xy off; title(['k=' num2str(k)]); colormap(gray);  
             end  
         end
     end
@@ -98,15 +103,15 @@ if ~isempty(fig)
             for k=1:Kb                 
                 subplot(3,Kb,k);
                 slice = Q(:,:,floor(d(3)/2) + 1,k);
-                imagesc(slice'); axis image xy off; title(['k=' num2str(k)]); colormap(gray);               
+                imagesc(slice',[0 1]); axis image xy off; title(['k=' num2str(k)]); colormap(gray);               
 
                 subplot(3,Kb,Kb + k);
                 slice = permute(Q(:,floor(d(2)/2) + 1,:,k),[3 1 2]);
-                imagesc(slice); axis image xy off; title(['wp=' num2str(round(wp(k),2))]); colormap(gray);   
+                imagesc(slice,[0 1]); axis image xy off; title(['wp=' num2str(round(wp(k),2))]); colormap(gray);   
 
                 subplot(3,Kb,2*Kb + k);
                 slice = permute(Q(floor(d(1)/2) + 1,:,:,k),[2 3 1]);
-                imagesc(slice'); axis image xy off; colormap(gray);   
+                imagesc(slice',[0 1]); axis image xy off; colormap(gray);   
             end 
         else
             K1 = floor(sqrt(Kb));
@@ -114,7 +119,7 @@ if ~isempty(fig)
             for k=1:Kb
                 subplot(K1,K2,k);
                 slice = Q(:,:,floor(d(3)/2) + 1,k);
-                imagesc(slice'); axis image xy off; title(['k=' num2str(k)]); colormap(gray);  
+                imagesc(slice',[0 1]); axis image xy off; title(['wp' num2str(k) '=' num2str(round(wp(k),2))]); colormap(gray);  
             end  
         end
     end
