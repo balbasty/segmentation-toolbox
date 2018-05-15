@@ -23,7 +23,7 @@ addpath(genpath(pth_batch_processing_toolbox))
 pars = [];
 
 pars.dat{1}.dir_data = '/data/mbrud/images/CT/CROMIS';
-pars.dat{1}.dir_preproc = '/home/mbrud/Data/TESTING/segmentation-toolbox/temp-images';
+pars.dat{1}.dir_preproc = '/home/mbrud/Data/TESTING/segmentation-toolbox/img-CROMIS'; 
 pars.dat{1}.modality = 'CT';
 pars.dat{1}.S = 8;
 % pars.dat{1}.preproc.do_realign2mni = true;
@@ -36,6 +36,7 @@ pars = preproc_default(pars);
 pars = read_images_preproc(pars); 
 obj0 = init_obj_preproc(pars);
 
+fprintf('Preprocessing') 
 for s=1:numel(obj0{1})
     fprintf('.')
     process_subject_preproc(obj0{1}{s});
@@ -49,12 +50,13 @@ fprintf('\n')
 pars = [];
 
 pars.pth_template = '/home/mbrud/Data/TPM/CROMIS_245-and-healthy_50-k_9-finished/template.nii';
-pars.dir_output = '/home/mbrud/Data/TESTING/segmentation-toolbox/temp';
+pars.dir_output = '/home/mbrud/Data/TESTING/segmentation-toolbox/seg-CROMIS'; 
 
 pars.verbose = VERBOSE;
 
 pars.dat{1}.dir_data = obj0{1}{1}.dir_preproc;
 pars.dat{1}.modality = obj0{1}{1}.modality;
+pars.dat{1}.healthy = false; 
 pars.dat{1}.print_subj_info = VERBOSE;
 % pars.dat{1}.S = 8;
 
@@ -82,6 +84,7 @@ pars        = read_images_segment(pars);
 pars        = init_template(pars); 
 [obj1,pars] = init_obj_segment(pars);
 
+fprintf('Segmenting') 
 for s=1:numel(obj1{1})
     fprintf('.')
     process_subject_segment(obj1{1}{s},pars.fig);

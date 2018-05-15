@@ -1,6 +1,6 @@
 clear; close all;
  
-VERBOSE = false;
+VERBOSE = true;
  
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
@@ -25,7 +25,7 @@ pars = [];
 pars.dat{1}.dir_data = '/data-scratch/mbrud/images/CT/Parashkev-CT-aged';
 pars.dat{1}.dir_preproc = '/home/mbrud/Data/TESTING/segmentation-toolbox/img-delirium';
 pars.dat{1}.modality = 'CT';
-pars.dat{1}.S = 8;
+pars.dat{1}.S = 1;
 % pars.dat{1}.preproc.do_realign2mni = true;
 pars.dat{1}.preproc.do_crop = true;
 pars.dat{1}.preproc.do_rem_neck = true;
@@ -53,8 +53,13 @@ pars.pth_template = '/home/mbrud/Data/TPM/CT-and-IXI/template.nii';
 pars.dir_output = '/home/mbrud/Data/TESTING/segmentation-toolbox/seg-delirium';
 pars.verbose = 0;
  
-pars.dat{1}.dir_data = obj0{1}{1}.dir_preproc;
-pars.dat{1}.modality = obj0{1}{1}.modality;
+% pars.dat{1}.dir_data = obj0{1}{1}.dir_preproc;
+% pars.dat{1}.modality = obj0{1}{1}.modality;
+
+pars.dat{1}.dir_data = '/data/mbrud/images/CT/healthy_preproc-ra-cr-rn-vx/';
+pars.dat{1}.modality = 'CT';
+pars.dat{1}.S = 1;
+
 pars.dat{1}.healthy = true;
 pars.dat{1}.print_subj_info = VERBOSE;
 % pars.dat{1}.S = 8;
