@@ -16,23 +16,24 @@ gmm        = varargin{6};
 wp         = varargin{7};
 lkp        = varargin{8};
 wp_reg     = varargin{9};
-mix_wp_reg = varargin{10};
-iter       = varargin{11};
-tol1       = varargin{12};
-nm         = varargin{13};
-nitgmm     = varargin{14};
-do_wp      = varargin{15};
-fig        = varargin{16};
-L          = varargin{17};
-print_ll   = varargin{18};
-wp_lab     = varargin{19};
+iter       = varargin{10};
+tol1       = varargin{11};
+nm         = varargin{12};
+nitgmm     = varargin{13};
+do_wp      = varargin{14};
+fig        = varargin{15};
+L          = varargin{16};
+print_ll   = varargin{17};
+wp_l       = varargin{18};
+iter_template = varargin{19};
+do_mg = varargin{20};
 
 for subit=1:nitgmm
     oll = ll;
     ll  = llrb + llr;
     
     % Compute responsibilities and moments
-    [mom,dll,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_lab);        
+    [mom,dll,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_l);        
     ll            = ll + dll;     
     
     % Add up 0:th moment

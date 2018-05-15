@@ -163,8 +163,8 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'pth_prior')
         pars.dat{m}.segment.pth_prior = '';
     end
-    if ~isfield(pars.dat{m}.segment,'wp_lab')
-        pars.dat{m}.segment.wp_lab = 0.5;
+    if ~isfield(pars.dat{m}.segment,'wp_l')
+        pars.dat{m}.segment.wp_l = 0.8;
     end 
     if isempty(pars.dat{m}.segment.lkp.lab)
         pars.dat{m}.segment.wp_lab = 0;

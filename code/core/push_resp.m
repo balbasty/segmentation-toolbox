@@ -3,8 +3,12 @@ lkp = obj.segment.lkp;
 Kb  = max(lkp.part);
 N   = numel(obj.image);
 
+% Get parameters
+%--------------------------------------------------------------------------
+wp_l = obj.segment.wp_l;
+
 % Load template
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 tpm = spm_load_logpriors(obj.pth_template,obj.segment.wp);
 M1  = tpm.M;
 
@@ -120,15 +124,17 @@ for z=1:length(x3)
     else
         tmp = uint8(obj.labels.private.dat(:,:,z));        
         tmp = tmp(msk1);        
+        tmp = tmp(:); 
         
         msk2       = ismember(tmp,lkp.lab);
         tmp(~msk2) = 0;
         
-        labels = zeros([numel(tmp) Kb],'uint8');        
-        for k=1:Kb
-            labels(:,k) = tmp==lkp.lab(k) & lkp.lab(k)~=0;             
-        end
-        clear tmp
+        labels = zeros([numel(tmp) 1],'uint8');         
+        for k=1:Kb      
+            msk2         = tmp==lkp.lab(k) & lkp.lab(k)~=0; 
+            labels(msk2) = obj.segment.lkp.lab(k); 
+        end 
+        clear tmp 
     end
     
     B           = zeros([nnz(msk1) Kb]);
@@ -137,7 +143,7 @@ for z=1:length(x3)
     end
     clear b msk1
     
-    q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lkp,obj.segment.wp,msk,code,labels,obj.segment.wp_lab);
+    q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lkp,obj.segment.wp,msk,code,labels,wp_l);
     clear B f bf
     
     q           = NaN([prod(d(1:2)) Kb]);  
@@ -224,10 +230,25 @@ for z=1:d(3), % Loop over planes
     sz = Nii.dat(rngx,rngy,rngz(z),:);
     
     % log-likelihood (using log-sum-exp)
-    sm0 = bsxfun(@plus,sz,lwp1);
-    sm1 = sum(t(:,:,z,:).*sm0,4);
-    sm2 = spm_matcomp('logsumexp',sm0,4).*s(:,:,z);
+    sm0 = bsxfun(@plus,sz,lwp1);            
+    
+    t1 = t(:,:,z,:);    
+    if ~isempty(lkp.lab) 
+        for k1=1:Kb 
+            if lkp.lab(k1)~=0                
+               t1(:,:,1,k1) = (1 - wp_l)*t1(:,:,1,k1);   
+            end 
+        end         
+    end 
+        
+    sm1 = sum(t1.*sm0,4);
+    
+    t1 = sum(t1,4);
+    
+    sm2 = spm_matcomp('logsumexp',sm0,4).*t1;
+    
     ll0 = sum(sum(sm1 - sm2));                        
+    ll  = ll - ll0;
     
     sz = reshape(sz,d(1),d(2),d(4));
     a  = zeros([d(1:2) 1 d(4) - 1],'single');
@@ -242,10 +263,25 @@ for z=1:d(3), % Loop over planes
     % Compute softmax for this plane
     mu = double(reshape(sftmax(a,R,lwp),[d(1:2),d(4)]));
     
-    ll  = ll - ll0;
+%     if ~isempty(lkp.lab) 
+%         for k1=1:Kb 
+%             if lkp.lab(k1)~=0                
+%                mu(:,:,k1) = mu(:,:,k1).^(1 - wp_l);
+%             end 
+%         end         
+%     end    
 
     % Compute first derivatives (d(4)-1) x 1 
     grz = bsxfun(@times,mu,s(:,:,z)) - double(reshape(t(:,:,z,:),[d(1:2),d(4)]));
+    
+    if ~isempty(lkp.lab) 
+        for k1=1:Kb 
+            if lkp.lab(k1)~=0                
+               grz(:,:,k1) = grz(:,:,k1)*(1 - wp_l);
+            end 
+        end         
+    end    
+
     for j1=1:(d(4)-1),
         gr1 = zeros([d(1:2) 1 d(4) - 1],'single');
         for j2=1:d(4),
@@ -266,6 +302,16 @@ for z=1:d(3), % Loop over planes
         end
     end
 
+    if ~isempty(lkp.lab) 
+        for k1=1:Kb 
+            for k2=1:Kb
+                if lkp.lab(k1)~=0 || lkp.lab(k2)~=0
+                   wz(:,:,k1,k2) = wz(:,:,k1,k2)*(1 - wp_l);
+                end 
+            end
+        end         
+    end   
+    
     % First step of rotating 2nd derivatives to (d(4)-1) x (d(4)-1)
     % by R'*W*R
     wz1 = zeros([d(1:2),d(4),d(4)-1]);

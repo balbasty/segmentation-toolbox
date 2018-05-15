@@ -108,13 +108,17 @@ for z=1:length(z0)
         msk = code>0;
         tmp = uint8(spm_sample_vol(obj.labels,x0,y0,o*z0(z),0));            
         tmp = tmp(msk);        
+        tmp = tmp(:);
         
         msk       = ismember(tmp,obj.segment.lkp.lab);
         tmp(~msk) = 0;
         
-        nlabels = zeros([numel(tmp) Kb],'logical');
+        nlabels = zeros([numel(tmp) 1],'uint8'); 
         for k=1:Kb
-            nlabels(:,k) = tmp==obj.segment.lkp.lab(k) & tmp~=0;             
+            if obj.segment.lkp.lab(k) 
+                msk          = tmp==obj.segment.lkp.lab(k) & tmp~=0; 
+                nlabels(msk) = obj.segment.lkp.lab(k);              
+            end            
         end
         
         buf(z).labels = nlabels;

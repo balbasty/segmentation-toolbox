@@ -28,9 +28,9 @@ iter     = varargin{18};
 fig      = varargin{19};
 L        = varargin{20};
 print_ll = varargin{21};
-tot_S    = varargin{22};
+do_template = varargin{22};
 armijo   = varargin{23};
-wp_lab   = varargin{24};
+wp_l     = varargin{24};
 
 % Some parameters
 nz   = numel(buf);
@@ -77,6 +77,18 @@ for z=1:nz
     end
     clear s ds1 ds2 ds3
 
+    % Adjust for labelled data
+    if ~isempty(lkp.lab) 
+        for k1=1:Kb 
+            if lkp.lab(k1)~=0                
+               b{k1}   = (1 - wp_l)*b{k1}; 
+               db1{k1} = (1 - wp_l)*db1{k1}; 
+               db2{k1} = (1 - wp_l)*db2{k1}; 
+               db3{k1} = (1 - wp_l)*db3{k1}; 
+            end 
+        end 
+    end
+    
     % Rotate gradients (according to initial affine registration) and
     % compute the sums of the tpm and its gradients, times the likelihoods
     % (from buf.dat).
@@ -87,7 +99,7 @@ for z=1:nz
     MM  = M*MT; % Map from sampled voxels to atlas data
     
     % Compute responsibilties        
-    qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab);        
+    qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l);        
     q  = zeros(buf(z).Nm,Kb,'single');
     for k1=1:Kb
         for k=find(lkp.part==k1)
@@ -166,7 +178,7 @@ for line_search=1:12
         cr                             = NaN(numel(buf(z).msk),N);
         for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end 
 
-        [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_lab,cr);
+        [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
         ll1     = ll1 + dll;
 
         mom = spm_SuffStats(cr,q,mom,buf(z).code);
