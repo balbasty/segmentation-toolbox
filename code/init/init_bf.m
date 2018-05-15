@@ -25,33 +25,28 @@ for n=1:N
     % BENDING ENERGY regularisation for bias correction (when building TPMs)
     chan(n).C = spm_sparse('precision','field',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0],'n');
     
-    % Initial parameterisation of bias field
-    if isfield(obj.segment,'Tbias') && ~isempty(obj.segment.Tbias{n})                
-        chan(n).T = obj.segment.Tbias{n};
-        
-        if obj.tot_S>1
-            % When building TPMs, mean correct DC component of bias field
-            chan(n).T(1,1,1) = chan(n).T(1,1,1) - obj.segment.bf.avg_dc(n); 
-        end
-    else
-        chan(n).T = zeros(d3);        
-    end        
-    
     % Basis functions for bias correction
     chan(n).B3 = spm_dctmtx(d0(3),d3(3),z0);
     chan(n).B2 = spm_dctmtx(d0(2),d3(2),y0(1,:)');
     chan(n).B1 = spm_dctmtx(d0(1),d3(1),x0(:,1));
     
-    if obj.iter==1 && strcmp(obj.modality,'MRI')
-        % Change DC component of bias field to make intensities more
-        % simillar between MR images. The scaling parameter is set in
-        % init_buf
-        b1 = chan(n).B1(1,1);
-        b2 = chan(n).B2(1,1);
-        b3 = chan(n).B3(1,1);
-                
-        chan(n).T(1,1,1) = 1/(b1*b2*b3)*log(scl(n));
-    end
+    % Initial parameterisation of bias field
+    if isfield(obj.segment,'Tbias')               
+        chan(n).T = obj.segment.Tbias{n};
+    else
+        chan(n).T = zeros(d3);        
+        
+        if strcmp(obj.modality,'MRI')
+            % Change DC component of bias field to make intensities more
+            % simillar between MR images. The scaling parameter is set in
+            % init_buf
+            b1 = chan(n).B1(1,1);
+            b2 = chan(n).B2(1,1);
+            b3 = chan(n).B3(1,1);
+
+            chan(n).T(1,1,1) = 1/(b1*b2*b3)*log(scl(n));
+        end
+    end               
 end
 
 % Create initial bias field

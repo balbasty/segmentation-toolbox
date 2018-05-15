@@ -144,7 +144,7 @@ for iter=1:pars.niter
     if pars.niter>1
         % For mean correcting bias field (also updated posteriors)
         %------------------------------------------------------------------
-        obj = calc_avg_dc(obj);  
+        obj = modify_bf_dc(obj,iter);  
     end  
     
     if pars.niter>1

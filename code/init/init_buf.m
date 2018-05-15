@@ -40,10 +40,8 @@ end
 mom0 = zeros(1,N);
 mom1 = zeros(1,N);
 mom2 = zeros(1,N);  
-
-sint    = zeros(1,N);
-nms     = zeros(1,N);
-scl_bf = zeros(1,N);
+sint = zeros(1,N);
+nms  = zeros(1,N);
 
 cl   = cell(length(z0),1);
 buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'labels',cl);
@@ -157,9 +155,8 @@ for z=1:length(z0)
 end
 
 % For simple form of intensity normalisation
-for n=1:N
-    scl_bf(n) = (1024/(sint(n)/nms(n)));
-end
+% https://uk.mathworks.com/matlabcentral/answers/226279-how-to-make-image-intensity-equalization-for-multiple-images
+scl_bf = 100./(sint./nms);
 
 % Construct a ``Wishart-style prior'' (vr0)
 vr0 = diag(mom2./mom0 - (mom1./mom0).^2)/Kb^2;
