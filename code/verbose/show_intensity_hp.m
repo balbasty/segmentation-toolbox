@@ -14,14 +14,12 @@ if all_ct
     M = 1;    
 end
  
-N = 1;
+N0 = 0;
 for m=1:M
     pr = obj{m}{1}.segment.gmm.pr;   
     N1 = size(pr.W,1);
     
-    if N1>N
-        N = N1;
-    end
+    N0 = N0 + max(N1 - 1,1);
 end
  
 i = 0;
@@ -35,7 +33,7 @@ for m=1:M
         
         if N1>1
             % ND case
-            if n == 1
+            if n == 1                
                 continue;
             end
             ind  = [1 n];
@@ -53,7 +51,7 @@ for m=1:M
                 k1 = k1 + 1;  
             end
             
-            subplot(M,max(N - 1,1),i)
+            subplot(1,N0,i)
             h = plot_gaussian(pr.m(ind,k), pr.n(k)*pr.W(ind,ind,k), CM(k1,:), K > 1);
             h.LineWidth = 1;
             labels{k} = ['k' num2str(k1)];
@@ -61,10 +59,6 @@ for m=1:M
         legend(labels);        
     end
     
-    while i<N
-        i = i + 1;       
-    end
-        
     if all_ct
         break;
     end
