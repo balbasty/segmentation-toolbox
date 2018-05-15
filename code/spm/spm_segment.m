@@ -13,8 +13,7 @@ d         = [size(x0) length(z0)];
 lkp       = obj.segment.lkp;
 Kb        = max(lkp.part);
 tol1      = obj.segment.tol1;
-wp_reg    = 1/Kb;
-mix_wp_reg = obj.segment.mix_wp_reg;
+wp_reg    = obj.segment.wp_reg;
 wp_l      = obj.segment.wp_l;
 modality  = obj.modality;
 niter     = obj.segment.niter;
@@ -31,19 +30,18 @@ tot_S     = obj.tot_S;
 
 % Initialise weights
 %-----------------------------------------------------------------------
-if isfield(obj.segment,'wp'), wp = obj.segment.wp;
-else,                         wp = ones(1,Kb)/Kb;
+if isfield(obj.segment,'wp') 
+    wp = obj.segment.wp;
+else
+    wp = ones(1,Kb)/Kb;
 end
-        
-part0 = lkp.part;
+wp(lkp.rem) = eps;
+wp          = wp/sum(wp);
+
 if isfield(obj.segment,'mg')
     mg = obj.segment.mg;   
-    if numel(mg)~=numel(lkp.part)
-        lkp.part = 1:Kb;       
-    end
 else              
     mg       = ones(1,Kb);
-    lkp.part = 1:Kb;   
 end
 
 % Load template

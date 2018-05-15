@@ -48,6 +48,7 @@ for subit=1:nitgmm
     if do_wp
         % Update tissue weights
         wp = update_wp(lkp,s0,mgm,nvox,mix_wp_reg,wp_reg);
+        wp = update_wp(lkp,s0,mgm,nvox,wp_reg,iter_template);
     end
     
     % Update mixing proportions

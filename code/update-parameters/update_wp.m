@@ -1,23 +1,31 @@
-function wp = update_wp(lkp,s0,mgm,nvox,mix_wp_reg,wp_reg)
+function wp = update_wp(lkp,s0,mgm,nvox,wp_reg,iter_template)
 % Update tissue mixing weights (wp)
-% FORMAT wp = update_wp(lkp,s0,mgm,nvox,mix_wp_reg,wp_reg)
+% FORMAT wp = update_wp(lkp,s0,mgm,nvox,wp_reg,iter_template)
 %
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
-
+ 
 Kb = max(lkp.part);
 wp = zeros(1,Kb);
 for k1=1:Kb
-    if mix_wp_reg==-1
-        % Default spm_preproc8 update
-        wp(k1) = (sum(s0(lkp.part==k1)) + wp_reg*1)/(mgm(k1) + wp_reg*Kb); % bias the solution towards 1
-    else
-        % Weighted modfied version
-        w1 = mix_wp_reg;
-        w2 = 1 - w1;
-
-        wp(k1) = (w1*sum(s0(lkp.part==k1)) + w2*nvox*wp_reg)/(w1*mgm(k1) + w2*nvox);
+    if strcmp(wp_reg,'single-subject')
+        % Single subject segmentation -> default spm_preproc8 update
+        wp(k1) = (sum(s0(lkp.part==k1)) + 1)/(mgm(k1) + Kb); % bias the solution towards 1
+    elseif strcmp(wp_reg,'build-template')
+        % Building template, decrease regularisation over iterations
+        sched = 0:0.1:0.9;
+        
+        if iter_template>numel(sched)
+            wp(k1) = (sum(s0(lkp.part==k1)) + 1)/(mgm(k1) + Kb);
+        else
+            w1 = sched(iter_template);
+            w2 = 1 - w1;
+ 
+            wp(k1) = (w1*sum(s0(lkp.part==k1)) + (w2*nvox)/Kb)/(w1*mgm(k1) + w2*nvox);
+        end
     end
 end
-wp = wp/sum(wp);
+ 
+wp(lkp.rem) = eps;
+wp          = wp/sum(wp);
 %==========================================================================
