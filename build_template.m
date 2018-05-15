@@ -149,16 +149,14 @@ for iter=1:pars.niter
         %------------------------------------------------------------------
         obj = update_intensity_hp2(obj,pars);
     end
-       
-    % Save obj structs
-    %----------------------------------------------------------------------
-    save(fullfile(pars.dir_template,'obj.mat'),'obj');
-    
+           
     if pars.do_template
-        % Some verbose
-        %------------------------------------------------------------------
+        % Show some verbose        
         show_results(pars,obj,L,iter);
-
+                      
+        % Save obj struct
+        save(fullfile(pars.dir_template,'obj.mat'),'obj');
+       
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
         
@@ -193,7 +191,7 @@ end
 % Subject specific verbose
 %--------------------------------------------------------------------------
 if verbose>2, 
-    show_resp(fig{7},obj,rand_subjs); 
+    show_resp(fig{7},obj,rand_subjs,iter); 
     fname = fullfile(dir_animations,'responsibilities.gif');
     write2gif(fig{7},fname,iter);
 end      

@@ -28,7 +28,7 @@ if d(3)>1
     
     subplot(311);
     imagesc(img1,[0 1]); axis off image xy; colormap(gray);      
-    title(['template (iter=' num2str(iter) ')'])
+    title(['Template (iter=' num2str(iter) ')'])
 
     subplot(312);
     imagesc(img2,[0 1]); axis off image xy; colormap(gray);   
