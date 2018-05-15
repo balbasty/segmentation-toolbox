@@ -2,8 +2,12 @@ function [obj,pars] = init_obj_segment(pars)
 M = numel(pars.dat);
 
 %--------------------------------------------------------------------------
-dir_subjects = fullfile(pars.dir_output,'subjects');
+dir_subjects = fullfile(pars.dir_output,'subject-data');
 if exist(dir_subjects,'dir'), rmdir(dir_subjects,'s'); end; mkdir(dir_subjects);   
+
+dir_animations      = fullfile(pars.dir_output,'animations');
+if exist(dir_animations,'dir'), rmdir(dir_animations,'s'); end; mkdir(dir_animations);   
+pars.dir_animations = dir_animations;
 
 dir_local = pars.dir_local;
 if ~isempty(dir_local)
@@ -11,31 +15,112 @@ if ~isempty(dir_local)
 end
 
 %--------------------------------------------------------------------------
-tot_S = 0;
-for m=1:M
-    S = numel(pars.dat{m}.V);    
-    for s=1:S
-        tot_S = tot_S + 1; 
-    end
-end
-
-if ~(tot_S>1)   
-    pars.niter = 1; 
-end
-
-%--------------------------------------------------------------------------
-fig = cell(1,4);
+fig = cell(1,11);
 if pars.dat{1}.segment.verbose
-    for i=1:numel(fig), fig{i} = figure(i); clf(figure(i)); end    
+        name = 's-resp';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{1} = fh;
+        else
+            fig{1} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{1});   
+        name = 's-bf';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{2} = fh;
+        else
+            fig{2} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{2});   
+        name = 's-tpm';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{3} = fh;
+        else
+            fig{3} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{3});           
+        name = 's-ll';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{4} = fh;
+        else
+            fig{4} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{4});                   
 end
 if pars.niter>1
-    if pars.verbose>3, fig{11} = figure(11); clf(figure(11)); end
-    if pars.verbose>2, fig{10} = figure(10); clf(figure(10)); end
-    if pars.verbose>2, fig{9}  = figure(9); clf(figure(9)); end
-    if pars.verbose>2, fig{8}  = figure(8); clf(figure(8)); end
-    if pars.verbose>2, fig{7}  = figure(7); clf(figure(7)); end
-    if pars.verbose>1, fig{6}  = figure(6); clf(figure(6)); end
-    if pars.verbose>0, fig{5}  = figure(5); clf(figure(5)); end        
+    if pars.verbose>3, 
+        name = 'bf';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{11} = fh;
+        else
+            fig{11} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{11});         
+    end
+    if pars.verbose>2, 
+        name = 'def';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{10} = fh;
+        else
+            fig{10} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{10});        
+    end
+    if pars.verbose>2, 
+        name = 'll';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{9} = fh;
+        else
+            fig{9} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{9});        
+    end
+    if pars.verbose>2, 
+        name = 'prior';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{8} = fh;
+        else
+            fig{8} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{8});         
+    end
+    if pars.verbose>2, 
+        name = 'resps';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{7} = fh;
+        else
+            fig{7} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{7});         
+    end
+    if pars.verbose>1, 
+        name = 'tpm';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{6} = fh;
+        else
+            fig{6} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{6});         
+    end
+    if pars.verbose>0, 
+        name = 'L';
+        fh   = findobj('Type','Figure','Name',name);
+        if ~isempty(fh)
+            fig{5} = fh;
+        else
+            fig{5} = figure('Name',name,'NumberTitle','off'); 
+        end
+        clf(fig{5});         
+    end        
 end
 drawnow
 
@@ -69,8 +154,7 @@ for m=1:M
     if V{1}(1).dim(3)==1
         % Data is 2D
         %------------------------------------------------------------------
-        pars.dat{m}.maff.do_maff = false;
-        pars.dat{m}.segment.samp = 1;
+        pars.dat{m}.maff.do_maff = false;        
     end
     
     pars.dat{m}.write_res.write_bf = repmat(pars.dat{m}.write_res.write_bf,N,1);  
@@ -92,10 +176,8 @@ for m=1:M
         obj1.image  = V{s};
         obj1.labels = pars.dat{m}.labels{s};
         
-        %------------------------------------------------------------------
-        obj1.s            = cnt;
-        obj1.tot_S        = tot_S;
-        
+        %------------------------------------------------------------------ 
+        obj1.do_template     = pars.do_template;
         obj1.modality        = pars.dat{m}.modality;
         obj1.pth_template    = pars.pth_template;                        
         obj1.est_fwhm        = pars.dat{m}.est_fwhm;                        
@@ -105,6 +187,8 @@ for m=1:M
         obj1.fwhm            = pars.dat{m}.fwhm;
         obj1.Affine          = pars.dat{m}.Affine;
         obj1.print_subj_info = pars.dat{m}.print_subj_info;
+        
+        obj1.s            = cnt;        
         obj1.ll_template     = 0;
         obj1.status          = 0;
         obj1.iter            = 1;
@@ -121,47 +205,28 @@ for m=1:M
         obj1.write_res = pars.dat{m}.write_res;        
         
         %------------------------------------------------------------------                     
-        obj1.segment = pars.dat{m}.segment;
-        
-        obj1.segment.reg0    = pars.dat{m}.segment.reg;
-        obj1.segment.do_bf0  = pars.dat{m}.segment.do_bf;
-        obj1.segment.do_def0 = pars.dat{m}.segment.do_def;
-        obj1.segment.do_wp0  = pars.dat{m}.segment.do_wp;
-        obj1.segment.ll_all  = [];
-        
+        obj1.segment           = pars.dat{m}.segment;            
+        obj1.segment.ll_all    = [];        
         obj1.segment.bf.dc     = zeros(1,N);
         obj1.segment.bf.avg_dc = zeros(1,N);
         
         % lkp
+        %------------------------------------------------------------------                     
         lkp = pars.dat{m}.segment.lkp;
-        
-        if ~isempty(lkp.lab) && ~isempty(lkp.rem)
-           error('~isempty(lkp.lab) && ~isempty(lkp.rem)') 
-        end
-            
-        if ~isempty(pars.dat{m}.labels{s}) && ~isempty(lkp.lab)
-            labels  = pars.dat{m}.labels{s};
-            labels  = uint8(labels.private.dat(:,:,:));
-            if min(labels(:))==0
-               labels = labels + 1; 
-            end
-            mn = min(labels(:));
-            mx = max(labels(:));
-            
-            if isempty(lkp.lab)
-                lkp.lab = mn:mx;
-                lkp.lab = [lkp.lab zeros(1,pars.K - mx)];
-            end
-        end
-        
+                            
         if ~isempty(lkp.rem)
             msk      = ismember(lkp.keep,lkp.rem);
             lkp.keep = lkp.keep(~msk);
+        end
+        
+        if isempty(lkp.lab)
+            obj1.segment.wp_l = 0;
         end    
         
         obj1.segment.lkp = lkp;
         
         % gmm
+        %------------------------------------------------------------------
         if ~isfield(obj1.segment,'gmm')
             obj1.segment.gmm = struct;
         end
@@ -171,25 +236,26 @@ for m=1:M
             obj1.segment.gmm.pr = tmp.pr;
         end
           
+        % Build directory structure
         %------------------------------------------------------------------
         [~,nam] = fileparts(obj1.image(1).fname);
 
-        dir_resp = fullfile(dir_s,'resp'); 
+        dir_resp = fullfile(dir_s,'pushed-responsibilities'); 
         mkdir(dir_resp); 
 
         pth_resp = cell(1,pars.K);
         for k=1:pars.K
-            fname       = fullfile(dir_resp,['resp-', num2str(k), '-' nam, '.nii']);
+            fname       = fullfile(dir_resp,['push_resp-', num2str(k), '-' nam, '.nii']);
             pth_resp{k} = fname;  
         end
         obj1.pth_resp = pth_resp;
     
-        dir_der      = fullfile(dir_s,'der');      
+        dir_der      = fullfile(dir_s,'template-derivatives');      
         obj1.dir_der = dir_der;
         mkdir(dir_der);        
         
         if ~isempty(dir_local)
-            dir_der_local      = fullfile(dir_local_s,'der');      
+            dir_der_local      = fullfile(dir_local_s,'template-derivatives');      
             obj1.dir_der_local = dir_der_local;
             mkdir(dir_der_local);  
         else
@@ -228,12 +294,12 @@ for m=1:M
             obj1.pth_H_local = pth_H;
         end
                 
-        dir_vel = fullfile(dir_s,'vel');   
+        dir_vel = fullfile(dir_s,'deformations');   
         mkdir(dir_vel);
 
-        obj1.pth_vel = fullfile(dir_vel,['vel-' nam '.nii']);   
+        obj1.pth_vel = fullfile(dir_vel,['deformation-' nam '.nii']);   
 
-        dir_write = fullfile(dir_s,'write');   
+        dir_write = fullfile(dir_s,'results');   
         mkdir(dir_write);
 
         obj1.dir_write = dir_write;
