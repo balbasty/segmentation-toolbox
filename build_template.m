@@ -160,13 +160,7 @@ for iter=1:pars.niter
     if pars.niter>1
         % Some verbose
         %------------------------------------------------------------------
-        if pars.verbose>0, plot_ll(pars.fig{5},L); end
-        if pars.verbose>1, show_template(pars.fig{6},pars.pth_template); end
-        if pars.verbose>2, show_resp(pars.fig{7},obj,pars.rand_subjs); end      
-        if pars.verbose>2, show_intensity_hp(pars.fig{8},obj); end 
-        if pars.verbose>2, show_subj_ll(pars.fig{9},obj,pars.rand_subjs); end
-        if pars.verbose>2, show_def(pars.fig{10},obj,pars.rand_subjs); end                 
-        if pars.verbose>3, show_bf(pars.fig{11},obj,pars.rand_subjs); end 
+        show_results(pars,obj,L,iter);
 
         d = abs((L(end - 1)*(1 + 10*eps) - L(end))/L(end));    
         fprintf('%2d | L = %0.0f | d = %0.5f\n',iter,L(end),d);  
@@ -178,6 +172,50 @@ for iter=1:pars.niter
 end
 
 print_algorithm_progress('finished',iter);
+%==========================================================================
+
+%==========================================================================
+function show_results(pars,obj,L,iter)
+fig            = pars.fig;
+rand_subjs     = pars.rand_subjs;
+pth_template   = pars.pth_template;
+verbose        = pars.verbose;
+dir_animations = pars.dir_animations;
+
+% Model specific verbose
+%--------------------------------------------------------------------------
+if verbose>0, 
+    show_L(fig{5},L,iter); 
+end
+if verbose>1, 
+    show_template(fig{6},pth_template,dir_animations,iter); 
+    fname = fullfile(dir_animations,'template.gif');
+    write2gif(fig{6},fname,iter);
+end
+
+% Subject specific verbose
+%--------------------------------------------------------------------------
+if verbose>2, 
+    show_resp(fig{7},obj,rand_subjs); 
+    fname = fullfile(dir_animations,'responsibilities.gif');
+    write2gif(fig{7},fname,iter);
+end      
+if verbose>2, 
+    show_intensity_hp(fig{8},obj); 
+end 
+if verbose>2, 
+    show_subj_ll(fig{9},obj,rand_subjs); 
+end
+if verbose>2, 
+    show_def(fig{10},obj,rand_subjs); 
+    fname = fullfile(dir_animations,'deformations.gif');
+    write2gif(fig{10},fname,iter);
+end                 
+if verbose>3, 
+    show_bf(fig{11},obj,rand_subjs); 
+    fname = fullfile(dir_animations,'bias-fields.gif');
+    write2gif(fig{11},fname,iter);
+end 
 %==========================================================================
 
 %==========================================================================
@@ -210,9 +248,11 @@ fprintf('=================================================\n\n')
 %==========================================================================
 
 %==========================================================================
-function plot_ll(fig,L)
+function show_L(fig,L,iter)
 set(0,'CurrentFigure',fig);                
 plot(0:numel(L(3:end)) - 1,L(3:end),'b-','LineWidth',1);   hold on            
 plot(0:numel(L(3:end)) - 1,L(3:end),'b.','markersize',10); hold off  
-title('ll')
+title(['L (iter=' num2str(iter) ')']) 
+set(gca,'YTickLabel',[]); 
+set(gca,'XTickLabel',[]); 
 %==========================================================================

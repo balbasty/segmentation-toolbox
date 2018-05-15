@@ -5,17 +5,20 @@ M   = numel(obj);
 cnt = 1;    
 for m=1:M                
     for s=rand_subjs{m} 
-        Nii = nifti(obj{m}{s}.pth_vel);
-        img = single(Nii.dat(:,:,:,:));
-        dm  = size(img);
-        zix = floor(dm(3)/2) + 1; 
+        V   = spm_vol(obj{m}{s}.pth_vel);
+        dm  = V.dim;
+        zix = floor(dm(3)/2) + 1;                                         
         
-        for i=1:3
-            subplot(M*numel(rand_subjs{1}),3,cnt)
-            imagesc(img(:,:,zix,i)'); axis off image xy; colormap(gray); colorbar
-            title(['def_{' num2str(m), ',' num2str(s), ',' num2str(i) '}']);
-            cnt = cnt + 1;
+        subplot(M,numel(rand_subjs{1}),cnt)
+        cnt = cnt + 1;
+        
+        img = [];
+        for i=1:3                        
+            slice = single(V(1).private.dat(:,:,zix,i));            
+            img   = [img slice'];            
         end 
+        
+        imagesc(img); axis off image xy; colormap(gray);
     end
 end                                  
 drawnow

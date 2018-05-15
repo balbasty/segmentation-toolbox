@@ -15,6 +15,8 @@ for m=1:M
             plot(0:numel(ll) - 1,ll,'b-'); 
         end
         title(['ll_{m=' num2str(m) ', s=' num2str(s) '}'])
+        set(gca,'YTickLabel',[]); 
+        set(gca,'XTickLabel',[]); 
         
         cnt = cnt + 1;
     end

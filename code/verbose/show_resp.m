@@ -20,8 +20,8 @@ for m=1:M
             wp = round(obj{m}{s}.segment.wp(k),2);
             
             subplot(M*numel(rand_subjs{1}),K,cnt);
-            imagesc(img'); axis off xy; colormap(gray);
-            title(['q_{' num2str(m), ',' num2str(s) ',' num2str(k) '},w=' num2str(wp)]);
+            imagesc(img'); axis off image xy; colormap(gray);
+            title(['w=' num2str(wp)]);
             cnt = cnt + 1;
         end 
     end
