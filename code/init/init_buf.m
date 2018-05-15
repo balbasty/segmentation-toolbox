@@ -1,4 +1,4 @@
-function [buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm,tot_S)
+function [buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm)
 Kb = max(obj.segment.lkp.part);
 d  = [size(x0) length(z0)];
 
@@ -46,7 +46,7 @@ nms  = zeros(1,N);
 cl   = cell(length(z0),1);
 buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'labels',cl);
 for z=1:length(z0)
-    if tot_S==1
+    if ~obj.do_template
         % Load only those voxels that are more than 5mm up
         % from the bottom of the tissue probability map.  This
         % assumes that the affine transformation is pretty close.

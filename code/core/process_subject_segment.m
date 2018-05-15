@@ -4,9 +4,7 @@ try
     
     rng('default');
     rng(obj.s);
-    
-    do_template = obj.tot_S>1;
-
+        
     if obj.est_fwhm && obj.iter==1 && obj.image(1).dim(3)>1
         % Estimate FWHM of image smoothness
         %------------------------------------------------------------------
@@ -19,12 +17,12 @@ try
         obj.fwhm = mean(fwhm);
     end
     
-    if (~do_template && ~obj.uniform && obj.maff.do_maff) || ...
-       (do_template && obj.maff.maff_done==false && ~obj.uniform && obj.maff.do_maff)   
+    if (~obj.do_template && ~obj.uniform && obj.maff.do_maff) || ...
+       (obj.do_template && obj.maff.maff_done==false && ~obj.uniform && obj.maff.do_maff)   
         % MI affine registration
         %------------------------------------------------------------------
         obj = mi_aff_reg_template(obj);        
-    elseif do_template && ~obj.uniform && ~obj.maff.do_maff && obj.iter==2
+    elseif obj.do_template && ~obj.uniform && ~obj.maff.do_maff && obj.iter==2
         obj.segment.do_def = obj.segment.do_def0;
     end 
 

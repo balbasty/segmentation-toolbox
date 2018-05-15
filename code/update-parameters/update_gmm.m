@@ -47,13 +47,14 @@ for subit=1:nitgmm
     
     if do_wp
         % Update tissue weights
-        wp = update_wp(lkp,s0,mgm,nvox,mix_wp_reg,wp_reg);
         wp = update_wp(lkp,s0,mgm,nvox,wp_reg,iter_template);
     end
     
-    % Update mixing proportions
-    mg = update_mg(lkp,s0);
-        
+    if do_mg
+        % Update mixing proportions
+        mg = update_mg(lkp,s0);
+    end
+    
     % Update means and variances
     [dll,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);
     ll        = ll + sum(sum(dll));  
@@ -64,7 +65,7 @@ for subit=1:nitgmm
     if subit>1 || iter>1
         debug_view('convergence',fig{4},lkp,buf,L);
     end
-    if subit>1 && ll-oll<tol1*nm
+    if subit>3 && ll-oll<tol1*nm
         % Improvement is small, so go to next step
         break;
     end

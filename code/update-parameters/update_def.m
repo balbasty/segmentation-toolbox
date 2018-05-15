@@ -135,13 +135,9 @@ for z=1:nz
     Alpha(:,:,z,5)  = dp1.*dp3;
     Alpha(:,:,z,6)  = dp2.*dp3;
     clear tmp p dp1 dp2 dp3
-    
-    % Adjust for label weight
-    Beta  = (1 - wp_lab)*Beta;
-    Alpha = (1 - wp_lab)*Alpha;
 end
 
-if tot_S==1
+if ~do_template
     % Heavy-to-light regularisation
     scal     = 2^max(10 - iter,0);       
     param(6) = param(6)*scal^2;

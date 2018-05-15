@@ -492,24 +492,3 @@ bb = sort(bb,2);
 
 delete(nfname); 
 %==========================================================================
-
-%==========================================================================
-function debug_view(Q,fix)
-figure(fix)
-dm = size(Q);
-K  = dm(4);
-for k=1:K              
-    subplot(3,K,k);
-    slice = Q(:,:,floor(dm(3)/2) + 1,k);
-    imagesc(slice'); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);               
-
-    subplot(3,K,K + k);
-    slice = permute(Q(:,floor(dm(2)/2) + 1,:,k),[3 1 2]);
-    imagesc(slice); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
-
-    subplot(3,K,2*K + k);
-    slice = permute(Q(floor(dm(1)/2) + 1,:,:,k),[2 3 1]);
-    imagesc(slice'); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
-end
-drawnow
-%==========================================================================   
