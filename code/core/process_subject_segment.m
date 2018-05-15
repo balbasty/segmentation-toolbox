@@ -1,5 +1,7 @@
 function obj = process_subject_segment(obj,fig) 
 try
+    spm_diffeo('boundary',1); % BOUND_CIRCULANT 0, BOUND_NEUMANN 1
+    
     rng('default');
     rng(obj.s);
     

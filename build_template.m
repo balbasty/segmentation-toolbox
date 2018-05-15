@@ -10,6 +10,7 @@ if nargin<1
     pars = '/home/mbrud/Dropbox/PhD/Data/pars/segmentation-toolbox/CROMIS-and-healthy-3d-vx.json'; 
 end
 if nargin<2, test_level = 0; end
+spm_field('boundary',1); % BOUND_CIRCULANT 0, BOUND_NEUMANN 1
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)

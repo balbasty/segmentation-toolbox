@@ -177,7 +177,7 @@ clear t1 t2 t3
 % Push responsibilities to template space
 %--------------------------------------------------------------------------
 for k1=1:Kb
-    [t1,c] = spm_diffeo('pushc',Q(:,:,:,k1),y,d1(1:3));
+    [t1,c] = spm_diffeo('push',Q(:,:,:,k1),y,d1(1:3));
      
     if k1==1
         % Calculate bounding box from count image
