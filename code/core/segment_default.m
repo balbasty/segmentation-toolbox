@@ -41,7 +41,7 @@ if ~isfield(pars,'K')
     end            
 end
 
-[has_ct,flag_healthy_ct] = inspect_ct_data(pars);
+has_ct = inspect_ct_data(pars);
 if has_ct && pars.do_template
     pars.K = 9;
 end
@@ -249,17 +249,6 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'constr_inthp')
         pars.dat{m}.segment.constr_inthp = false;
     end    
-    
-    % CT specific segmentation parameters
-    if ~isfield(pars.dat{m}.segment,'ct')
-        pars.dat{m}.segment.ct = struct;
-    end
-    if ~isfield(pars.dat{m}.segment.ct,'ngauss_lesion')
-        pars.dat{m}.segment.ct.ngauss_lesion = 3;
-    end
-    if ~isfield(pars.dat{m}.segment.ct,'ngauss_brain') 
-        pars.dat{m}.segment.ct.ngauss_brain = 1; 
-    end     
     
     % Push resps parameters
     %----------------------------------------------------------------------
