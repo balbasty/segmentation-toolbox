@@ -81,6 +81,12 @@ print_algorithm_progress('started');
 L = -Inf;
 for iter=1:pars.niter        
     
+    if iter==pars.niter
+        % Final iteration -> increase holly memory because full-size
+        % segmentations will be written to disk
+        holly.job.mem = '6G';
+    end
+    
     if pars.do_template
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
