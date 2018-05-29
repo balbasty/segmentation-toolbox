@@ -49,10 +49,8 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = true;
-holly.job.batch     = true;
-holly.job.mem       = '6G';
-holly.job.est_mem   = false;
-holly.job.use_dummy = false;
+holly.job.mem       = '4G';
+holly.job.sd        = 0.2;
 holly.mode          = 'qsub';
 
 if     test_level==1, holly.mode = 'for';
