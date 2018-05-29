@@ -1,5 +1,5 @@
 function show_resp(fig,obj,rand_subjs,iter,print_wp)
-if nargin<5, print_wp = false; end
+if nargin<5, print_wp = true; end
 
 set(0,'CurrentFigure',fig);       
 
