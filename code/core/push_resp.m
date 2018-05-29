@@ -1,7 +1,7 @@
 function obj = push_resp(obj)
-lkp = obj.segment.lkp;
-Kb  = max(lkp.part);
-N   = numel(obj.image);
+lkp      = obj.segment.lkp;
+Kb       = max(lkp.part);
+N        = numel(obj.image);
 modality = obj.modality;
 
 % Get parameters
@@ -77,8 +77,8 @@ for z=1:length(x3)
     nm  = 0;    
     msk = cell(1,N);
     for n=1:N
-        f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
-        msk{n} = spm_misc('msk_modality',f{n},obj.modality);
+        f{n}     = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);        
+        msk{n}   = spm_misc('msk_modality',f{n},obj.modality);
         if strcmp(modality,'CT')
             f{n} = f{n} + 1000;
         end
@@ -160,6 +160,23 @@ for z=1:length(x3)
     clear q
 end
 clear tpm x1 x2 x3 o Coeff chan msk
+
+% MRF clean-up
+%--------------------------------------------------------------------------
+if obj.push_resp.do_mrf
+    vx       = 1./single(sum(obj.image(1).mat(1:3,1:3).^2));
+    nmrf_its = 10;
+    T        = 1;
+    G        = T*ones([Kb,1],'single');
+    P        = zeros(size(Q),'uint8');
+    
+    for iter=1:nmrf_its
+        spm_mrf(P,Q,G,vx);
+    end
+    
+    Q = single(P)/255;
+    clear P
+end
 
 % Adjust stuff so that warped data (and deformations) have the
 % desired bounding box and voxel sizes, instead of being the same

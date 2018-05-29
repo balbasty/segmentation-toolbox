@@ -272,6 +272,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.push_resp,'do_push_resp')
         pars.dat{m}.push_resp.do_push_resp = false;
     end   
+    if ~isfield(pars.dat{m}.push_resp,'do_mrf')
+        pars.dat{m}.push_resp.do_mrf = false;
+    end   
     
     % Write results parameters
     %----------------------------------------------------------------------
