@@ -24,6 +24,8 @@ function [a,L] = spm_shoot_blur_wp_load(obj,a0,prm,iter,verbose)
 
 if nargin<5, verbose = 1; end
 
+spm_field('boundary',1); % BOUND_CIRCULANT 0, BOUND_NEUMANN 1
+
 d    = [size(a0),1,1,1];
 rits = [1 1]; % No. cycles and no. relaxation iterations
 
