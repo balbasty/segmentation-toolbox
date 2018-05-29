@@ -62,7 +62,30 @@ holly = distribute_default(holly);
 %--------------------------------------------------------------------------
 % Initialise algorithm
 %--------------------------------------------------------------------------
-pars = read_images_segment(pars); 
+% pars = read_images_segment(pars); 
+
+% SOME TEMP STUFF FOR DEALING WITH THE NEW DAT OBJECT
+for m=1:numel(pars.dat)
+    dat = spm_json_manager('init_dat',pars.dat{m}.dir_data,true);    
+    S   = min(numel(dat),pars.dat{m}.S);
+    for s=1:S
+        if isfield(dat{s}.modality{1},'channel')
+            for c=1:numel(dat{s}.modality{1}.channel)
+                pars.dat{m}.V{s}(c) = spm_vol(dat{s}.modality{1}.channel{c}.nii.dat.fname);
+            end
+        else
+            pars.dat{m}.V{s}(1) = spm_vol(dat{s}.modality{1}.nii.dat.fname);
+        end   
+        
+        if isfield(dat{s},'label')
+            pars.dat{m}.labels{s} = spm_vol(dat{s}.label{1}.nii.dat.fname);
+        else
+            pars.dat{m}.labels{s} = [];
+        end
+    end 
+    pars.dat{m}.S = S; 
+end
+
 pars = init_template(pars); 
 
 % Only if CT data, initialise the GMM parameters by fitting a GMM to an
