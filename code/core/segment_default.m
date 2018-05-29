@@ -206,7 +206,7 @@ for m=1:M
         pars.dat{m}.segment.class_ix = [];
     end   
     if ~isfield(pars.dat{m}.segment,'init_clust')
-        pars.dat{m}.segment.init_clust = '';
+        pars.dat{m}.segment.init_clust = 'magnitude';
     end    
     if ~isfield(pars.dat{m}.segment,'print_ll')
         if test_level==1
