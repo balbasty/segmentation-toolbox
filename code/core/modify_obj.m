@@ -8,13 +8,16 @@ for m=1:M
         if iter==2            
             obj{m}{s}.uniform = false;  
             
-            obj{m}{s}.segment.do_bf  = obj{m}{s}.segment.do_bf0;                                                               
-            obj{m}{s}.segment.do_mg  = obj{m}{s}.segment.do_mg0; 
-            obj{m}{s}.segment.do_wp  = obj{m}{s}.segment.do_wp0;   
+            obj{m}{s}.segment.do_bf  = obj{m}{s}.segment.do_bf0;                                                                                     
             obj{m}{s}.segment.niter  = 3;
-            obj{m}{s}.segment.nitgmm = 20;
+            obj{m}{s}.segment.nitgmm = 20;                        
         end
 
+        if iter==6
+            obj{m}{s}.segment.do_wp = obj{m}{s}.segment.do_wp0;   
+            obj{m}{s}.segment.do_mg = obj{m}{s}.segment.do_mg0;   
+        end
+        
         if iter>=2
             reg0                     = obj{m}{s}.segment.reg0;   
             sched                    = 2.^fliplr(repelem(0:9,2));
