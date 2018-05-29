@@ -24,6 +24,7 @@ vx       = obj.write_res.vx;
 G        = obj.write_res.G*mrf;
 nmrf_its = obj.write_res.nmrf_its;
 odir     = obj.dir_write;
+modality = obj.modality;
 
 % Load template
 %-----------------------------------------------------------------------
@@ -201,9 +202,12 @@ for z=1:length(x3)
     bf  = cell(1,N);
     msk = cell(1,N);
     for n=1:N
-        f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
-        msk{n} = spm_misc('msk_modality',f{n},obj.modality);        
-        bf{n}  = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));  
+        f{n}     = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
+        msk{n}   = spm_misc('msk_modality',f{n},obj.modality);      
+        if strcmp(modality,'CT')
+            f{n} = f{n} + 1000;
+        end
+        bf{n}    = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));  
         
         if ~isempty(chan(n).Nc),
             % Write a plane of bias corrected data
