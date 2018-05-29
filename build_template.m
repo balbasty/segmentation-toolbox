@@ -152,12 +152,6 @@ for iter=1:pars.niter
         crop_template(pars.pth_template,iter);
     end
     
-    if pars.do_template && pars.mrf
-        % Use a MRF cleanup procedure
-        %------------------------------------------------------------------
-        mrf_template(pars.pth_template);
-    end
-    
     %----------------------------------------------------------------------
     % Intensity specific
     % Here is where the hyper-parameters of the VB-GMM are updated
