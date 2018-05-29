@@ -313,11 +313,11 @@ for m=1:M
             
     pars.dat{m}.segment.reg0     = pars.dat{m}.segment.reg;    
         
-    if strcmp(pars.dat{m}.modality,'CT') 
-        % Segment CT image(s) 
-        pars.dat{m}.segment.do_bf  = false; 
-        pars.dat{m}.segment.do_bf0 = false; 
-    end 
+%     if strcmp(pars.dat{m}.modality,'CT') 
+%         % Segment CT image(s) 
+%         pars.dat{m}.segment.do_bf  = false; 
+%         pars.dat{m}.segment.do_bf0 = false; 
+%     end 
 end
 
 if S0==1
