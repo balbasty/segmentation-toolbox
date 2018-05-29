@@ -12,9 +12,9 @@ Nii = nifti(pth_template);
 vx  = spm_misc('vxsize',Nii.mat);
 a   = single(Nii.dat(:,:,:,:));
 
-sched       = fliplr(5:5:50); 
+sched       = fliplr(10:10:sparam); 
 sparam(2:3) = sched(min(iter,numel(sched))); 
-prm         = [vx sparam]; 
+prm         = [vx sparam];
 
 if 1
     [a,L1] = spm_shoot_blur_wp_load(obj,a,prm,iter,1);
