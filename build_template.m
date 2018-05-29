@@ -147,7 +147,7 @@ for iter=1:pars.niter
     if pars.do_template
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
-        obj = update_intensity_hp2(obj,pars);
+        obj = update_intensity_hp2(obj);
     end
            
     if pars.do_template
