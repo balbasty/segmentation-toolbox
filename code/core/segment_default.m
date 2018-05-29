@@ -43,11 +43,7 @@ end
 
 [has_ct,flag_healthy_ct] = inspect_ct_data(pars);
 if has_ct && pars.do_template
-    if flag_healthy_ct==0
-        pars.K = 9; 
-    elseif flag_healthy_ct==1 || flag_healthy_ct==2
-        pars.K = 10;
-    end
+    pars.K = 9;
 end
 
 if ~isfield(pars,'niter')
@@ -102,8 +98,9 @@ for m=1:M
     if ~isfield(pars.dat{m},'S')
         pars.dat{m}.S = Inf;        
     end    
-    if     test_level==2 || test_level==3, pars.dat{m}.S = min(8,pars.dat{m}.S);
-    elseif test_level==1,                  pars.dat{m}.S = min(4,pars.dat{m}.S);   
+    if     test_level==3, pars.dat{m}.S = min(16,pars.dat{m}.S);
+    elseif test_level==2, pars.dat{m}.S = min(8,pars.dat{m}.S);   
+    elseif test_level==1, pars.dat{m}.S = min(4,pars.dat{m}.S);   
     end 
     S0 = S0 + pars.dat{m}.S;
     
@@ -332,7 +329,7 @@ if pars.do_template
     % Building template 
     for m=1:M               
            pars.dat{m}.push_resp.do_push_resp = true; 
-           pars.dat{m}.write_res.do_write_res = false; 
+           pars.dat{m}.write_res.do_write_res = false;            
 
            pars.dat{m}.segment.wp_reg = 'build-template'; 
            pars.dat{m}.segment.do_def = false; 
@@ -341,6 +338,8 @@ if pars.do_template
            pars.dat{m}.segment.do_mg  = false; 
            pars.dat{m}.segment.niter  = 1; 
            pars.dat{m}.segment.nitgmm = 1;
+           
+           pars.dat{m}.write_res.mrf = 0;
     end
 end 
 %==========================================================================
