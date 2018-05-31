@@ -105,7 +105,7 @@ for iter=1:pars.niter
     if iter==pars.niter
         % Final iteration -> increase holly memory because full-size
         % segmentations will be written to disk
-        holly.job.mem = '6G';
+        holly.job.mem{1} = '6G';
     end
     
     if pars.do_template
