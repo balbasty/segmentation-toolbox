@@ -31,7 +31,7 @@ if ~isempty(pars_ct) && pars.do_template
     %----------------------------------------------------------------------
     
     M1  = numel(pars_ct.dat); 
-    val = 1000;
+    val = 0;
     
     % Calculate histogram for each CT image and store the histograms
     c   = {};
