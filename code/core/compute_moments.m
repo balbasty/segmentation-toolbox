@@ -1,11 +1,13 @@
 function [mom,ll,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_l)
 K  = numel(lkp.part);
+Kb = max(lkp.part);
 nz = numel(buf);
 N  = numel(buf(1).f);
 
 if nargout==3
-    Kb   = numel(wp);
-    mgm  = zeros(1,Kb);
+    mgm = zeros(1,Kb);
+elseif nargout==1
+    K   = Kb;
 end
 
 ll  = 0;
@@ -29,7 +31,7 @@ for z=1:nz
         msk1 = buf(z).code>0;
         q    = NaN(numel(buf(z).msk{1}),K);        
         for k=1:K
-            q(msk1,k) = double(buf(z).dat(:,lkp.part(k)))/sum(lkp.part==lkp.part(k));
+            q(msk1,k) = double(buf(z).dat(:,k));
         end
     end
     

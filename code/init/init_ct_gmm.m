@@ -39,10 +39,10 @@ if ~isempty(pars_ct) && pars.do_template
     cnt = 1;
     mn  = Inf;
     mx  = -Inf;
-    for m=1:M1
+    for m=1:M1 % Loop over CT populations
         S = pars_ct.dat{m}.S;
         if verbose, fprintf(1,'Getting histogram from subject (m=%d, S=%d) -    ',m,S); end
-        for s=1:S
+        for s=1:S % Loop over subjects
             
             if verbose                
                 if s<10
@@ -56,22 +56,21 @@ if ~isempty(pars_ct) && pars.do_template
                 end                
             end
         
+            % Get and mask image data
             Nii = nifti(pars_ct.dat{m}.V{s}.fname);
             img = single(Nii.dat(:,:,:));
             msk = spm_misc('msk_modality',img,'CT');
-            img = img(msk(:)) + val; % Make non-negative
+            img = img(msk(:));
 
+            % Get histogram bins and create histogram
             x1 = min(img(:)):max(img(:));
             c1 = hist(img(:),x1);
 
-            if max(x1)>mx
-                mx = max(x1);
-            end
+            % Store global min and max values
+            if max(x1)>mx, mx = max(x1); end
+            if min(x1)<mn, mn = min(x1); end
 
-            if min(x1)<mn
-                mn = min(x1);
-            end
-
+            % Store counts and values
             c{cnt} = single(c1);
             x{cnt} = single(x1);
 
@@ -83,11 +82,12 @@ if ~isempty(pars_ct) && pars.do_template
 
     % Sum all histograms into (H)
     X   = mn:mx;
-    C   = zeros(1,numel(X));
-    msk = false(1,numel(X));
+    C   = zeros(1,numel(X));    
     for i=1:numel(c)
-        x1      = x{i};
-        x1      = x1 + abs(mn) + 1;
+        x1 = x{i};        
+        x1 = x1 + (abs(mn) + 1);
+        
+        msk     = false(1,numel(X));
         msk(x1) = true;
 
         C(msk) = C(msk) + c{i};
@@ -126,12 +126,12 @@ if ~isempty(pars_ct) && pars.do_template
     lkp2            = 2*ones(1,k2);
     
     % For brain tissue, the parameters are set hard-coded 
-    k3 = 8;
-    m3 = [10 25 35 40 50 65 70 75] + val;
+    k3 = 7;
+    m3 = [10 25 35 40 50 65 75] + val;
     b3 = ones(1,k3);
     n3 = ones(1,k3);
     W3 = ones(1,k3);
-    lkp3 = [3 4 5 6 7 8 8 8];
+    lkp3 = [3 4 5 6 7 8 8];
     
     % Fit VB-GMM to bone
     k4              = 3;
@@ -184,9 +184,10 @@ if ~isempty(pars_ct) && pars.do_template
             end
         end
         
-        gmm  = ngmm;
-        part = npart;
-        mg   = nmg;
+        gmm         = ngmm;
+        gmm.pr.part = part; % just so that the partition can be loaded from the prior object
+        part        = npart;
+        mg          = nmg;
     end
 
     

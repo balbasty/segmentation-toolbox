@@ -7,12 +7,14 @@ gmm.max        = mx;
 lkp            = obj.segment.lkp;
 part           = lkp.part;
 N              = size(vr0,1);
- 
+modality       = obj.modality;
+do_template    = obj.do_template;
+
 if ~isfield(gmm,'po')    
     Kb = max(part);
     K  = numel(part);            
     
-    if isfield(gmm,'pr') 
+    if isfield(gmm,'pr') && strcmp(modality,'CT') && do_template
        gmm.po = gmm.pr; 
        return
     end
@@ -80,14 +82,16 @@ if ~isfield(gmm,'po')
         gmm.pr.b = b0;
         gmm.pr.n = n0;
         gmm.pr.W = W0;
+        
+        gmm.pr.part = part; % just so that the partition can be loaded from the prior object
     else
-        if numel(gmm.pr.m)~=K
-           error('numel(gmm.pr.m)~=K') 
+        if numel(gmm.pr.b)~=K
+           error('numel(gmm.pr.b)~=K') 
         end
     end
     
     % Estimate GMM parameters
     %----------------------------------------------------------------------
-    [~,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);     
+    [~,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);
 end
 %==========================================================================    

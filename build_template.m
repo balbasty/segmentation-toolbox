@@ -7,9 +7,9 @@ function build_template(pars,test_level)
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 if nargin<1 
-    pars = '/data/mbrud/jobs/segmentation-toolbox/ROB-IXI_3d.json'; 
+    pars = '/data/mbrud/jobs/segmentation-toolbox/ATLAS-CROMIS-IXI_3d.json'; 
 end
-if nargin<2, test_level = 3; end
+if nargin<2, test_level = 0; end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
@@ -62,11 +62,10 @@ holly = distribute_default(holly);
 %--------------------------------------------------------------------------
 % Initialise algorithm
 %--------------------------------------------------------------------------
-% pars = read_images_segment(pars); 
 
 % SOME TEMP STUFF FOR DEALING WITH THE NEW DAT OBJECT
 for m=1:numel(pars.dat)
-    dat = spm_json_manager('init_dat',pars.dat{m}.dir_data,true);    
+    dat = spm_json_manager('init_dat',pars.dat{m}.dir_data);    
     S   = min(numel(dat),pars.dat{m}.S);
     for s=1:S
         if isfield(dat{s}.modality{1},'channel')
@@ -95,7 +94,7 @@ pars = init_ct_gmm(pars);
 [obj,pars] = init_obj_segment(pars);
 
 %--------------------------------------------------------------------------
-% Start the algorithm
+% Start the algorithm   
 %--------------------------------------------------------------------------
 print_algorithm_progress('started');
 
@@ -150,7 +149,7 @@ for iter=1:pars.niter
         % Crop template to size of the default SPM template
         %------------------------------------------------------------------
         crop_template(pars.pth_template,iter);
-    end
+    end    
     
     %----------------------------------------------------------------------
     % Intensity specific

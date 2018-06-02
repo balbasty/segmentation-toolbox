@@ -148,7 +148,7 @@ clear tpm
 
 % Compute final moments, used for updating posteriors outside of main loop
 %--------------------------------------------------------------------------
-mom = compute_moments(buf,lkp,mg,gmm,wp,wp_l);   
+[mom,ll,~] = compute_moments(buf,lkp,mg,gmm,wp,wp_l);   
 clear buf
 
 % For setting the DC component of all the bias fields so that they

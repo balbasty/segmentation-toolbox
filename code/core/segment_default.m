@@ -76,9 +76,6 @@ end
 if ~isfield(pars,'crop_template')
     pars.crop_template = 0;
 end
-if ~isfield(pars,'mrf')
-    pars.mrf = false;
-end
 
 % Data-set specific parameters (m=1,...,M)
 %--------------------------------------------------------------------------
@@ -147,31 +144,40 @@ for m=1:M
     if ~isfield(pars.dat{m},'segment')
         pars.dat{m}.segment = struct;
     end
+    if ~isfield(pars.dat{m}.segment,'gmm')
+        pars.dat{m}.segment.gmm = struct;
+    end        
     if ~isfield(pars.dat{m}.segment,'lkp')
         pars.dat{m}.segment.lkp = struct;
     end
-    if ~isfield(pars.dat{m}.segment.lkp,'keep')
-        pars.dat{m}.segment.lkp.keep = 1:pars.K;
-    end    
+    
+    if isfield(pars.dat{m}.segment,'pth_prior')
+        tmp                        = load(pars.dat{m}.segment.pth_prior);
+        pars.dat{m}.segment.gmm.pr = tmp.pr;
+        
+        if isfield(pars.dat{m}.segment.gmm.pr,'part')
+            pars.dat{m}.segment.lkp.part = pars.dat{m}.segment.gmm.pr.part;
+        end                
+    end        
+        
+    pars.dat{m}.segment.lkp.keep = 1:pars.K;    
+    
     if ~isfield(pars.dat{m}.segment.lkp,'rem')
         pars.dat{m}.segment.lkp.rem = [];
+    else
+        msk                          = ismember(pars.dat{m}.segment.lkp.keep,pars.dat{m}.segment.lkp.rem);
+        pars.dat{m}.segment.lkp.keep = pars.dat{m}.segment.lkp.keep(~msk);
     end    
     if ~isfield(pars.dat{m}.segment,'nlkp')
         pars.dat{m}.segment.nlkp = 1;
     end
     if ~isfield(pars.dat{m}.segment.lkp,'part')
-        if isfield(pars.dat{m}.segment,'nlkp')
-            pars.dat{m}.segment.lkp.part = reshape(repelem(1:pars.K,1,pars.dat{m}.segment.nlkp),1,[]);
-        else
-            pars.dat{m}.segment.lkp.part = 1:pars.K;
-        end                       
+        pars.dat{m}.segment.lkp.part = reshape(repelem(1:pars.K,1,pars.dat{m}.segment.nlkp),1,[]);
     end   
     if ~isfield(pars.dat{m}.segment.lkp,'lab')
         pars.dat{m}.segment.lkp.lab = [];
-    end
-    if ~isfield(pars.dat{m}.segment,'pth_prior')
-        pars.dat{m}.segment.pth_prior = '';
-    end
+        pars.dat{m}.segment.wp_l    = 0;
+    end    
     if ~isfield(pars.dat{m}.segment,'wp_l')
         pars.dat{m}.segment.wp_l = 0.8;
     end 
@@ -250,6 +256,31 @@ for m=1:M
         pars.dat{m}.segment.constr_inthp = false;
     end    
     
+    % MRF specific
+    if ~isfield(pars.dat{m}.segment,'do_mrf')
+        pars.dat{m}.segment.do_mrf = false;
+    end 
+    if pars.dat{m}.segment.do_mrf
+        pars.dat{m}.segment.samp = 1;
+    end
+    if ~isfield(pars.dat{m}.segment,'mrf')
+        pars.dat{m}.segment.mrf = struct;
+    end    
+    if ~isfield(pars.dat{m}.segment.mrf,'oQ')
+        pars.dat{m}.segment.mrf.oQ = [];
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'upsilon')
+        val_diag = 1000;        
+        upsilon  = ones(pars.K,'single');
+        upsilon  = upsilon + (val_diag - 1)*eye(pars.K);
+        upsilon  = bsxfun(@rdivide,upsilon,sum(upsilon,2));
+        
+        pars.dat{m}.segment.mrf.upsilon = upsilon;
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'niter')
+        pars.dat{m}.segment.mrf.niter = 1;
+    end  
+    
     % Push resps parameters
     %----------------------------------------------------------------------
     if ~isfield(pars.dat{m},'push_resp')
@@ -280,7 +311,7 @@ for m=1:M
         pars.dat{m}.write_res.cleanup = false;
     end
     if ~isfield(pars.dat{m}.write_res,'mrf')
-        pars.dat{m}.write_res.mrf = 1;
+        pars.dat{m}.write_res.mrf = 2;
     end
     if ~isfield(pars.dat{m}.write_res,'write_tc')
         pars.dat{m}.write_res.write_tc = true(pars.K,4);                
