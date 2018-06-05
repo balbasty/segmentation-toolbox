@@ -1,15 +1,15 @@
-function [Q,ll] = latent(f,bf,mg,gmm,B,lkp,wp,msk,code,labels,wp_l,cr)
-if nargin<12, cr = []; end
+function [lnPx,ll] = latent(f,bf,mg,gmm,lnPa,lnPzN,lkp,wp,msk,code,labels,wp_l,cr)
+if nargin<13, cr = []; end
 
 Kb   = max(lkp.part); 
 tiny = 1e-4; 
 msk1 = code>0; 
 
-B = log_spatial_priors(B,wp);
-Q = log_likelihoods(f,bf,mg,gmm,msk,code,cr);
+lnPa = log_spatial_priors(lnPa,wp);
+lnPx = log_likelihoods(f,bf,mg,gmm,msk,code,cr);
 
 if ~isempty(labels) 
-    B1 = zeros([size(B,1) Kb]); 
+    lnPa1 = zeros([size(lnPa,1) Kb]); 
 end
 
 for k1=1:Kb
@@ -21,34 +21,38 @@ for k1=1:Kb
                 beta1 = log(1 - tiny); % log-probability of true labels
                 beta2 = log(tiny);    % log-probability of false labels
  
-                B1(msk_l,k1)  = (1 - wp_l)*B(msk_l,k1) + wp_l*beta1;
-                B1(~msk_l,k1) = (1 - wp_l)*B(~msk_l,k1) + wp_l*beta2;                
+                lnPa1(msk_l,k1)  = (1 - wp_l)*lnPa(msk_l,k1) + wp_l*beta1;
+                lnPa1(~msk_l,k1) = (1 - wp_l)*lnPa(~msk_l,k1) + wp_l*beta2;                
             else
-                B1(:,k1) = B(:,k1);
+                lnPa1(:,k1) = lnPa(:,k1);
             end
             
-            Q(msk1,k) = Q(msk1,k) + B1(:,k1);
+            lnPx(msk1,k) = lnPx(msk1,k) + lnPa1(:,k1) + lnPzN(msk1,k1);
         else
-            Q(msk1,k) = Q(msk1,k) + B(:,k1);
+            if numel(lnPzN)==Kb
+                lnPx(msk1,k) = lnPx(msk1,k) + lnPa(:,k1) + lnPzN(:,k1);
+            else
+                lnPx(msk1,k) = lnPx(msk1,k) + lnPa(:,k1) + lnPzN(msk1,k1);
+            end
         end
     end
 end
 
 if ~isempty(labels) 
-    B = B1;
+    lnPa = lnPa1;
     clear B1
 end
 
-logSumQ = spm_matcomp('logsumexp',Q,2);
-logQ    = bsxfun(@minus,Q,logSumQ);
-Q       = exp(logQ);
+logSumQ = spm_matcomp('logsumexp',lnPx,2);
+logQ    = bsxfun(@minus,lnPx,logSumQ);
+lnPx    = exp(logQ);
 
 if nargout==2
     % Compute lower bound components
     L = zeros(1,3);
 
     % Responsibilities
-    L(1) = -nansum(nansum(Q.*logQ)) + nansum(nansum(bsxfun(@times,Q,log(mg)))); 
+    L(1) = -nansum(nansum(lnPx.*logQ)) + nansum(nansum(bsxfun(@times,lnPx,log(mg)))); 
 
     % Bias field      
     N                        = numel(f);
@@ -57,11 +61,11 @@ if nargout==2
     for n=1:N, nbf(msk{n},n) = double(bf{n}); end
     bf                       = nbf; clear nbf
 
-    L(2) = nansum(nansum(bsxfun(@times,Q,log(prod(bf,2)))));
+    L(2) = nansum(nansum(bsxfun(@times,lnPx,log(prod(bf,2)))));
 
     % TPMs  
-    L(3) = nansum(nansum(Q(msk1,:).*B(:,lkp.part)));    
-
+    L(3) = nansum(nansum(lnPx(msk1,:).*lnPa(:,lkp.part)));    
+    
     ll = sum(L);
 end
 %=======================================================================

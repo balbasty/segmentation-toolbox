@@ -27,7 +27,7 @@ if ~isfield(gmm,'po')
         mom = kmeans2mom(buf,lkp,mn,mx,obj); 
     else       
         % Use template to compute moments
-        mom = compute_moments(buf,lkp);
+        mom = template2mom(buf,lkp);
     end
     
     if Kb~=K
@@ -93,5 +93,31 @@ if ~isfield(gmm,'po')
     % Estimate GMM parameters
     %----------------------------------------------------------------------
     [~,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);
+end
+%==========================================================================    
+
+%==========================================================================    
+function mom = template2mom(buf,lkp)
+Kb = max(lkp.part);
+nz = numel(buf);
+N  = numel(buf(1).f);
+  
+% Compute responsibilities from template
+mom = moments_struct(Kb,N);
+for z=1:nz
+    if ~buf(z).Nm, continue; end
+            
+    % Get BX (bias-field x image)
+    cr                             = NaN(numel(buf(z).msk{1}),N);
+    for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end    
+        
+    msk1 = buf(z).code>0;
+    q    = NaN(numel(buf(z).msk{1}),Kb);        
+    for k=1:Kb
+        q(msk1,k) = double(buf(z).dat(:,k));
+    end
+        
+    % Update sufficient statistics
+    mom = spm_SuffStats(cr,q,mom,buf(z).code);
 end
 %==========================================================================    

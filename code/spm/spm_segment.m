@@ -1,7 +1,7 @@
 function obj = spm_segment(obj,fig)
 
 % Parameters, etc.
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 V         = obj.image; 
 N         = numel(V);
 d0        = V(1).dim(1:3);
@@ -26,12 +26,11 @@ do_wp     = obj.segment.do_wp;
 print_ll  = obj.segment.print_ll;
 pth_vel   = obj.pth_vel;
 Affine    = obj.Affine;
-iter_template = obj.iter;
 do_template   = obj.do_template;
 do_mg         = obj.segment.do_mg;
 
 % Initialise weights
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 if isfield(obj.segment,'wp') 
     wp = obj.segment.wp;
 else
@@ -47,29 +46,60 @@ else
 end
 
 % Load template
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 tpm = spm_load_logpriors(obj.pth_template,wp);
 M   = tpm.M\Affine*V(1).mat; % Affine matrix
 
 % Fudge Factor - to (approximately) account for non-independence of voxels.
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 ff = compute_fudge_factor(obj.fwhm,vx,sk);
 
 % Load data into buffer
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 [buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm);
 
 % Initialise bias field
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 [buf,chan,llrb] = init_bf(buf,obj,V,x0,y0,z0,ff,scl_bf);
 
 % Initialise deformation and template
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 [buf,param,MT,sk4,Twarp,llr] = init_def_and_dat(buf,obj,sk,vx,ff,d,fig,wp,x0,y0,z0,tpm,M);
 
 % Initialise GMM
-%-----------------------------------------------------------------------
+%--------------------------------------------------------------------------
 [gmm,buf] = init_gmm(obj,buf,vr0,mn,mx);                               
+
+% MRF stuff
+%--------------------------------------------------------------------------
+mrf = init_mrf(obj,d,lkp,vx);
+
+% For storing two versions of responsibilities in NIfTI files
+%--------------------------------------------------------------------------
+if ~isfield(obj,'resp')
+    obj.resp = struct;
+    K        = numel(lkp.part);
+    
+    if ~isfield(obj.resp,'current')
+        obj.resp.current = nifti;
+        for k=1:K
+            fname               = fullfile(obj.dir_seg,['resp-current' num2str(k) '.nii']);    
+            obj.resp.current(k) = spm_misc('create_nii',fname,ones(d,'single')/K,eye(4),spm_type('float32'),'resp-current');
+        end
+    end
+    
+    if ~isfield(obj.resp,'search')
+        obj.resp.search = nifti;
+        for k=1:K
+            fname               = fullfile(obj.dir_seg,['resp-search' num2str(k) '.nii']);    
+            obj.resp.search(k) = spm_misc('create_nii',fname,ones(d,'single')/K,eye(4),spm_type('float32'),'resp-search');
+        end
+    end        
+    
+    resp = obj.resp;
+else
+    resp = obj.resp;
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Start iterating
@@ -90,16 +120,16 @@ for iter=1:niter
             %------------------------------------------------------------
                         
             % Estimate cluster parameters            
-            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg);
+            [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
 
-            debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_l);
+            debug_view('responsibilities',fig{1},lkp,buf,resp.current);
 
             if subit>1 && ~((ll-oll)>2*tol1*nm), 
                 break; 
             end
             oll = ll;
             
-            [ll,llrb,buf,chan,L,armijo(1)] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_l);                                          
+            [ll,llrb,buf,chan,L,armijo(1),mrf] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_l,resp,mrf);                                          
         end
     end
     
@@ -112,9 +142,9 @@ for iter=1:niter
             %------------------------------------------------------------            
                         
             % Estimate cluster parameters            
-            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg);
+            [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
 
-            debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_l);
+            debug_view('responsibilities',fig{1},lkp,buf,resp.current);
 
             if subit>1 && ~((ll-oll)>2*tol1*nm), 
                 break; 
@@ -122,7 +152,7 @@ for iter=1:niter
             oll = ll;
         
             
-            [ll,llr,buf,Twarp,L,armijo(2)] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,do_template,armijo(2),wp_l);
+            [ll,llr,buf,Twarp,L,armijo(2),mrf] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,do_template,armijo(2),wp_l,resp,mrf);
         end    
     end
 
@@ -131,25 +161,20 @@ for iter=1:niter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Estimate cluster parameters
     %------------------------------------------------------------
-    [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg);    
+    [ll,mg,gmm,wp,L,mrf,mom] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);    
     
-    debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_l);
+    debug_view('responsibilities',fig{1},lkp,buf,resp.current);
         
     if iter>=10 && ~((ll-ooll)>2*tol1*nm)
         % Finished
         if print_ll
-            fprintf('spm_segment converged in %i iterations',iter);
+            fprintf('spm_segment converged in %i iterations\n',iter);
         end
         break
     end
     ooll = ll;
 end
 clear tpm
-
-% Compute final moments, used for updating posteriors outside of main loop
-%--------------------------------------------------------------------------
-[mom,ll,~] = compute_moments(buf,lkp,mg,gmm,wp,wp_l);   
-clear buf
 
 % For setting the DC component of all the bias fields so that they
 % average to 0 (used for global signal normalisation).

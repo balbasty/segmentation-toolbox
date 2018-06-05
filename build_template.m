@@ -7,9 +7,9 @@ function build_template(pars,test_level)
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 if nargin<1 
-    pars = '/data/mbrud/jobs/segmentation-toolbox/ATLAS-CROMIS-IXI_3d.json'; 
+    pars = '/data/mbrud/jobs/segmentation-toolbox/segment_IXI_3d.json'; 
 end
-if nargin<2, test_level = 0; end
+if nargin<2, test_level = 1; end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
@@ -121,7 +121,7 @@ for iter=1:pars.niter
     %----------------------------------------------------------------------
     
     [obj,ix]    = unfold_cell(obj,2);
-    [holly,obj] = distribute(holly,'process_subject_segment','inplace',obj,pars.fig);
+    [holly,obj] = distribute(holly,'process_subject','inplace',obj,pars.fig);
     obj         = fold_cell(obj,ix);
     
     % Check if any subjects have status~=0

@@ -1,6 +1,5 @@
-function debug_view(type,fig,lkp,varargin)
+function debug_view(type,fig,lkp,buf,varargin)
 if ~isempty(fig)
-    buf = varargin{1};
     nz  = numel(buf);
     dz  = floor(nz/2) + 1;
     d   = [size(buf(1).msk{1}) nz];        
@@ -15,42 +14,37 @@ if ~isempty(fig)
     
     % Responsibilities
     if strcmp(type,'responsibilities')
-        gmm   = varargin{2}; 
-        mg    = varargin{3}; 
-        wp    = varargin{4}; 
-        wp_l  = varargin{5};
-        
-        Q = zeros([d Kb],'single');
-        for z=1:nz
-            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l);      
-            
-            for k=1:Kb
-                k1 = find(lkp.part==k);
-               
-                Q(:,:,z,k) = reshape(sum(q(:,k1),2),d(1:2));
-            end            
-        end        
+        resp = varargin{1};                           
                
         if d(3)>1
             for k=1:Kb   
+                Q = 0;
+                for k1=find(lkp.part==k)
+                    Q = Q + resp(k1).dat(:,:,:);
+                end
+                
                 subplot(3,Kb,k);
-                slice = Q(:,:,floor(d(3)/2) + 1,k);
+                slice = Q(:,:,floor(d(3)/2) + 1);
                 imagesc(slice',[0 1]); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);               
 
                 subplot(3,Kb,Kb + k);
-                slice = permute(Q(:,floor(d(2)/2) + 1,:,k),[3 1 2]);
+                slice = permute(Q(:,floor(d(2)/2) + 1,:),[3 1 2]);
                 imagesc(slice,[0 1]); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
 
                 subplot(3,Kb,2*Kb + k);
-                slice = permute(Q(floor(d(1)/2) + 1,:,:,k),[2 3 1]);
+                slice = permute(Q(floor(d(1)/2) + 1,:,:),[2 3 1]);
                 imagesc(slice',[0 1]); axis image xy off; title(['q, k=' num2str(k)]); colormap(gray);   
             end 
         else
             K1 = floor(sqrt(Kb));
             K2 = ceil(Kb/K1);      
-            for k=1:Kb
-                subplot(K1,K2,k);
-                slice = Q(:,:,floor(d(3)/2) + 1,k);
+            for k=1:Kb              
+                slice = 0;
+                for k1=find(lkp.part==k)
+                    slice = slice + resp(k1).dat(:,:,dz);
+                end
+                
+                subplot(K1,K2,k);                
                 imagesc(slice',[0 1]); axis image xy off; title(['k=' num2str(k)]); colormap(gray);  
             end  
         end
@@ -58,7 +52,7 @@ if ~isempty(fig)
     
     % Bias field
     if strcmp(type,'bf')
-        modality = varargin{2};
+        modality = varargin{1};
         
         N = numel(buf(dz).f);
         for n=1:N
@@ -87,7 +81,7 @@ if ~isempty(fig)
         
     % Template
     if strcmp(type,'template')    
-        wp = varargin{2};
+        wp = varargin{1};
         
         Q = zeros([prod(d(1:2)) 1 Kb],'single');
         for z=1:nz
@@ -126,7 +120,7 @@ if ~isempty(fig)
 
     % Convergence
     if strcmp(type,'convergence')    
-        L  = varargin{2};
+        L  = varargin{1};
         F  = numel(L);
         F1 = floor(sqrt(F));
         F2 = ceil(F/F1);                                               

@@ -22,11 +22,14 @@ L        = varargin{11};
 print_ll = varargin{12};
 armijo   = varargin{13};
 wp_l     = varargin{14};
+resp     = varargin{15};
+mrf      = varargin{16};
 
 % Some parameters
 nz = numel(buf);
 N  = numel(buf(1).f);
 K  = numel(mg);
+Kb = numel(wp);
 d  = size(buf(1).msk{1});
 
 % Get means and precisions
@@ -49,12 +52,17 @@ for n=1:N
             cr                 = cell(N,1);
             for n1=1:N, cr{n1} = double(buf(z).f{n1}).*double(buf(z).bf{n1}); end
 
-            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
-
+%             lnPzN1 = zeros([1 Kb]);
+%             q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lnPzN1,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
+            
             w1 = zeros(buf(z).nm(n),1);
             w2 = zeros(buf(z).nm(n),1);
             for k=1:K
-                qk  = q(buf(z).msk{n},k);
+%                 qk  = q(buf(z).msk{n},k);
+                qk = double(resp.current(k).dat(:,:,z));
+                qk = reshape(qk,[prod(d(1:2)) 1]);
+                qk = qk(buf(z).msk{n});
+                   
                 w0  = zeros(prod(d(1:2)),1);
                 for n1=1:N
                     w0(buf(z).msk{n1}) = w0(buf(z).msk{n1}) + pr(n1,n,k)*(mn(n1,k) - cr{n1});
@@ -95,14 +103,14 @@ for n=1:N
                 buf(z).bf{n} = single(exp(tmp));
             end
 
-            ollrb            = llrb;
+            ollrb            = llrb;            
             llrb             = 0;
             for n1=1:N, llrb = llrb + chan(n1).ll; end
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll] = compute_moments(buf,lkp,mg,gmm,wp,wp_l);        
-            ll        = ll + dll; 
+            [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf,false);        
+            ll            = ll + dll; 
 
             % Compute missing data and VB components of ll
             dll  = spm_VBGaussiansFromSuffStats(mom,gmm);
@@ -139,6 +147,7 @@ varargout{3} = buf;
 varargout{4} = chan;
 varargout{5} = L;
 varargout{6} = armijo;
+varargout{7} = mrf;
 %========================================================================== 
 
 %==========================================================================

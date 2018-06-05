@@ -283,6 +283,11 @@ for m=1:M
 
         obj1.dir_write = dir_write;
         
+        dir_seg = fullfile(dir_s,'segmentations'); 
+        mkdir(dir_seg);
+        
+        obj1.dir_seg = dir_seg;
+        
         %------------------------------------------------------------------
         obj{m}{s} = obj1;
         

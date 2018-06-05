@@ -257,28 +257,20 @@ for m=1:M
     end    
     
     % MRF specific
-    if ~isfield(pars.dat{m}.segment,'do_mrf')
-        pars.dat{m}.segment.do_mrf = false;
-    end 
-    if pars.dat{m}.segment.do_mrf
-        pars.dat{m}.segment.samp = 1;
-    end
     if ~isfield(pars.dat{m}.segment,'mrf')
         pars.dat{m}.segment.mrf = struct;
-    end    
-    if ~isfield(pars.dat{m}.segment.mrf,'oQ')
-        pars.dat{m}.segment.mrf.oQ = [];
+    end        
+    if ~isfield(pars.dat{m}.segment.mrf,'do_mrf')
+        pars.dat{m}.segment.mrf.do_mrf = false;
+    end 
+    if pars.dat{m}.segment.mrf.do_mrf
+        pars.dat{m}.segment.samp = 1;
+    end
+    if ~isfield(pars.dat{m}.segment.mrf,'val_diag')        
+        pars.dat{m}.segment.mrf.val_diag = 10;
     end  
-    if ~isfield(pars.dat{m}.segment.mrf,'upsilon')
-        val_diag = 1000;        
-        upsilon  = ones(pars.K,'single');
-        upsilon  = upsilon + (val_diag - 1)*eye(pars.K);
-        upsilon  = bsxfun(@rdivide,upsilon,sum(upsilon,2));
-        
-        pars.dat{m}.segment.mrf.upsilon = upsilon;
-    end  
-    if ~isfield(pars.dat{m}.segment.mrf,'niter')
-        pars.dat{m}.segment.mrf.niter = 1;
+    if ~isfield(pars.dat{m}.segment.mrf,'lnUpsilon')        
+        pars.dat{m}.segment.mrf.lnUpsilon = [];
     end  
     
     % Push resps parameters
