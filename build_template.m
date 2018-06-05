@@ -7,7 +7,7 @@ function build_template(pars,test_level)
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 if nargin<1 
-    pars = '/data/mbrud/jobs/segmentation-toolbox/segment_IXI_3d.json'; 
+    pars = '/data/mbrud/jobs/segmentation-toolbox/segment_IXI_2d.json'; 
 end
 if nargin<2, test_level = 1; end
 

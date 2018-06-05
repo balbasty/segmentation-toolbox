@@ -114,8 +114,7 @@ for z=1:length(x3)
         
     code            = zeros([numel(msk{1}) 1],typ);
     for n=1:N, code = bitor(code,bitshift(feval(cast,msk{n}(:)),(n - 1))); end  
-    
-    % Parametric representation of intensity distributions  
+        
     msk1 = code>0;
     b    = spm_sample_logpriors(tpm,t1(msk1),t2(msk1),t3(msk1));
     clear t1 t2 t3
@@ -138,8 +137,8 @@ for z=1:length(x3)
         clear tmp 
     end
     
-    B           = zeros([nnz(msk1) Kb]);
-    for k1 = 1:Kb, 
+    B = zeros([nnz(msk1) Kb]);
+    for k1=1:Kb, 
         B(:,k1) = b{k1}(:); 
     end
     clear b msk1

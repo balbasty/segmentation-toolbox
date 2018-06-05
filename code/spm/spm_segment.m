@@ -108,7 +108,7 @@ armijo = ones(1,2);
 ll     = -Inf;
 L      = {ll,llrb,llr};
 for iter=1:niter
-
+   
     if do_bf
         for subit=1:nsubit
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -157,14 +157,26 @@ for iter=1:niter
     end
 
     debug_view('template',fig{3},lkp,buf,wp);  
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Estimate cluster parameters
-    %------------------------------------------------------------
-    [ll,mg,gmm,wp,L,mrf,mom] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);    
+        
+    if mrf.update_Upsilon && mrf.do_mrf               
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Estimate distribution over MRF weights
+        %------------------------------------------------------------            
+        
+        % Estimate cluster parameters            
+        [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
+                   
+        % Update Upsilon
+        [mrf,ll,L] = update_ElnUpsilon(mrf,lkp,resp,llr,llrb,buf,mg,gmm,wp,wp_l,fig,L,print_ll);
+    end        
+                
+    if ~do_bf && ~do_def && ~(mrf.update_Upsilon && mrf.do_mrf)
+        % Estimate cluster parameters            
+        [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
+    end
     
     debug_view('responsibilities',fig{1},lkp,buf,resp.current);
-        
+    
     if iter>=10 && ~((ll-ooll)>2*tol1*nm)
         % Finished
         if print_ll
@@ -174,6 +186,10 @@ for iter=1:niter
     end
     ooll = ll;
 end
+
+% Estimate cluster parameters
+%------------------------------------------------------------
+[ll,mg,gmm,wp,~,mrf,mom] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);    
 clear tpm
 
 % For setting the DC component of all the bias fields so that they
@@ -209,6 +225,7 @@ obj.segment.mom    = mom;
 obj.segment.gmm    = gmm;
 obj.segment.ll     = ll;
 obj.segment.ll_all = [obj.segment.ll_all ll];
+obj.segment.mrf    = mrf;
 
 obj.segment.bf.dc = dc;
 obj.segment.bf.b1 = b1;

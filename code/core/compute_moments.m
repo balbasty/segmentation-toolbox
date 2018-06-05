@@ -81,9 +81,10 @@ for z=1:mrf.dm(3)
             
         R(:,:,z,k) = slice;     
     end    
+    clear slice
 end
 
-lnPzN = spm_vbmrf(R,mrf.lnUpsilon,mrf.vx);
+lnPzN = spm_vbmrf(R,single(mrf.ElnUpsilon),mrf.w);
 %==========================================================================
 
 %==========================================================================
@@ -98,9 +99,10 @@ for z=1:mrf.dm(3)
         end
             
         R(:,:,z,k) = slice;     
-    end    
+    end   
+    clear slice
 end
 
-lnPzN  = spm_vbmrf_lowerbound(R,mrf.lnUpsilon,mrf.vx);
+lnPzN  = spm_vbmrf_lowerbound(R,single(mrf.ElnUpsilon),mrf.w);
 ElnPzN = sum(sum(sum(sum(lnPzN))));
 %==========================================================================

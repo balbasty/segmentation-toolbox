@@ -267,10 +267,16 @@ for m=1:M
         pars.dat{m}.segment.samp = 1;
     end
     if ~isfield(pars.dat{m}.segment.mrf,'val_diag')        
-        pars.dat{m}.segment.mrf.val_diag = 10;
+        pars.dat{m}.segment.mrf.val_diag = 1e1;
     end  
-    if ~isfield(pars.dat{m}.segment.mrf,'lnUpsilon')        
-        pars.dat{m}.segment.mrf.lnUpsilon = [];
+    if ~isfield(pars.dat{m}.segment.mrf,'lambda')        
+        pars.dat{m}.segment.mrf.lambda = 1e3;
+    end      
+    if ~isfield(pars.dat{m}.segment.mrf,'ElnUpsilon')        
+        pars.dat{m}.segment.mrf.ElnUpsilon = [];
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'update_Upsilon')        
+        pars.dat{m}.segment.mrf.update_Upsilon = false;
     end  
     
     % Push resps parameters

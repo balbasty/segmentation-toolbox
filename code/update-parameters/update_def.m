@@ -151,7 +151,8 @@ end
 
 if ~do_template
     % Heavy-to-light regularisation
-    scal     = 2^max(10 - iter,0);       
+    scal           = 2^max(9 - iter,0);       
+%     param([5 7 8]) = param([5 7 8])*scal;
     param(6) = param(6)*scal^2;
 end
 
@@ -163,6 +164,7 @@ Update = bsxfun(@times,spm_diffeo('fmg',Alpha,Beta,[param 2 2]),sk4);
 clear Alpha Beta[ll,llr,buf,Twarp,L,armijo]
 
 % Line search to ensure objective function improves
+oElnPzN = mrf.ElnPzN;
 for line_search=1:12
     Twarp1 = Twarp - armijo*Update; % Backtrack if necessary
     if nz==1
@@ -185,7 +187,7 @@ for line_search=1:12
     end
         
     % Compute responsibilities and moments
-    [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf,false);        
+    [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf);        
     ll1           = ll1 + dll;         
     
     % Compute missing data and VB components of ll
@@ -201,6 +203,7 @@ for line_search=1:12
         if line_search==12
             L{1}(end + 1) = ll;
             L{3}(end + 1) = llr;
+            mrf.ElnPzN    = oElnPzN;
             
             for z=1:nz
                 % Revert to previous deformation

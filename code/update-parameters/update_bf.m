@@ -103,13 +103,14 @@ for n=1:N
                 buf(z).bf{n} = single(exp(tmp));
             end
 
+            oElnPzN          = mrf.ElnPzN;
             ollrb            = llrb;            
             llrb             = 0;
             for n1=1:N, llrb = llrb + chan(n1).ll; end
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf,false);        
+            [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf);        
             ll            = ll + dll; 
 
             % Compute missing data and VB components of ll
@@ -132,6 +133,7 @@ for n=1:N
                 if line_search==12
                     L{1}(end + 1) = ll;
                     L{2}(end + 1) = llrb;
+                    mrf.ElnPzN    = oElnPzN;
                 end                    
             end 
         end

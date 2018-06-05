@@ -8,14 +8,20 @@ if ~isfield(mrf,'ElnPzN')
     mrf.ElnPzN = 0;
 end
 
-if isempty(mrf.lnUpsilon)
-    val_diag = mrf.val_diag;        
-    Upsilon  = ones(Kb,'single');
-    Upsilon  = Upsilon + (val_diag - 1)*eye(Kb);
-    Upsilon  = bsxfun(@rdivide,Upsilon,sum(Upsilon,2));
-
-    mrf.lnUpsilon = log(Upsilon);
+if isempty(mrf.ElnUpsilon)
+    val_diag = mrf.val_diag;  
+    lambda   = mrf.lambda;
+            
+    Upsalpha0     = ones(Kb);
+    Upsalpha0     = Upsalpha0 + (val_diag - 1)*eye(Kb);
+    Upsalpha0     = lambda*Upsalpha0;
+    mrf.Upsalpha0 = Upsalpha0;
+    
+    mrf.ElnUpsilon = zeros(Kb);
+    for k=1:Kb
+        mrf.ElnUpsilon(k,:) = psi(Upsalpha0(k,:)) - psi(sum(Upsalpha0(k,:)));
+    end
 end
 
-mrf.vx = single(1./(vx.^2));
+mrf.w = single(1./(vx.^2));
 %==========================================================================

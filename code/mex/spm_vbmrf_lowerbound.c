@@ -5,8 +5,7 @@
 #include <math.h>
 #define MAXCLASSES 1024
 
-/* mrf1(dm,R,ln_upsilon,w,code); */
-static void mrf1(mwSize dm[], float R[], float ln_upsilon[], float w[], int code)
+static void compute_lowebound(mwSize dm[], float R[], float ln_upsilon[], float w[], int code)
 {
     mwSize i0, i1, i2, k, m, n;
     float a[MAXCLASSES], e[MAXCLASSES];
@@ -216,22 +215,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     /* Get data */
     ln_upsilon = (float *)mxGetData(prhs[1]);
     
-    if (nrhs==3)
-    {
-        /* Adjustment for anisotropic voxel sizes.  w should contain
-           the square of each voxel size. */
-        if (!mxIsNumeric(prhs[2]) || mxIsComplex(prhs[2]) || mxIsSparse(prhs[2]) || !mxIsSingle(prhs[2]))
-            mexErrMsgTxt("Third arg must be numeric, real, full and single.");
+    /* Adjustment for anisotropic voxel sizes.  w should contain
+       the square of each voxel size. */
+    if (!mxIsNumeric(prhs[2]) || mxIsComplex(prhs[2]) || mxIsSparse(prhs[2]) || !mxIsSingle(prhs[2]))
+        mexErrMsgTxt("Third arg must be numeric, real, full and single.");
 
-        if (mxGetNumberOfElements(prhs[2]) != 3)
-            mexErrMsgTxt("Third arg must contain three elements.");
+    if (mxGetNumberOfElements(prhs[2]) != 3)
+        mexErrMsgTxt("Third arg must contain three elements.");
 
-        for(i=0; i<3; i++) w[i] = ((float *)mxGetData(prhs[2]))[i];
-    }
-    else
-    {
-        for(i=0; i<3; i++) w[i] = 1.0;
-    }
+    for(i=0; i<3; i++) w[i] = ((float *)mxGetData(prhs[2]))[i];
 
     /* Copy input to output */
     float *R0;
@@ -241,7 +233,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     for(i=0; i<dm[0]*dm[1]*dm[2]*dm[3]; i++)
         R[i] = R0[i];
-
-    /* Compute log of MRF term */
-    mrf1(dm,R,ln_upsilon,w,code);
+    
+    compute_lowebound(dm,R,ln_upsilon,w,code);
 }
