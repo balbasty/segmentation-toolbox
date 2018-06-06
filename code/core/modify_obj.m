@@ -10,9 +10,13 @@ for m=1:M
             
             obj{m}{s}.segment.do_bf  = obj{m}{s}.segment.do_bf0;                                                                                     
             obj{m}{s}.segment.niter  = 3;
-            obj{m}{s}.segment.nitgmm = 20;                        
+            obj{m}{s}.segment.nitgmm = 20;                                        
         end
 
+        if iter==3
+            obj{m}{s}.segment.mrf.update_Upsilon = obj{m}{s}.segment.mrf.update_Upsilon0;
+        end
+        
         if iter==6
             obj{m}{s}.segment.do_wp = obj{m}{s}.segment.do_wp0;   
             obj{m}{s}.segment.do_mg = obj{m}{s}.segment.do_mg0;   

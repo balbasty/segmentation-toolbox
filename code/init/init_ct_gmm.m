@@ -126,12 +126,12 @@ if ~isempty(pars_ct) && pars.do_template
     lkp2            = 2*ones(1,k2);
     
     % For brain tissue, the parameters are set hard-coded 
-    k3 = 7;
-    m3 = [10 25 35 40 50 65 75] + val;
+    k3 = 6;
+    m3 = [10 25 35 40 50 70] + val;
     b3 = ones(1,k3);
     n3 = ones(1,k3);
     W3 = ones(1,k3);
-    lkp3 = [3 4 5 6 7 8 8];
+    lkp3 = [3 4 5 6 7 8];
     
     % Fit VB-GMM to bone
     k4              = 3;

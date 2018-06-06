@@ -27,7 +27,11 @@ for k1=1:Kb
                 lnPa1(:,k1) = lnPa(:,k1);
             end
             
-            lnPx(msk1,k) = lnPx(msk1,k) + lnPa1(:,k1) + lnPzN(msk1,k1);
+            if numel(lnPzN)==Kb
+                lnPx(msk1,k) = lnPx(msk1,k) + lnPa1(:,k1) + lnPzN(:,k1);
+            else
+                lnPx(msk1,k) = lnPx(msk1,k) + lnPa1(:,k1) + lnPzN(msk1,k1);
+            end            
         else
             if numel(lnPzN)==Kb
                 lnPx(msk1,k) = lnPx(msk1,k) + lnPa(:,k1) + lnPzN(:,k1);

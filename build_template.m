@@ -66,6 +66,7 @@ holly = distribute_default(holly);
 % SOME TEMP STUFF FOR DEALING WITH THE NEW DAT OBJECT
 for m=1:numel(pars.dat)
     dat = spm_json_manager('init_dat',pars.dat{m}.dir_data);    
+%     dat = spm_json_manager('init_dat',pars.dat{m}.dir_data,fullfile(pars.dat{m}.dir_data,'dat.mat'));    
     S   = min(numel(dat),pars.dat{m}.S);
     for s=1:S
         if isfield(dat{s}.modality{1},'channel')

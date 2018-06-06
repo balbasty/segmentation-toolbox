@@ -1,6 +1,4 @@
-function [mom,ll,mrf,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp_read,resp_save,mrf,update_ElnPzN)
-if nargin<10, update_ElnPzN = true; end
-    
+function [mom,ll,mrf,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp_read,resp_save,mrf)   
 K   = numel(lkp.part);
 Kb  = max(lkp.part);
 nz  = numel(buf);
@@ -57,52 +55,10 @@ for z=1:nz
     mom = spm_SuffStats(cr,q,mom,buf(z).code);
 end
 
-if mrf.do_mrf && update_ElnPzN       
+if mrf.do_mrf     
     % Compute neighborhood part of lower bound 
     % (always requires most updated responsibilities)
     mrf.ElnPzN  = compute_ElnPzN(mrf,lkp,resp_save);    
     ll          = ll + mrf.ElnPzN;
-else
-    ll          = ll + mrf.ElnPzN;
 end
-%==========================================================================
-
-%==========================================================================
-function lnPzN = compute_lnPzN(mrf,lkp,resp)
-% Compute log-MRF part of responsibilities
-Kb = max(lkp.part);
-R  = zeros([mrf.dm Kb],'single');
-for z=1:mrf.dm(3)
-    for k=1:Kb
-        slice = 0;
-        for k1=find(lkp.part==k)
-            slice = slice + resp(k1).dat(:,:,z);
-        end
-            
-        R(:,:,z,k) = slice;     
-    end    
-    clear slice
-end
-
-lnPzN = spm_vbmrf(R,single(mrf.ElnUpsilon),mrf.w);
-%==========================================================================
-
-%==========================================================================
-function ElnPzN = compute_ElnPzN(mrf,lkp,resp)
-Kb = max(lkp.part);
-R  = zeros([mrf.dm Kb],'single');
-for z=1:mrf.dm(3)
-    for k=1:Kb
-        slice = 0;
-        for k1=find(lkp.part==k)
-            slice = slice + resp(k1).dat(:,:,z);
-        end
-            
-        R(:,:,z,k) = slice;     
-    end   
-    clear slice
-end
-
-lnPzN  = spm_vbmrf_lowerbound(R,single(mrf.ElnUpsilon),mrf.w);
-ElnPzN = sum(sum(sum(sum(lnPzN))));
 %==========================================================================

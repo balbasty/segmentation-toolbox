@@ -23,5 +23,7 @@ if isempty(mrf.ElnUpsilon)
     end
 end
 
-mrf.w = single(1./(vx.^2));
+if ~isfield(mrf,'w')
+    mrf.w = single(1./(vx.^2));
+end
 %==========================================================================

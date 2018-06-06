@@ -76,37 +76,16 @@ mrf = init_mrf(obj,d,lkp,vx);
 
 % For storing two versions of responsibilities in NIfTI files
 %--------------------------------------------------------------------------
-if ~isfield(obj,'resp')
-    obj.resp = struct;
-    K        = numel(lkp.part);
-    
-    if ~isfield(obj.resp,'current')
-        obj.resp.current = nifti;
-        for k=1:K
-            fname               = fullfile(obj.dir_seg,['resp-current' num2str(k) '.nii']);    
-            obj.resp.current(k) = spm_misc('create_nii',fname,ones(d,'single')/K,eye(4),spm_type('float32'),'resp-current');
-        end
-    end
-    
-    if ~isfield(obj.resp,'search')
-        obj.resp.search = nifti;
-        for k=1:K
-            fname               = fullfile(obj.dir_seg,['resp-search' num2str(k) '.nii']);    
-            obj.resp.search(k) = spm_misc('create_nii',fname,ones(d,'single')/K,eye(4),spm_type('float32'),'resp-search');
-        end
-    end        
-    
-    resp = obj.resp;
-else
-    resp = obj.resp;
-end
+resp = init_resp(obj,lkp,d);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Start iterating
 %------------------------------------------------------------
-armijo = ones(1,2);
-ll     = -Inf;
-L      = {ll,llrb,llr};
+armijo        = ones(1,2);
+ll            = -Inf;
+L             = {ll,llrb,llr};
+ollr          = llr;
+reg_converged = false;
 for iter=1:niter
    
     if do_bf
@@ -150,9 +129,12 @@ for iter=1:niter
                 break; 
             end
             oll = ll;
-        
-            
+                    
             [ll,llr,buf,Twarp,L,armijo(2),mrf] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,do_template,armijo(2),wp_l,resp,mrf);
+            
+%             (llr - ollr)
+%             2*tol1*nm
+%             ollr = llr;
         end    
     end
 
@@ -168,16 +150,16 @@ for iter=1:niter
                    
         % Update Upsilon
         [mrf,ll,L] = update_ElnUpsilon(mrf,lkp,resp,llr,llrb,buf,mg,gmm,wp,wp_l,fig,L,print_ll);
+        
+        debug_view('responsibilities',fig{1},lkp,buf,resp.current);
     end        
                 
-    if ~do_bf && ~do_def && ~(mrf.update_Upsilon && mrf.do_mrf)
-        % Estimate cluster parameters            
-        [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
-    end
+%     if ~do_bf && ~do_def && ~(mrf.update_Upsilon && mrf.do_mrf)
+%         % Estimate cluster parameters            
+%         [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
+%     end        
     
-    debug_view('responsibilities',fig{1},lkp,buf,resp.current);
-    
-    if iter>=10 && ~((ll-ooll)>2*tol1*nm)
+    if iter>=10 && (~((ll-ooll)>2*tol1*nm) || reg_converged)
         % Finished
         if print_ll
             fprintf('spm_segment converged in %i iterations\n',iter);
@@ -191,6 +173,9 @@ end
 %------------------------------------------------------------
 [ll,mg,gmm,wp,~,mrf,mom] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);    
 clear tpm
+
+debug_view('responsibilities',fig{1},lkp,buf,resp.current);
+clear buf
 
 % For setting the DC component of all the bias fields so that they
 % average to 0 (used for global signal normalisation).
@@ -231,6 +216,8 @@ obj.segment.bf.dc = dc;
 obj.segment.bf.b1 = b1;
 obj.segment.bf.b2 = b2;
 obj.segment.bf.b3 = b3;
+
+obj.resp = resp;
 
 return;
 %==========================================================================

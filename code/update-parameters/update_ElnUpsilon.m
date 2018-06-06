@@ -2,6 +2,7 @@ function [mrf,ll,L] = update_ElnUpsilon(mrf,lkp,resp,llr,llrb,buf,mg,gmm,wp,wp_l
 Kb = max(lkp.part);
 
 % Collect 4D responsibilities
+%--------------------------------------------------------------------------
 R = zeros([mrf.dm Kb],'single');
 for z=1:mrf.dm(3)
     for k=1:Kb
@@ -24,7 +25,7 @@ end
 clear R
 
 Upsalpha = Upsalpha + mrf.Upsalpha0;
-% EUpsilon     = bsxfun(@rdivide,Upsalpha,sum(Upsalpha,2));                          
+% EUpsilon = bsxfun(@rdivide,Upsalpha,sum(Upsalpha,2));                          
 
 % Update ElnUpsilon
 %--------------------------------------------------------------------------
@@ -37,34 +38,14 @@ end
 %--------------------------------------------------------------------------
 ll = llr + llrb;
 
-[mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf);        
+[mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
 ll            = ll + dll;         
 
 dll = spm_VBGaussiansFromSuffStats(mom,gmm);
 ll  = ll + sum(sum(dll));  
 
-my_fprintf('Ups:\t%g\t%g\t%g\n',ll,llr,llrb,print_ll);
+my_fprintf('Upsilon:%g\t%g\t%g\n',ll,llr,llrb,print_ll);
 L{1}(end + 1) = ll;
 
 debug_view('convergence',fig{4},lkp,buf,L);
-%==========================================================================
-
-%==========================================================================
-function ElnPzN = compute_ElnPzN(mrf,lkp,resp)
-Kb = max(lkp.part);
-R  = zeros([mrf.dm Kb],'single');
-for z=1:mrf.dm(3)
-    for k=1:Kb
-        slice = 0;
-        for k1=find(lkp.part==k)
-            slice = slice + resp(k1).dat(:,:,z);
-        end
-            
-        R(:,:,z,k) = slice;     
-    end   
-    clear slice
-end
-
-lnPzN  = spm_vbmrf_lowerbound(R,single(mrf.ElnUpsilon),mrf.w);
-ElnPzN = sum(sum(sum(sum(lnPzN))));
 %==========================================================================

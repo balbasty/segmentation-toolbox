@@ -241,7 +241,7 @@ for m=1:M
         pars.dat{m}.segment.nitgmm = 20;
     end    
     if ~isfield(pars.dat{m}.segment,'niter')
-        pars.dat{m}.segment.niter = 30;
+        pars.dat{m}.segment.niter = 20;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
         pars.dat{m}.segment.tol1 = 1e-4;
@@ -267,10 +267,10 @@ for m=1:M
         pars.dat{m}.segment.samp = 1;
     end
     if ~isfield(pars.dat{m}.segment.mrf,'val_diag')        
-        pars.dat{m}.segment.mrf.val_diag = 1e1;
+        pars.dat{m}.segment.mrf.val_diag = 2;
     end  
     if ~isfield(pars.dat{m}.segment.mrf,'lambda')        
-        pars.dat{m}.segment.mrf.lambda = 1e3;
+        pars.dat{m}.segment.mrf.lambda = 2*1e3;
     end      
     if ~isfield(pars.dat{m}.segment.mrf,'ElnUpsilon')        
         pars.dat{m}.segment.mrf.ElnUpsilon = [];
@@ -286,9 +286,6 @@ for m=1:M
     end
     if ~isfield(pars.dat{m}.push_resp,'do_push_resp')
         pars.dat{m}.push_resp.do_push_resp = false;
-    end   
-    if ~isfield(pars.dat{m}.push_resp,'do_mrf')
-        pars.dat{m}.push_resp.do_mrf = false;
     end   
     
     % Write results parameters
@@ -327,7 +324,9 @@ for m=1:M
     pars.dat{m}.segment.do_mg0  = pars.dat{m}.segment.do_mg;
             
     pars.dat{m}.segment.reg0     = pars.dat{m}.segment.reg;    
-        
+            
+    pars.dat{m}.segment.mrf.update_Upsilon0 = pars.dat{m}.segment.mrf.update_Upsilon;
+    
 %     if strcmp(pars.dat{m}.modality,'CT') 
 %         % Segment CT image(s) 
 %         pars.dat{m}.segment.do_bf  = false; 
@@ -357,6 +356,8 @@ if pars.do_template
            pars.dat{m}.segment.niter  = 1; 
            pars.dat{m}.segment.nitgmm = 1;
            
+           pars.dat{m}.segment.mrf.update_Upsilon = false;
+    
            pars.dat{m}.write_res.mrf = 0;
     end
 end 

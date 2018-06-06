@@ -3,6 +3,8 @@ lkp      = obj.segment.lkp;
 Kb       = max(lkp.part);
 N        = numel(obj.image);
 modality = obj.modality;
+resp     = obj.resp;
+mrf      = obj.segment.mrf;
 
 % Get parameters
 %--------------------------------------------------------------------------
@@ -66,6 +68,13 @@ Coef{2} = spm_bsplinc(Twarp(:,:,:,2),prm);
 Coef{3} = spm_bsplinc(Twarp(:,:,:,3),prm);
 M       = M1\obj.Affine*obj.image(1).mat;
 clear Nii Twarp
+
+%--------------------------------------------------------------------------
+if mrf.do_mrf        
+    % Compute neighborhood part of responsibilities
+    % (from previous responsibilities)
+    lnPzN = compute_lnPzN(mrf,lkp,resp.current);
+end
 
 %--------------------------------------------------------------------------
 y = zeros([obj.image(1).dim(1:3),3],'single');
@@ -143,36 +152,26 @@ for z=1:length(x3)
     end
     clear b msk1
     
-    q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lkp,obj.segment.wp,msk,code,labels,wp_l);
+    % Get neighborhood term
+    if mrf.do_mrf   
+        lnPzN1 = double(reshape(lnPzN(:,:,z,:),[prod(d(1:2)) Kb]));
+    else
+        lnPzN1 = zeros([1 Kb]);
+    end
+    
+    q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lnPzN1,lkp,obj.segment.wp,msk,code,labels,wp_l);
     clear B f bf
     
-    q           = NaN([prod(d(1:2)) Kb]);  
+    q = NaN([prod(d(1:2)) Kb]);  
     for k1=1:Kb
         q(:,k1) = sum(q1(:,lkp.part==k1),2);
     end 
     clear q1 
-    % pars.dat{m}.S = 50;
+    
     Q(:,:,z,:) = single(reshape(q,[d(1:2),1,Kb]));
     clear q
 end
-clear tpm x1 x2 x3 o Coeff chan msk
-
-% MRF clean-up
-%--------------------------------------------------------------------------
-if obj.push_resp.do_mrf
-    vx       = 1./single(sum(obj.image(1).mat(1:3,1:3).^2));
-    nmrf_its = 10;
-    T        = 1;
-    G        = T*ones([Kb,1],'single');
-    P        = zeros(size(Q),'uint8');
-    
-    for iter=1:nmrf_its
-        spm_mrf(P,Q,G,vx);
-    end
-    
-    Q = single(P)/255;
-    clear P
-end
+clear tpm x1 x2 x3 o Coeff chan msk lnPzN
 
 % Adjust stuff so that warped data (and deformations) have the
 % desired bounding box and voxel sizes, instead of being the same
