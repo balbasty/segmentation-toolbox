@@ -46,7 +46,6 @@ for z=1:nz
     % Store responsibilities in a NIfTI file
     for k=1:K
         tmp                     = single(reshape(sum(q(:,k),2),dm));
-        tmp(~isfinite(tmp))     = 0;
         resp_save(k).dat(:,:,z) = tmp;
     end  
     clear tmp   

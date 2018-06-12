@@ -14,5 +14,9 @@ for z=1:mrf.dm(3)
     clear slice
 end
 
-lnPzN = spm_vbmrf(R,single(mrf.ElnUpsilon),mrf.w);
+if mrf.ml
+    lnPzN = spm_vbmrf(R,single(log(mrf.Upsilon)),mrf.w);
+else
+    lnPzN = spm_vbmrf(R,single(mrf.ElnUpsilon),mrf.w);
+end
 %==========================================================================

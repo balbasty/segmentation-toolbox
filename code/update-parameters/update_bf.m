@@ -85,13 +85,15 @@ for n=1:N
         oll     = ll;
         C       = chan(n).C; % Inverse covariance of priors
         oldT    = chan(n).T;
-
+        oElnPzN = mrf.ElnPzN;
+        ollrb   = llrb;      
+            
         % Gauss-Newton update of bias field parameters
         Update  = reshape((Alpha + C)\(Beta + C*chan(n).T(:)),size(chan(n).T));
         clear Alpha Beta
         
         for line_search=1:12
-            chan(n).T = chan(n).T - armijo*Update; % Backtrack if necessary
+            chan(n).T = chan(n).T - armijo(n)*Update; % Backtrack if necessary
 
             % Re-generate bias field, and compute terms of the objective function
             chan(n).ll = double(-0.5*chan(n).T(:)'*C*chan(n).T(:));
@@ -102,38 +104,36 @@ for n=1:N
                 tmp          = bf(buf(z).msk{n});
                 buf(z).bf{n} = single(exp(tmp));
             end
-
-            oElnPzN          = mrf.ElnPzN;
-            ollrb            = llrb;            
+                  
             llrb             = 0;
             for n1=1:N, llrb = llrb + chan(n1).ll; end
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf);        
+            [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
             ll            = ll + dll; 
 
             % Compute missing data and VB components of ll
-            dll  = spm_VBGaussiansFromSuffStats(mom,gmm);
-            ll   = ll + sum(sum(dll));
+            dll = spm_VBGaussiansFromSuffStats(mom,gmm);
+            ll  = ll + sum(sum(dll));
 
             if ll>=oll
                 L{1}(end + 1) = ll;
                 L{2}(end + 1) = llrb;
-                armijo        = min(armijo*1.25,1);
+                armijo(n)     = min(armijo(n)*1.25,1);
                 debug_view('convergence',fig{4},lkp,buf,L);
                 my_fprintf('Bias-%d:\t%g\t%g\t%g :o)\n', n, ll, llr,llrb,print_ll);
                 break;
             else
-                ll        = oll;
-                llrb      = ollrb;
-                chan(n).T = oldT;
-                armijo    = armijo*0.5;
+                ll         = oll;
+                llrb       = ollrb;
+                mrf.ElnPzN = oElnPzN;
+                chan(n).T  = oldT;
+                armijo(n)  = armijo(n)*0.5;
                 my_fprintf('Bias-%d:\t%g\t%g\t%g :o(\n', n, ll, llr,llrb,print_ll);
                 if line_search==12
                     L{1}(end + 1) = ll;
-                    L{2}(end + 1) = llrb;
-                    mrf.ElnPzN    = oElnPzN;
+                    L{2}(end + 1) = llrb;                    
                 end                    
             end 
         end

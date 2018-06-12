@@ -12,7 +12,8 @@ static void update_Upsilon(mwSize dm[], float R[], float w[], int ix_k, int ix_l
     float *R0 = NULL, *R1 = NULL;
     int it = 0;        
     double val1 = 0;
-    
+    int cnt_nb = 0;
+        
     m = dm[0]*dm[1]*dm[2];        
     
     mwSize i2start = it%2;
@@ -35,44 +36,74 @@ static void update_Upsilon(mwSize dm[], float R[], float w[], int ix_k, int ix_l
                 a = 0;
 
                 /* Count neighbours of each class */
+                cnt_nb = 0;                
                 if(i2>0)       /* Inferior */
                 {
 
                     RR = R0 - dm[0]*dm[1];
-                    a  += RR[ix_l*m]*w[2];
+                    if ((RR[ix_l*m]!=RR[ix_l*m]) == false && RR[ix_l*m]!=0) /* check if NaN */
+                    {
+                        a  += RR[ix_l*m]*w[2];    
+                        cnt_nb++;
+                    }
                 }
 
                 if(i2<dm[2]-1) /* Superior */
                 {
                     RR = R0 + dm[0]*dm[1];
-                    a  += RR[ix_l*m]*w[2];
+                    if ((RR[ix_l*m]!=RR[ix_l*m]) == false && RR[ix_l*m]!=0) /* check if NaN */
+                    {
+                        a  += RR[ix_l*m]*w[2];
+                        cnt_nb++;
+                    }
                 }
 
                 if(i1>0)       /* Posterior */
                 {
                     RR = R0 - dm[0];
-                    a  += RR[ix_l*m]*w[1];
+                    if ((RR[ix_l*m]!=RR[ix_l*m]) == false && RR[ix_l*m]!=0) /* check if NaN */
+                    {
+                        a  += RR[ix_l*m]*w[1];
+                        cnt_nb++;
+                    }
                 }
 
                 if(i1<dm[1]-1) /* Anterior */
                 {
                     RR = R0 + dm[0];
-                    a  += RR[ix_l*m]*w[1];
+                    if ((RR[ix_l*m]!=RR[ix_l*m]) == false && RR[ix_l*m]!=0) /* check if NaN */
+                    {                        
+                        a  += RR[ix_l*m]*w[1];
+                        cnt_nb++;
+                    }
                 }
 
                 if(i0>0)       /* Left */
                 {
                     RR = R0 - 1;
-                    a  += RR[ix_l*m]*w[0];
+                    if ((RR[ix_l*m]!=RR[ix_l*m]) == false && RR[ix_l*m]!=0) /* check if NaN */
+                    {
+                        a  += RR[ix_l*m]*w[0];
+                        cnt_nb++;
+                    }
                 }
 
                 if(i0<dm[0]-1) /* Right */
                 {
                     RR = R0 + 1;
-                    a  += RR[ix_l*m]*w[0];
+                    if ((RR[ix_l*m]!=RR[ix_l*m]) == false && RR[ix_l*m]!=0) /* check if NaN */
+                    {
+                        a  += RR[ix_l*m]*w[0];
+                        cnt_nb++;
+                    }
                 }
-                                  
-                val1 += (double)R0[ix_k*m]*a;
+                                     
+                a/=((float)cnt_nb);
+                
+                if ((R0[ix_k*m]!=R0[ix_k*m]) == false && R0[ix_k*m]!=0 && cnt_nb!=0) /* check if NaN */
+                {
+                    val1 += (double)R0[ix_k*m]*a;
+                }
 
             } /* < Loop over dm[0]*/
         } /* < Loop over dm[1]*/

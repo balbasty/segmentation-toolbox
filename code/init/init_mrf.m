@@ -8,18 +8,33 @@ if ~isfield(mrf,'ElnPzN')
     mrf.ElnPzN = 0;
 end
 
-if isempty(mrf.ElnUpsilon)
-    val_diag = mrf.val_diag;  
-    lambda   = mrf.lambda;
-            
-    Upsalpha0     = ones(Kb);
-    Upsalpha0     = Upsalpha0 + (val_diag - 1)*eye(Kb);
-    Upsalpha0     = lambda*Upsalpha0;
-    mrf.Upsalpha0 = Upsalpha0;
+if isempty(mrf.ElnUpsilon) || isempty(mrf.Upsilon)
+    if isfield(mrf,'KK')
+        KK        = mrf.KK;
+        KK(KK==0) = 1e-4;
+    end
     
-    mrf.ElnUpsilon = zeros(Kb);
-    for k=1:Kb
-        mrf.ElnUpsilon(k,:) = psi(Upsalpha0(k,:)) - psi(sum(Upsalpha0(k,:)));
+    if mrf.ml
+        val_diag = mrf.val_diag;
+        
+        mrf.Upsilon = ones(Kb);
+        mrf.Upsilon = mrf.Upsilon + val_diag*eye(Kb);
+        if isfield(mrf,'KK')
+            mrf.Upsilon = KK.*mrf.Upsilon;
+        end
+        
+        for k=1:Kb
+            mrf.Upsilon(k,:) = mrf.Upsilon(k,:)./sum(mrf.Upsilon(k,:));
+        end
+    else
+        alpha         = mrf.alpha;              
+        Upsalpha0     = alpha*ones(Kb);
+        mrf.Upsalpha0 = Upsalpha0;
+
+        mrf.ElnUpsilon = zeros(Kb);
+        for k=1:Kb
+            mrf.ElnUpsilon(k,:) = psi(Upsalpha0(k,:)) - psi(sum(Upsalpha0(k,:)));
+        end
     end
 end
 

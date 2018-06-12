@@ -24,14 +24,22 @@ for k=1:Kb
 end
 clear R
 
-Upsalpha = Upsalpha + mrf.Upsalpha0;
-% EUpsilon = bsxfun(@rdivide,Upsalpha,sum(Upsalpha,2));                          
-
-% Update ElnUpsilon
-%--------------------------------------------------------------------------
-mrf.ElnUpsilon = zeros(Kb);
-for k=1:Kb
-    mrf.ElnUpsilon(k,:) = psi(Upsalpha(k,:)) - psi(sum(Upsalpha(k,:)));
+if mrf.ml
+    % Update Upsilon
+    %----------------------------------------------------------------------
+    Upsalpha    = max(Upsalpha,1);
+    mrf.Upsilon = bsxfun(@rdivide,Upsalpha,sum(Upsalpha,2));   
+else
+    % Update ElnUpsilon
+    %----------------------------------------------------------------------
+    
+    Upsalpha = Upsalpha + mrf.Upsalpha0;
+    % EUpsilon = bsxfun(@rdivide,Upsalpha,sum(Upsalpha,2));                          
+    
+    mrf.ElnUpsilon = zeros(Kb);
+    for k=1:Kb
+        mrf.ElnUpsilon(k,:) = psi(Upsalpha(k,:)) - psi(sum(Upsalpha(k,:)));
+    end    
 end
 
 % Update lower bound

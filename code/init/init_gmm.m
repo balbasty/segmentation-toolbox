@@ -14,7 +14,7 @@ if ~isfield(gmm,'po')
     Kb = max(part);
     K  = numel(part);            
     
-    if isfield(gmm,'pr') && strcmp(modality,'CT') && do_template
+    if isfield(gmm,'pr') && strcmp(modality,'CT') % && do_template
        gmm.po = gmm.pr; 
        return
     end

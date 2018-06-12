@@ -42,8 +42,8 @@ if ~isfield(pars,'K')
 end
 
 has_ct = inspect_ct_data(pars);
-if has_ct && pars.do_template
-    pars.K = 9;
+if has_ct
+    pars.K = 10;
 end
 
 if ~isfield(pars,'niter')
@@ -61,8 +61,11 @@ end
 if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
-if ~isfield(pars,'sparam')
-    pars.sparam = 50;
+if ~isfield(pars,'sparam0')
+    pars.sparam0 = 60;
+end
+if ~isfield(pars,'sparam1')
+    pars.sparam1 = 20;
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -229,22 +232,25 @@ for m=1:M
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
     end
     if ~isfield(pars.dat{m}.segment,'biasreg')
-        pars.dat{m}.segment.biasreg = 1e-2;
+        pars.dat{m}.segment.biasreg = 1e-3;
     end
     if ~isfield(pars.dat{m}.segment,'biasfwhm')
         pars.dat{m}.segment.biasfwhm = 100;
     end    
-    if ~isfield(pars.dat{m}.segment,'nsubit')
-        pars.dat{m}.segment.nsubit = 1;
+    if ~isfield(pars.dat{m}.segment,'nsubit_bf')
+        pars.dat{m}.segment.nsubit_bf = 8;
     end    
+    if ~isfield(pars.dat{m}.segment,'nsubit_def')
+        pars.dat{m}.segment.nsubit_def = 3;
+    end        
     if ~isfield(pars.dat{m}.segment,'nitgmm')
         pars.dat{m}.segment.nitgmm = 20;
     end    
     if ~isfield(pars.dat{m}.segment,'niter')
-        pars.dat{m}.segment.niter = 20;
+        pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 1e-4;
+        pars.dat{m}.segment.tol1 = 1e-5;
     end    
     if ~isfield(pars.dat{m}.segment,'wp_reg')
         pars.dat{m}.segment.wp_reg = 'single-subject';
@@ -263,14 +269,20 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment.mrf,'do_mrf')
         pars.dat{m}.segment.mrf.do_mrf = false;
     end 
+    if ~isfield(pars.dat{m}.segment.mrf,'ml')
+        pars.dat{m}.segment.mrf.ml = true;
+    end     
     if pars.dat{m}.segment.mrf.do_mrf
         pars.dat{m}.segment.samp = 1;
     end
-    if ~isfield(pars.dat{m}.segment.mrf,'val_diag')        
-        pars.dat{m}.segment.mrf.val_diag = 2;
+    if ~isfield(pars.dat{m}.segment.mrf,'alpha')        
+        pars.dat{m}.segment.mrf.alpha = 1e5;
     end  
-    if ~isfield(pars.dat{m}.segment.mrf,'lambda')        
-        pars.dat{m}.segment.mrf.lambda = 2*1e3;
+    if ~isfield(pars.dat{m}.segment.mrf,'val_diag')        
+        pars.dat{m}.segment.mrf.val_diag = 1;
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'Upsilon')        
+        pars.dat{m}.segment.mrf.Upsilon = [];
     end      
     if ~isfield(pars.dat{m}.segment.mrf,'ElnUpsilon')        
         pars.dat{m}.segment.mrf.ElnUpsilon = [];
@@ -321,17 +333,9 @@ for m=1:M
     pars.dat{m}.segment.do_bf0  = pars.dat{m}.segment.do_bf; 
     pars.dat{m}.segment.do_def0 = pars.dat{m}.segment.do_def; 
     pars.dat{m}.segment.do_wp0  = pars.dat{m}.segment.do_wp; 
-    pars.dat{m}.segment.do_mg0  = pars.dat{m}.segment.do_mg;
-            
-    pars.dat{m}.segment.reg0     = pars.dat{m}.segment.reg;    
-            
-    pars.dat{m}.segment.mrf.update_Upsilon0 = pars.dat{m}.segment.mrf.update_Upsilon;
-    
-%     if strcmp(pars.dat{m}.modality,'CT') 
-%         % Segment CT image(s) 
-%         pars.dat{m}.segment.do_bf  = false; 
-%         pars.dat{m}.segment.do_bf0 = false; 
-%     end 
+    pars.dat{m}.segment.do_mg0  = pars.dat{m}.segment.do_mg;            
+    pars.dat{m}.segment.reg0    = pars.dat{m}.segment.reg;                
+    pars.dat{m}.segment.mrf.update_Upsilon0 = pars.dat{m}.segment.mrf.update_Upsilon;    
 end
 
 if S0==1
@@ -355,6 +359,8 @@ if pars.do_template
            pars.dat{m}.segment.do_mg  = false; 
            pars.dat{m}.segment.niter  = 1; 
            pars.dat{m}.segment.nitgmm = 1;
+           pars.dat{m}.segment.nsubit_def = 1;
+           pars.dat{m}.segment.nsubit_bf  = 1;
            
            pars.dat{m}.segment.mrf.update_Upsilon = false;
     

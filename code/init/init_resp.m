@@ -1,8 +1,8 @@
 function resp = init_resp(obj,lkp,d)
-if ~isfield(obj,'resp')
-    obj.resp = struct;
+
+if ~isfield(obj,'resp')    
     K        = numel(lkp.part);
-    
+    obj.resp = struct;
     if ~isfield(obj.resp,'current')
         obj.resp.current = nifti;
         for k=1:K

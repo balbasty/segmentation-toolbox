@@ -5,14 +5,12 @@
 #include <math.h>
 #define MAXCLASSES 1024
 
-static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int code, float Rout[])
+static void vbmrf(mwSize dm[], float R[], float ln_upsilon[], float w[], int code)
 {
     mwSize i0, i1, i2, k, m, n;
     float a[MAXCLASSES], e[MAXCLASSES];
     float *R0 = NULL, *R1 = NULL;
-    float *R0out = NULL, *R1out = NULL;
     int it;
-    int cnt_nb = 0;
 
     m = dm[0]*dm[1]*dm[2];
 
@@ -38,32 +36,28 @@ static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int c
             for(i1=0; i1<dm[1]; i1++) /* Posterior -> Anterior */
             {
                 mwSize i0start = (i1start == (i1%2));                
-                R1    = Rin + dm[0]*(i1+dm[1]*i2);
-                R1out = Rout + dm[0]*(i1+dm[1]*i2);
+                R1 = R + dm[0]*(i1+dm[1]*i2);
 
                 for(i0=i0start; i0<dm[0]; i0+=2) /* Left -> Right */
                 {                    
                     float *RR = NULL;
 
                     /* Pointers to current voxel in first volume */                    
-                    R0    = R1 + i0;
-                    R0out = R1out + i0;
-                    
+                    R0 = R1 + i0;
+
                     /* Initialise neighbour counts to zero */
                     for(k=0; k<dm[3]; k++) a[k] = 0.0;
 
                     /* Count neighbours of each class */
-                    cnt_nb = 0;
                     if(i2>0)       /* Inferior */
                     {
 
                         RR = R0 - dm[0]*dm[1];
                         for(k=0; k<dm[3]; k++) 
                         {
-                            if ((RR[k*m]!=RR[k*m]) == false && RR[k*m]!=0) /* check if NaN */
+                            if ((RR[k*m]!=RR[k*m]) == false) /* check if NaN */
                             {   
                                 a[k] += RR[k*m]*w[2];
-                                cnt_nb++;
                             }
                         }
                     }
@@ -73,10 +67,9 @@ static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int c
                         RR = R0 + dm[0]*dm[1];
                         for(k=0; k<dm[3]; k++) 
                         {
-                            if ((RR[k*m]!=RR[k*m]) == false && RR[k*m]!=0) /* check if NaN */
+                            if ((RR[k*m]!=RR[k*m]) == false) /* check if NaN */
                             {   
                                 a[k] += RR[k*m]*w[2];
-                                cnt_nb++;
                             }
                         }
                     }
@@ -86,10 +79,9 @@ static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int c
                         RR = R0 - dm[0];
                         for(k=0; k<dm[3]; k++) 
                         {
-                            if ((RR[k*m]!=RR[k*m]) == false && RR[k*m]!=0) /* check if NaN */
+                            if ((RR[k*m]!=RR[k*m]) == false) /* check if NaN */
                             {   
                                 a[k] += RR[k*m]*w[1];
-                                cnt_nb++;
                             }
                         }
                     }
@@ -99,10 +91,9 @@ static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int c
                         RR = R0 + dm[0];
                         for(k=0; k<dm[3]; k++) 
                         {
-                            if ((RR[k*m]!=RR[k*m]) == false && RR[k*m]!=0) /* check if NaN */
+                            if ((RR[k*m]!=RR[k*m]) == false) /* check if NaN */
                             {                               
                                 a[k] += RR[k*m]*w[1];
-                                cnt_nb++;
                             }
                         }
                     }
@@ -112,10 +103,9 @@ static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int c
                         RR = R0 - 1;
                         for(k=0; k<dm[3]; k++) 
                         {
-                            if ((RR[k*m]!=RR[k*m]) == false && RR[k*m]!=0) /* check if NaN */
+                            if ((RR[k*m]!=RR[k*m]) == false) /* check if NaN */
                             {                               
                                 a[k] += RR[k*m]*w[0];
-                                cnt_nb++;
                             }
                         }
                     }
@@ -125,17 +115,16 @@ static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int c
                         RR = R0 + 1;
                         for(k=0; k<dm[3]; k++) 
                         {
-                            if ((RR[k*m]!=RR[k*m]) == false && RR[k*m]!=0) /* check if NaN */
+                            if ((RR[k*m]!=RR[k*m]) == false) /* check if NaN */
                             {                               
                                 a[k] += RR[k*m]*w[0];
-                                cnt_nb++;
                             }
                         }
                     }
 
                     /* Data is divided by 6 (the number of neighbours examined). */
                     for(k=0; k<dm[3]; k++)
-                        a[k]/=((float)cnt_nb);
+                        a[k]/=(6.0);
 
                     if (code == 1) 
                     {
@@ -191,11 +180,8 @@ static void vbmrf(mwSize dm[], float Rin[], float ln_upsilon[], float w[], int c
                         }
                     }
 
-                    if (cnt_nb!=0)
-                    {
-                        for(k=0; k<dm[3]; k++)
-                            R0out[k*m] = e[k];
-                    }
+                    for(k=0; k<dm[3]; k++)
+                        R0[k*m] = e[k];
                     
                 } /* < Loop over dm[0]*/
             } /* < Loop over dm[1]*/
@@ -209,7 +195,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     mwSize i;
     mwSize dm[4];
     float w[3];
-    float *ln_upsilon = NULL, *Rin = NULL;
+    float *ln_upsilon = NULL, *R = NULL;
     int code = 0;
 
     /* Check correct number of inputs and outputs */
@@ -292,14 +278,14 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     for(i=0; i<3; i++) w[i] = ((float *)mxGetData(prhs[2]))[i];
 
     /* Copy input to output */
-    float *Rout;
+    float *R0;
     plhs[0] = mxCreateNumericArray(4,dm, mxSINGLE_CLASS, mxREAL);
-    Rin      = (float *)mxGetData(prhs[0]);
-    Rout     = (float *)mxGetData(plhs[0]);
+    R0      = (float *)mxGetData(prhs[0]);
+    R       = (float *)mxGetData(plhs[0]);
 
     for(i=0; i<dm[0]*dm[1]*dm[2]*dm[3]; i++)
-        Rout[i] = 0;
+        R[i] = R0[i];
 
     /* Compute log of MRF term */
-    vbmrf(dm,Rin,ln_upsilon,w,code,Rout);
+    vbmrf(dm,R,ln_upsilon,w,code);
 }

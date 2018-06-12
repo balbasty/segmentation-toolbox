@@ -187,7 +187,7 @@ for line_search=1:12
     end
         
     % Compute responsibilities and moments
-    [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.search,mrf);        
+    [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
     ll1           = ll1 + dll;         
     
     % Compute missing data and VB components of ll
@@ -198,12 +198,12 @@ for line_search=1:12
         % Still not better, so keep searching inwards.
         my_fprintf('Warp:\t%g\t%g\t%g :o(\t(%g)\n', ll1, llr1,llrb,armijo,print_ll);
         
-        armijo = armijo*0.75;
+        armijo     = armijo*0.75;
+        mrf.ElnPzN = oElnPzN;
         
         if line_search==12
             L{1}(end + 1) = ll;
-            L{3}(end + 1) = llr;
-            mrf.ElnPzN    = oElnPzN;
+            L{3}(end + 1) = llr;            
             
             for z=1:nz
                 % Revert to previous deformation

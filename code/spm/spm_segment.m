@@ -18,7 +18,8 @@ wp_l      = obj.segment.wp_l;
 modality  = obj.modality;
 niter     = obj.segment.niter;
 nitgmm    = obj.segment.nitgmm;
-nsubit    = obj.segment.nsubit;
+nsubit_def = obj.segment.nsubit_def;
+nsubit_bf  = obj.segment.nsubit_bf;
 do_bf     = obj.segment.do_bf;
 if obj.uniform, obj.segment.do_def = false; end
 do_def    = obj.segment.do_def;
@@ -60,7 +61,7 @@ ff = compute_fudge_factor(obj.fwhm,vx,sk);
 
 % Initialise bias field
 %--------------------------------------------------------------------------
-[buf,chan,llrb] = init_bf(buf,obj,V,x0,y0,z0,ff,scl_bf);
+[buf,chan,llrb] = init_bf(buf,obj,V,x0,y0,z0,ff,scl_bf,lkp,fig);
 
 % Initialise deformation and template
 %--------------------------------------------------------------------------
@@ -81,15 +82,14 @@ resp = init_resp(obj,lkp,d);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Start iterating
 %------------------------------------------------------------
-armijo        = ones(1,2);
-ll            = -Inf;
-L             = {ll,llrb,llr};
-ollr          = llr;
-reg_converged = false;
-for iter=1:niter
-   
+armijo_bf  = ones(1,N);
+armijo_def = 1;
+ll     = -Inf;
+L      = {ll,llrb,llr};
+for iter=1:niter             
+       
     if do_bf
-        for subit=1:nsubit
+        for subit=1:nsubit_bf
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Estimate bias
             % Note that for multi-spectral data, the covariances among
@@ -97,7 +97,7 @@ for iter=1:niter
             % The aim is to save memory, and maybe make the computations
             % faster.
             %------------------------------------------------------------
-                        
+
             % Estimate cluster parameters            
             [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
 
@@ -107,19 +107,19 @@ for iter=1:niter
                 break; 
             end
             oll = ll;
-            
-            [ll,llrb,buf,chan,L,armijo(1),mrf] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo(1),wp_l,resp,mrf);                                          
+
+            [ll,llrb,buf,chan,L,armijo_bf,mrf] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo_bf,wp_l,resp,mrf);                                          
         end
-    end
-    
-    debug_view('bf',fig{2},lkp,buf,modality);
-    
+
+        debug_view('bf',fig{2},lkp,buf,modality);
+    end                
+
     if do_def
-        for subit=1:nsubit
+        for subit=1:nsubit_def
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Estimate deformations
             %------------------------------------------------------------            
-                        
+
             % Estimate cluster parameters            
             [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
 
@@ -129,41 +129,33 @@ for iter=1:niter
                 break; 
             end
             oll = ll;
-                    
-            [ll,llr,buf,Twarp,L,armijo(2),mrf] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,do_template,armijo(2),wp_l,resp,mrf);
-            
+
+            [ll,llr,buf,Twarp,L,armijo_def,mrf] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,do_template,armijo_def,wp_l,resp,mrf);
+
 %             (llr - ollr)
 %             2*tol1*nm
 %             ollr = llr;
         end    
-    end
 
-    debug_view('template',fig{3},lkp,buf,wp);  
-        
-    if mrf.update_Upsilon && mrf.do_mrf               
+        debug_view('template',fig{3},lkp,buf,wp);    
+    end         
+    
+    if mrf.update_Upsilon && mrf.do_mrf
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Estimate distribution over MRF weights
         %------------------------------------------------------------            
         
         % Estimate cluster parameters            
-        [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
+        [~,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
                    
-        % Update Upsilon
-        [mrf,ll,L] = update_ElnUpsilon(mrf,lkp,resp,llr,llrb,buf,mg,gmm,wp,wp_l,fig,L,print_ll);
-        
         debug_view('responsibilities',fig{1},lkp,buf,resp.current);
-    end        
-                
-%     if ~do_bf && ~do_def && ~(mrf.update_Upsilon && mrf.do_mrf)
-%         % Estimate cluster parameters            
-%         [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
-%     end        
+        
+        % Update Upsilon
+        [mrf,ll,L] = update_ElnUpsilon(mrf,lkp,resp,llr,llrb,buf,mg,gmm,wp,wp_l,fig,L,print_ll);                
+    end 
     
-    if iter>=10 && (~((ll-ooll)>2*tol1*nm) || reg_converged)
-        % Finished
-        if print_ll
-            fprintf('spm_segment converged in %i iterations\n',iter);
-        end
+    if iter>=10 && ~((ll-ooll)>2*tol1*nm)
+        % Finished        
         break
     end
     ooll = ll;
@@ -177,6 +169,10 @@ clear tpm
 debug_view('responsibilities',fig{1},lkp,buf,resp.current);
 clear buf
 
+if print_ll
+    fprintf('spm_segment converged in %i iterations\n',iter);
+end
+        
 % For setting the DC component of all the bias fields so that they
 % average to 0 (used for global signal normalisation).
 %--------------------------------------------------------------------------

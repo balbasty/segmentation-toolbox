@@ -112,7 +112,7 @@ for iter=1:pars.niter
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
         %----------------------------------------------------------------------    
-        obj = modify_obj(obj,iter,pars.niter);
+        obj = modify_obj(obj,iter,pars);
     end       
     
     %----------------------------------------------------------------------

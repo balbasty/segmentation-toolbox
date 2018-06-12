@@ -75,13 +75,16 @@ for subit=1:nitgmm
 end
 
 % % Save final responsibilities
-% ll            = llrb + llr + sum(sum(llvb));
-% [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
-% ll            = ll + dll;     
-%    
-% my_fprintf('MOG:\t%g\t%g\t%g\n',ll,llr,llrb,print_ll);
-% L{1}(end + 1) = ll;
-% debug_view('convergence',fig{4},lkp,buf,L);
+ll            = llrb + llr;
+[mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
+ll            = ll + dll;     
+   
+llvb = spm_VBGaussiansFromSuffStats(mom,gmm);
+ll   = ll + sum(sum(llvb));  
+    
+my_fprintf('MOG:\t%g\t%g\t%g\n',ll,llr,llrb,print_ll);
+L{1}(end + 1) = ll;
+debug_view('convergence',fig{4},lkp,buf,L);
 
 % Write function output
 %--------------------------------------------------------------------------

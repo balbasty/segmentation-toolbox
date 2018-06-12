@@ -7,6 +7,8 @@ y0  = varargin{5};
 z0  = varargin{6};
 ff  = varargin{7};
 scl = varargin{8};
+lkp = varargin{9};
+fig = varargin{10};
 
 N    = numel(buf(1).f);
 cl   = cell(N,1);
@@ -36,7 +38,7 @@ for n=1:N
     else
         chan(n).T = zeros(d3);        
         
-        if strcmp(obj.modality,'MRI')
+        if strcmp(obj.modality,'MRI') && obj.do_template
             % Change DC component of bias field to make intensities more
             % simillar between MR images. The scaling parameter is set in
             % init_buf
@@ -66,6 +68,8 @@ for n=1:N
     end
     llrb = llrb + chan(n).ll;
 end
+
+debug_view('bf',fig{2},lkp,buf,obj.modality);
 
 varargout{1} = buf;
 varargout{2} = chan;

@@ -26,8 +26,8 @@ for m=1:M
     end
 end
 
-if ~isempty(pars_ct) && pars.do_template
-    % There are data that is CT -> perform CT init routine (below)
+if (~isempty(pars_ct) && pars.do_template) || (~isempty(pars_ct) && ~isfield(pars_ct.dat{1}.segment.gmm,'pr')) 
+    % There are data that is CT -> perform CT init routine
     %----------------------------------------------------------------------
     
     M1  = numel(pars_ct.dat); 
@@ -121,20 +121,20 @@ if ~isempty(pars_ct) && pars.do_template
     
     % Fit VB-GMM to soft tissue
     k2              = 1;
-    [~,ix]          = find(X>=(-200 + val) & X<(0 + val));
+    [~,ix]          = find(X>=(-200 + val) & X<(-50 + val));
     [~,m2,b2,n2,W2] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k2,true,1e-8,false,SHOW_FIT);      
     lkp2            = 2*ones(1,k2);
     
     % For brain tissue, the parameters are set hard-coded 
-    k3 = 6;
-    m3 = [10 25 35 40 50 70] + val;
+    k3 = 7;
+    m3 = [10 25 35 40 50 70 90] + val;
     b3 = ones(1,k3);
     n3 = ones(1,k3);
     W3 = ones(1,k3);
-    lkp3 = [3 4 5 6 7 8];
+    lkp3 = [3 4 5 6 7 8 9];
     
     % Fit VB-GMM to bone
-    k4              = 3;
+    k4              = 2;
     [~,ix]          = find(X>=(200 + val));
     [~,m4,b4,n4,W4] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k4,true,1e-8,false,SHOW_FIT);     
     lkp4            = Kb*ones(1,k4);
@@ -184,12 +184,12 @@ if ~isempty(pars_ct) && pars.do_template
             end
         end
         
-        gmm         = ngmm;
-        gmm.pr.part = part; % just so that the partition can be loaded from the prior object
+        gmm         = ngmm;        
         part        = npart;
         mg          = nmg;
     end
 
+    gmm.pr.part = part; % just so that the partition can be loaded from the prior object
     
     % Set CT GMM structs
     %----------------------------------------------------------------------    

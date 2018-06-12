@@ -13,6 +13,9 @@ for z=1:mrf.dm(3)
     clear slice
 end
 
-lnPzN  = spm_vbmrf_lowerbound(R,single(mrf.ElnUpsilon),mrf.w);
-ElnPzN = sum(sum(sum(sum(lnPzN))));
+if mrf.ml
+    ElnPzN = spm_vbmrf_lowerbound(R,single(log(mrf.Upsilon)),mrf.w);
+else
+    ElnPzN = spm_vbmrf_lowerbound(R,single(mrf.ElnUpsilon),mrf.w);
+end
 %==========================================================================
