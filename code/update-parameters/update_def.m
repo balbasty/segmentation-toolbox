@@ -101,24 +101,12 @@ for z=1:nz
     MM  = M*MT; % Map from sampled voxels to atlas data
     
     % Compute responsibilties        
-%     qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l);        
-%     q  = zeros(buf(z).Nm,Kb,'single');
-%     for k1=1:Kb
-%         for k=find(lkp.part==k1)
-%             q(:,k1) = q(:,k1) + qt(msk1,k);
-%         end
-%     end
-%     clear qt
-    
     q = zeros(buf(z).Nm,Kb,'single');
-    for k=1:Kb
-        slice = 0;
-        for k1=find(lkp.part==k)
-            slice = slice + resp.current(k1).dat(:,:,z);
-        end
-        
-        q(:,k) = slice(msk1);
+    for k=1:Kb    
+        tmp    = reshape(resp.dat(:,:,z,k),[],1);
+        q(:,k) = tmp(msk1);
     end
+    clear tmp
     
     for k1=1:Kb
         pp  = double(q(:,k1));        
@@ -187,8 +175,8 @@ for line_search=1:12
     end
         
     % Compute responsibilities and moments
-    [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
-    ll1           = ll1 + dll;         
+    [mom,dll,mrf,~,resp] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp,mrf);        
+    ll1                  = ll1 + dll;         
     
     % Compute missing data and VB components of ll
     dll = spm_VBGaussiansFromSuffStats(mom,gmm);
@@ -245,6 +233,7 @@ varargout{4} = Twarp;
 varargout{5} = L;
 varargout{6} = armijo;
 varargout{7} = mrf;
+varargout{8} = resp;
 %========================================================================== 
 
 %==========================================================================

@@ -69,7 +69,7 @@ ff = compute_fudge_factor(obj.fwhm,vx,sk);
 
 % Initialise GMM
 %--------------------------------------------------------------------------
-[gmm,buf] = init_gmm(obj,buf,vr0,mn,mx);                               
+gmm = init_gmm(obj,buf,vr0,mn,mx);                              
 
 % MRF stuff
 %--------------------------------------------------------------------------
@@ -84,10 +84,10 @@ resp = init_resp(obj,lkp,d);
 %------------------------------------------------------------
 armijo_bf  = ones(1,N);
 armijo_def = 1;
-ll     = -Inf;
-L      = {ll,llrb,llr};
+ll         = -Inf;
+L          = {ll,llrb,llr};
 for iter=1:niter             
-       
+      
     if do_bf
         for subit=1:nsubit_bf
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -99,16 +99,16 @@ for iter=1:niter
             %------------------------------------------------------------
 
             % Estimate cluster parameters            
-            [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
+            [ll,mg,gmm,wp,L,mrf,~,resp] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf,false);
 
-            debug_view('responsibilities',fig{1},lkp,buf,resp.current);
+            debug_view('responsibilities',fig{1},lkp,buf,resp);
 
             if subit>1 && ~((ll-oll)>2*tol1*nm), 
                 break; 
             end
             oll = ll;
 
-            [ll,llrb,buf,chan,L,armijo_bf,mrf] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo_bf,wp_l,resp,mrf);                                          
+            [ll,llrb,buf,chan,L,armijo_bf,mrf] = update_bf(ll,llrb,llr,buf,mg,gmm,wp,lkp,chan,fig,L,print_ll,armijo_bf,wp_l,resp,mrf,d);                                          
         end
 
         debug_view('bf',fig{2},lkp,buf,modality);
@@ -121,16 +121,16 @@ for iter=1:niter
             %------------------------------------------------------------            
 
             % Estimate cluster parameters            
-            [ll,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
+            [ll,mg,gmm,wp,L,mrf,~,resp] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf,false);
 
-            debug_view('responsibilities',fig{1},lkp,buf,resp.current);
+            debug_view('responsibilities',fig{1},lkp,buf,resp);
 
             if subit>1 && ~((ll-oll)>2*tol1*nm), 
                 break; 
             end
             oll = ll;
 
-            [ll,llr,buf,Twarp,L,armijo_def,mrf] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,do_template,armijo_def,wp_l,resp,mrf);
+            [ll,llr,buf,Twarp,L,armijo_def,mrf] = update_def(ll,llrb,llr,buf,mg,gmm,wp,lkp,Twarp,sk4,M,MT,tpm,x0,y0,z0,param,iter,fig,L,print_ll,do_template,armijo_def,wp_l,resp,mrf,d);
 
 %             (llr - ollr)
 %             2*tol1*nm
@@ -146,12 +146,12 @@ for iter=1:niter
         %------------------------------------------------------------            
         
         % Estimate cluster parameters            
-        [~,mg,gmm,wp,L,mrf] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);
+        [~,mg,gmm,wp,L,mrf,~,resp] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf,false);
                    
-        debug_view('responsibilities',fig{1},lkp,buf,resp.current);
+        debug_view('responsibilities',fig{1},lkp,buf,resp);
         
         % Update Upsilon
-        [mrf,ll,L] = update_ElnUpsilon(mrf,lkp,resp,llr,llrb,buf,mg,gmm,wp,wp_l,fig,L,print_ll);                
+        [mrf,ll,L,resp] = update_ElnUpsilon(mrf,lkp,resp,llr,llrb,buf,mg,gmm,wp,wp_l,fig,L,print_ll);                
     end 
     
     if iter>=10 && ~((ll-ooll)>2*tol1*nm)
@@ -163,11 +163,13 @@ end
 
 % Estimate cluster parameters
 %------------------------------------------------------------
-[ll,mg,gmm,wp,~,mrf,mom] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf);    
+[ll,mg,gmm,wp,~,mrf,mom,resp] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg,resp,mrf,true);    
 clear tpm
 
-debug_view('responsibilities',fig{1},lkp,buf,resp.current);
+debug_view('responsibilities',fig{1},lkp,buf,resp);
 clear buf
+
+resp = rmfield(resp,'dat');
 
 if print_ll
     fprintf('spm_segment converged in %i iterations\n',iter);
@@ -213,7 +215,7 @@ obj.segment.bf.b1 = b1;
 obj.segment.bf.b2 = b2;
 obj.segment.bf.b3 = b3;
 
-obj.resp = resp;
+obj.segment.resp = resp;
 
 return;
 %==========================================================================

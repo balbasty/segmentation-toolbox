@@ -39,6 +39,12 @@ for k=1:K
 end
 mn = gmm.po.m; 
 
+if mrf.do_mrf        
+    % Compute neighborhood part of responsibilities
+    % (from previous responsibilities)
+    lnPzN = compute_lnPzN(mrf,resp);
+end
+
 for n=1:N
     d3  = numel(chan(n).T);
     if d3>0
@@ -52,16 +58,19 @@ for n=1:N
             cr                 = cell(N,1);
             for n1=1:N, cr{n1} = double(buf(z).f{n1}).*double(buf(z).bf{n1}); end
 
-%             lnPzN1 = zeros([1 Kb]);
-%             q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lnPzN1,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
+            % Get neighborhood term
+            if mrf.do_mrf   
+                lnPzN1 = double(reshape(lnPzN(:,:,z,:),[prod(size(buf(1).msk{1})) Kb]));
+            else
+                lnPzN1 = zeros([1 Kb]);
+            end
+    
+            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lnPzN1,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
             
             w1 = zeros(buf(z).nm(n),1);
             w2 = zeros(buf(z).nm(n),1);
             for k=1:K
-%                 qk  = q(buf(z).msk{n},k);
-                qk = double(resp.current(k).dat(:,:,z));
-                qk = reshape(qk,[prod(d(1:2)) 1]);
-                qk = qk(buf(z).msk{n});
+                qk  = q(buf(z).msk{n},k);
                    
                 w0  = zeros(prod(d(1:2)),1);
                 for n1=1:N
@@ -110,8 +119,8 @@ for n=1:N
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
-            ll            = ll + dll; 
+            [mom,dll,mrf,~,resp] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp,mrf);        
+            ll                   = ll + dll; 
 
             % Compute missing data and VB components of ll
             dll = spm_VBGaussiansFromSuffStats(mom,gmm);
@@ -150,6 +159,7 @@ varargout{4} = chan;
 varargout{5} = L;
 varargout{6} = armijo;
 varargout{7} = mrf;
+varargout{8} = resp;
 %========================================================================== 
 
 %==========================================================================

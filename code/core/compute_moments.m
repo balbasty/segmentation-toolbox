@@ -1,4 +1,6 @@
-function [mom,ll,mrf,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp_read,resp_save,mrf)   
+function [mom,ll,mrf,mgm,resp] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp,mrf,save_resp)   
+if nargin<9, save_resp = false; end
+
 K   = numel(lkp.part);
 Kb  = max(lkp.part);
 nz  = numel(buf);
@@ -11,7 +13,7 @@ mgm = zeros(1,Kb);
 if mrf.do_mrf        
     % Compute neighborhood part of responsibilities
     % (from previous responsibilities)
-    lnPzN = compute_lnPzN(mrf,lkp,resp_read);
+    lnPzN = compute_lnPzN(mrf,resp);
 end
 
 % Compute responsibilities
@@ -20,7 +22,7 @@ mom = moments_struct(K,N);
 for z=1:nz
     if ~buf(z).Nm, continue; end
         
-    if nargout==4
+    if nargout>=4
         % For updating tissue weights
         s   = 1./(double(buf(z).dat)*wp');
         mgm = mgm + s'*double(buf(z).dat);
@@ -43,12 +45,19 @@ for z=1:nz
     ll      = ll + dll;
     clear lnPzN1
     
-    % Store responsibilities in a NIfTI file
-    for k=1:K
-        tmp                     = single(reshape(sum(q(:,k),2),dm));
-        resp_save(k).dat(:,:,z) = tmp;
+    for k=1:Kb
+        k1 = lkp.part==k;
+        resp.dat(:,:,z,k) = single(reshape(sum(q(:,k1),2),dm));
     end  
-    clear tmp   
+        
+    if save_resp
+        % Store responsibilities in a NIfTI file
+        for k=1:Kb       
+            k1 = lkp.part==k;
+            resp.nii(k).dat(:,:,z) = single(reshape(sum(q(:,k1),2),dm));
+        end  
+        clear tmp   
+    end
     
     % Update sufficient statistics
     mom = spm_SuffStats(cr,q,mom,buf(z).code);
@@ -57,7 +66,7 @@ end
 if mrf.do_mrf     
     % Compute neighborhood part of lower bound 
     % (always requires most updated responsibilities)
-    mrf.ElnPzN  = compute_ElnPzN(mrf,lkp,resp_save);    
+    mrf.ElnPzN  = compute_ElnPzN(mrf,resp);    
     ll          = ll + mrf.ElnPzN;
 end
 %==========================================================================

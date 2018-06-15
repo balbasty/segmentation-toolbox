@@ -28,14 +28,15 @@ wp_l     = varargin{18};
 do_mg    = varargin{19};
 resp     = varargin{20};
 mrf      = varargin{21};
+save_resp = varargin{22};
 
 for subit=1:nitgmm
     oll = ll;
     ll  = llrb + llr;
     
     % Compute responsibilities and moments
-    [mom,dll,mrf,mgm] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
-    ll                = ll + dll;     
+    [mom,dll,mrf,mgm,resp] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp,mrf);        
+    ll                     = ll + dll;     
     
     % Add up 0:th moment
     s0 = 0;
@@ -75,9 +76,9 @@ for subit=1:nitgmm
 end
 
 % % Save final responsibilities
-ll            = llrb + llr;
-[mom,dll,mrf] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp.current,resp.current,mrf);        
-ll            = ll + dll;     
+ll                   = llrb + llr;
+[mom,dll,mrf,~,resp] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp,mrf,save_resp);        
+ll                   = ll + dll;     
    
 llvb = spm_VBGaussiansFromSuffStats(mom,gmm);
 ll   = ll + sum(sum(llvb));  
@@ -95,4 +96,5 @@ varargout{4} = wp;
 varargout{5} = L;
 varargout{6} = mrf;
 varargout{7} = mom;
+varargout{8} = resp;
 %==========================================================================

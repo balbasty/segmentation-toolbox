@@ -18,10 +18,7 @@ if ~isempty(fig)
                
         if d(3)>1
             for k=1:Kb   
-                Q = 0;
-                for k1=find(lkp.part==k)
-                    Q = Q + resp(k1).dat(:,:,:);
-                end
+                Q = resp.dat(:,:,:,k);
                 
                 subplot(3,Kb,k);
                 slice = Q(:,:,floor(d(3)/2) + 1);
@@ -39,10 +36,7 @@ if ~isempty(fig)
             K1 = floor(sqrt(Kb));
             K2 = ceil(Kb/K1);      
             for k=1:Kb              
-                slice = 0;
-                for k1=find(lkp.part==k)
-                    slice = slice + resp(k1).dat(:,:,dz);
-                end
+                slice = resp.dat(:,:,dz,k);
                 
                 subplot(K1,K2,k);                
                 imagesc(slice',[0 1]); axis image xy off; title(['k=' num2str(k)]); colormap(gray);  

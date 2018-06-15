@@ -3,7 +3,6 @@ lkp      = obj.segment.lkp;
 Kb       = max(lkp.part);
 N        = numel(obj.image);
 modality = obj.modality;
-resp     = obj.resp;
 mrf      = obj.segment.mrf;
 
 % Get parameters
@@ -71,9 +70,13 @@ clear Nii Twarp
 
 %--------------------------------------------------------------------------
 if mrf.do_mrf        
+    resp = init_resp(obj,lkp,d);
+    
     % Compute neighborhood part of responsibilities
     % (from previous responsibilities)
-    lnPzN = compute_lnPzN(mrf,lkp,resp.current);
+    lnPzN = compute_lnPzN(mrf,resp);
+    
+    clear resp
 end
 
 %--------------------------------------------------------------------------
@@ -160,7 +163,7 @@ for z=1:length(x3)
     end
     
     q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lnPzN1,lkp,obj.segment.wp,msk,code,labels,wp_l);
-    clear B f bf
+    clear B f bf lnPzN1
     
     q = NaN([prod(d(1:2)) Kb]);  
     for k1=1:Kb
