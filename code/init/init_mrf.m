@@ -9,17 +9,18 @@ if ~isfield(mrf,'ElnPzN')
 end
 
 if isempty(mrf.ElnUpsilon) || isempty(mrf.Upsilon)
-    if isfield(mrf,'KK')
+    if ~isempty(mrf.KK)
         KK        = mrf.KK;
-        KK(KK==0) = 1e-4;
+        KK(KK==0) = eps;
     end
     
     if mrf.ml
         val_diag = mrf.val_diag;
         
-        mrf.Upsilon = ones(Kb);
-        mrf.Upsilon = mrf.Upsilon + val_diag*eye(Kb);
-        if isfield(mrf,'KK')
+        mrf.Upsilon             = (1 - val_diag)/(Kb - 1)*ones(Kb);
+        mrf.Upsilon(1==eye(Kb)) = val_diag;        
+        
+        if ~isempty(mrf.KK)
             mrf.Upsilon = KK.*mrf.Upsilon;
         end
         
