@@ -314,12 +314,18 @@ for m=1:M
     if ~isfield(pars.dat{m}.write_res,'vox')
         pars.dat{m}.write_res.vox = NaN;
     end
-    if ~isfield(pars.dat{m}.write_res,'cleanup')
-        pars.dat{m}.write_res.cleanup = false;
+    if ~isfield(pars.dat{m}.write_res,'cleanup_gwc')
+        pars.dat{m}.write_res.cleanup_gwc = false;
     end
+    if ~isfield(pars.dat{m}.write_res,'cleanup_lesion')
+        pars.dat{m}.write_res.cleanup_lesion = false;
+    end    
     if ~isfield(pars.dat{m}.write_res,'mrf')
         pars.dat{m}.write_res.mrf = 2;
     end
+    if pars.dat{m}.segment.mrf.do_mrf
+        pars.dat{m}.write_res.mrf = 0;
+    end    
     if ~isfield(pars.dat{m}.write_res,'write_tc')
         pars.dat{m}.write_res.write_tc = true(pars.K,4);                
     end    
@@ -329,7 +335,11 @@ for m=1:M
     if ~isfield(pars.dat{m}.write_res,'write_df')
         pars.dat{m}.write_res.write_df = true(1,2);
     end           
-
+    if isfield(pars.dat{m}.write_res,'G')
+        G                       = pars.dat{m}.write_res.G;
+        pars.dat{m}.write_res.G = single(G);                
+    end           
+    
     pars.dat{m}.segment.do_bf0  = pars.dat{m}.segment.do_bf; 
     pars.dat{m}.segment.do_def0 = pars.dat{m}.segment.do_def; 
     pars.dat{m}.segment.do_wp0  = pars.dat{m}.segment.do_wp; 

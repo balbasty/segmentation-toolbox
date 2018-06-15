@@ -7,7 +7,8 @@ if ~isfield(obj.write_res,'write_tc'), obj.write_res.write_tc = true(Kb,4); end 
 if ~isfield(obj.write_res,'write_bf'), obj.write_res.write_bf = false(N,2); end % field, corrected
 if ~isfield(obj.write_res,'write_df'), obj.write_res.write_df = false(1,2); end % inverse, forward
 if ~isfield(obj.write_res,'mrf'),      obj.write_res.mrf = 1;         end % MRF parameter
-if ~isfield(obj.write_res,'cleanup'),  obj.write_res.cleanup = 1;     end % Run the ad hoc cleanup
+if ~isfield(obj.write_res,'cleanup_gwc'),  obj.write_res.cleanup_gwc = 1;     end % Run the ad hoc cleanup
+if ~isfield(obj.write_res,'cleanup_lesion'),  obj.write_res.cleanup_lesion = 1;     end % Run the ad hoc cleanup
 if ~isfield(obj.write_res,'bb'),       obj.write_res.bb = NaN(2,3);   end % Default to TPM bounding box
 if ~isfield(obj.write_res,'vx'),       obj.write_res.vx = NaN;        end % Default to TPM voxel size
 if ~isfield(obj.write_res,'G'),        obj.write_res.G = ones([Kb,1],'single'); end 
@@ -18,13 +19,18 @@ write_tc = obj.write_res.write_tc;
 write_bf = obj.write_res.write_bf;
 write_df = obj.write_res.write_df;
 mrf      = obj.write_res.mrf;
-cleanup  = obj.write_res.cleanup;
+cleanup_gwc  = obj.write_res.cleanup_gwc;
+cleanup_lesion  = obj.write_res.cleanup_lesion;
 bb       = obj.write_res.bb;
 vx       = obj.write_res.vx;
 G        = obj.write_res.G*mrf;
 nmrf_its = obj.write_res.nmrf_its;
 odir     = obj.dir_write;
 modality = obj.modality;
+
+% Get parameters
+%--------------------------------------------------------------------------
+wp_l = obj.segment.wp_l;
 
 % Load template
 %-----------------------------------------------------------------------
@@ -191,6 +197,18 @@ end
 spm_progress_bar('init',length(x3),['Working on ' nam],'Planes completed');
 M = M1\obj.Affine*obj.image(1).mat;
 
+%--------------------------------------------------------------------------
+if obj.segment.mrf.do_mrf  
+    resp = init_resp(obj,lkp,d);
+    
+    % Compute neighborhood part of responsibilities
+    % (from previous responsibilities)
+    lnPzN = compute_lnPzN(obj.segment.mrf,resp);
+    
+    clear resp
+end
+
+%--------------------------------------------------------------------------
 if do_cls
     Q = zeros([d(1:3),Kb],'single');
 end
@@ -202,20 +220,12 @@ for z=1:length(x3)
     bf  = cell(1,N);
     msk = cell(1,N);
     for n=1:N
-        f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
-        msk{n} = spm_misc('msk_modality',f{n},obj.modality);              
-        bf{n}  = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));  
+        f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);        
+        msk{n} = spm_misc('msk_modality',f{n},obj.modality);        
         
-        if ~isempty(chan(n).Nc),
-            % Write a plane of bias corrected data
-            chan(n).Nc.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bf{n}.*f{n};
-        end
-        if ~isempty(chan(n).Nf),
-            % Write a plane of bias field
-            chan(n).Nf.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bf{n};
-        end
-    end    
-        
+        f{n}(~msk{n}) = 0;
+    end
+    
     if ~obj.segment.do_missing_data
         tmp = true;
         for n=1:N
@@ -226,6 +236,53 @@ for z=1:length(x3)
             msk{n} = tmp;
         end
     end
+    
+    for n=1:N
+        bfn = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));
+        
+        if ~isempty(chan(n).Nc),
+            % Write a plane of bias corrected data
+            chan(n).Nc.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bfn.*f{n};
+        end
+        if ~isempty(chan(n).Nf),
+            % Write a plane of bias field
+            chan(n).Nf.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bfn;
+        end
+        
+%         f{n}  = f{n}(msk{n});        
+        bf{n} = bfn(:);             
+    end    
+    clear bfn
+    
+%     % Bias corrected image
+%     f   = cell(1,N);
+%     bf  = cell(1,N);
+%     msk = cell(1,N);
+%     for n=1:N
+%         f{n}   = spm_sample_vol(obj.image(n),x1,x2,o*x3(z),0);
+%         msk{n} = spm_misc('msk_modality',f{n},obj.modality);              
+%         bf{n}  = exp(transf(chan(n).B1,chan(n).B2,chan(n).B3(z,:),chan(n).T));  
+%         
+%         if ~isempty(chan(n).Nc),
+%             % Write a plane of bias corrected data
+%             chan(n).Nc.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bf{n}.*f{n};
+%         end
+%         if ~isempty(chan(n).Nf),
+%             % Write a plane of bias field
+%             chan(n).Nf.dat(:,:,z,chan(n).ind(1),chan(n).ind(2)) = bf{n};
+%         end
+%     end    
+%         
+%     if ~obj.segment.do_missing_data
+%         tmp = true;
+%         for n=1:N
+%             tmp = tmp & msk{n};
+%         end
+% 
+%         for n=1:N
+%             msk{n} = tmp;
+%         end
+%     end
     
     if do_defs
         % Compute the deformation (mapping voxels in image to voxels in TPM)
@@ -247,34 +304,87 @@ for z=1:length(x3)
         end
 
         if do_cls
-            code            = zeros([numel(msk{1}) 1],typ);
-            for n=1:N, code = bitor(code,bitshift(feval(cast,msk{n}(:)),(n - 1))); end                   
+%             code            = zeros([numel(msk{1}) 1],typ);
+%             for n=1:N, code = bitor(code,bitshift(feval(cast,msk{n}(:)),(n - 1))); end                   
+% 
+%             % Parametric representation of intensity distributions                       
+%             q  = zeros([d(1:2) Kb]);                          
+%             q1 = log_likelihoods(f,bf,obj.segment.mg,obj.segment.gmm,msk,code);
+%             q1 = reshape(q1,[d(1:2),numel(obj.segment.mg)]);
+%             q1 = exp(q1) + eps;
+%             
+%             b = spm_sample_logpriors(tpm,t1,t2,t3);    
+%             s = zeros(size(b{1}));
+%             for k1 = 1:Kb
+%                 b{k1} = obj.segment.wp(k1)*b{k1};
+%                 s     = s + b{k1};
+%             end
+%             
+%             for k1=1:Kb
+%                 tmp                 = sum(q1(:,:,lkp.part==k1),3);
+%                 tmp(~isfinite(tmp)) = 1e-3;
+%                 q(:,:,k1)           = tmp.*(b{k1}./s);
+%             end
+%                 
+%             Q(:,:,z,:) = reshape(q,[d(1:2),1,Kb]);
 
-            % Parametric representation of intensity distributions                       
-            q  = zeros([d(1:2) Kb]);                          
-            q1 = log_likelihoods(f,bf,obj.segment.mg,obj.segment.gmm,msk,code);
-            q1 = reshape(q1,[d(1:2),numel(obj.segment.mg)]);
-            q1 = exp(q1) + eps;
-            
-            b = spm_sample_logpriors(tpm,t1,t2,t3);    
-            s = zeros(size(b{1}));
-            for k1 = 1:Kb
-                b{k1} = obj.segment.wp(k1)*b{k1};
-                s     = s + b{k1};
+            code            = zeros([numel(msk{1}) 1],typ);
+            for n=1:N, code = bitor(code,bitshift(feval(cast,msk{n}(:)),(n - 1))); end  
+
+            msk1 = code>0;
+            b    = spm_sample_logpriors(tpm,t1(:),t2(:),t3(:));
+            clear t1 t2 t3
+
+            if isempty(lkp.lab) || isempty(obj.labels)
+                labels = [];
+            else
+                tmp = uint8(obj.labels.private.dat(:,:,z));        
+                tmp = tmp(msk1);        
+                tmp = tmp(:); 
+
+                msk2       = ismember(tmp,lkp.lab);
+                tmp(~msk2) = 0;
+
+                labels = zeros([numel(tmp) 1],'uint8');         
+                for k=1:Kb      
+                    msk2         = tmp==lkp.lab(k) & lkp.lab(k)~=0; 
+                    labels(msk2) = obj.segment.lkp.lab(k); 
+                end 
+                clear tmp 
             end
-            
+
+            B = zeros([numel(msk1) Kb]);
+            for k1=1:Kb, 
+                B(:,k1) = b{k1}(:); 
+            end
+            clear b msk1
+
+            % Get neighborhood term
+            if obj.segment.mrf.do_mrf  
+                lnPzN1 = double(reshape(lnPzN(:,:,z,:),[prod(d(1:2)) Kb]));
+            else
+                lnPzN1 = zeros([1 Kb]);
+            end
+
+            q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lnPzN1,lkp,obj.segment.wp,code,labels,wp_l);
+            clear B f bf lnPzN1
+
+            q = zeros([prod(d(1:2)) Kb]);  
             for k1=1:Kb
-                tmp                 = sum(q1(:,:,lkp.part==k1),3);
+                tmp                 = sum(q1(:,lkp.part==k1),2);
                 tmp(~isfinite(tmp)) = 1e-3;
-                q(:,:,k1)           = tmp.*(b{k1}./s);
-            end
-                
-            Q(:,:,z,:) = reshape(q,[d(1:2),1,Kb]);
+                q(:,k1)             = tmp;
+            end 
+            clear q1 tmp
+
+            Q(:,:,z,:) = single(reshape(q,[d(1:2),1,Kb]));
+            clear q
         end
     end
     spm_progress_bar('set',z);
 end
 spm_progress_bar('clear');
+clear lnPzN
 
 cls   = cell(1,Kb);
 if do_cls
@@ -297,15 +407,22 @@ if do_cls
     end
     clear Q
 
-    if cleanup
+    if cleanup_gwc
         % Use an ad hoc brain cleanup procedure
         if size(P,4)>3
-            P = clean_gwc(P,cleanup);
+            P = clean_gwc(P,cleanup_gwc);
         else
             warning('Cleanup not done.');
         end
     end
 
+    if cleanup_lesion
+        % Use an ad hoc lesion cleanup procedure
+        if size(P,4)>3
+            P = clean_lesion(P,cleanup_lesion);
+        end
+    end
+    
     % Write tissues if necessary
     for k1=1:Kb
         if ~isempty(tiss(k1).Nt)
@@ -490,8 +607,6 @@ return;
 %==========================================================================
 
 %==========================================================================
-% function t = transf(B1,B2,B3,T)
-%==========================================================================
 function t = transf(B1,B2,B3,T)
 if ~isempty(T)
     d2 = [size(T) 1];
@@ -504,8 +619,6 @@ return;
 %==========================================================================
 
 %==========================================================================
-% function dat = decimate(dat,fwhm)
-%==========================================================================
 function dat = decimate(dat,fwhm)
 % Convolve the volume in memory (fwhm in voxels).
 lim = ceil(2*fwhm);
@@ -517,9 +630,8 @@ j  = (length(y) - 1)/2;
 k  = (length(z) - 1)/2;
 spm_conv_vol(dat,dat,x,y,z,-[i j k]);
 return;
-
 %==========================================================================
-% function y1 = affind(y0,M)
+
 %==========================================================================
 function y1 = affind(y0,M)
 y1 = zeros(size(y0),'single');
@@ -527,9 +639,8 @@ for d=1:3
     y1(:,:,:,d) = y0(:,:,:,1)*M(d,1) + y0(:,:,:,2)*M(d,2) + y0(:,:,:,3)*M(d,3) + M(d,4);
 end
 return;
-
 %==========================================================================
-% function x = rgrid(d)
+
 %==========================================================================
 function x = rgrid(d)
 x = zeros([d(1:3) 3],'single');
@@ -540,116 +651,106 @@ for i=1:d(3)
     x(:,:,i,3) = single(i);
 end
 return;
-
 %==========================================================================
-% function [P] = clean_gwc(P,level)
-%==========================================================================
-function [P] = clean_gwc(P,level)
-if nargin<2, level = 1; end
 
-b    = P(:,:,:,2);
+%=======================================================================
+function R = latent(f,bf,mg,gmm,lnPa,lnPzN,lkp,wp,code,labels,wp_l,cr)
+if nargin<12, cr = []; end
 
-% Build a 3x3x3 seperable smoothing kernel
-%--------------------------------------------------------------------------
-kx=[0.75 1 0.75];
-ky=[0.75 1 0.75];
-kz=[0.75 1 0.75];
-sm=sum(kron(kron(kz,ky),kx))^(1/3);
-kx=kx/sm; ky=ky/sm; kz=kz/sm;
+Kb   = max(lkp.part); 
+tiny = 1e-4; 
 
-th1 = 0.15;
-if level==2, th1 = 0.2; end
-% Erosions and conditional dilations
-%--------------------------------------------------------------------------
-niter  = 32;
-niter2 = 32;
-spm_progress_bar('Init',niter+niter2,'Extracting Brain','Iterations completed');
-for j=1:niter
-    if j>2, th=th1; else th=0.6; end  % Dilate after two its of erosion
-    for i=1:size(b,3)
-        gp       = double(P(:,:,i,1));
-        wp       = double(P(:,:,i,2));
-        bp       = double(b(:,:,i))/255;
-        bp       = (bp>th).*(wp+gp);
-        b(:,:,i) = uint8(round(bp));
-    end
-    spm_conv_vol(b,b,kx,ky,kz,-[1 1 1]);
-    spm_progress_bar('Set',j);
+lnPa = log_spatial_priors(lnPa,wp);
+lnPx = log_likelihoods(f,bf,mg,gmm,code,cr);
+
+if ~isempty(labels) 
+    lnPa1 = zeros([size(lnPa,1) Kb]); 
 end
 
-% Also clean up the CSF.
-if niter2 > 0
-    c = b;
-    for j=1:niter2
-        for i=1:size(b,3)
-            gp       = double(P(:,:,i,1));
-            wp       = double(P(:,:,i,2));
-            cp       = double(P(:,:,i,3));
-            bp       = double(c(:,:,i))/255;
-            bp       = (bp>th).*(wp+gp+cp);
-            c(:,:,i) = uint8(round(bp));
+msk = code>0;
+R   = zeros(size(lnPa));
+for k1=1:Kb
+    for k=find(lkp.part==k1)
+        if ~isempty(labels)
+            if lkp.lab(k1)~=0               
+                msk_l = labels==lkp.lab(k1);
+ 
+                beta1 = log(1 - tiny); % log-probability of true labels
+                beta2 = log(tiny);    % log-probability of false labels
+ 
+                lnPa1(msk_l,k1)  = (1 - wp_l)*lnPa(msk_l,k1) + wp_l*beta1;
+                lnPa1(~msk_l,k1) = (1 - wp_l)*lnPa(~msk_l,k1) + wp_l*beta2;                
+            else
+                lnPa1(:,k1) = lnPa(:,k1);
+            end
+            
+            if numel(lnPzN)==Kb
+                R(:,k)   = lnPa1(:,k1) + lnPzN(:,k1);
+                R(msk,k) = R(msk,k) + lnPx(msk,k);
+            else
+                R(:,k) = lnPa1(:,k1) + lnPzN(:,k1);
+                R(msk,k) = R(msk,k) + lnPx(msk,k);
+            end            
+        else
+            if numel(lnPzN)==Kb
+                R(:,k) = lnPa(:,k1) + lnPzN(:,k1);
+                R(msk,k) = R(msk,k) + lnPx(msk,k);
+            else
+                R(:,k) = lnPa(:,k1) + lnPzN(:,k1);
+                R(msk,k) = R(msk,k) + lnPx(msk,k);
+            end
         end
-        spm_conv_vol(c,c,kx,ky,kz,-[1 1 1]);
-        spm_progress_bar('Set',j+niter);
     end
 end
 
-th = 0.05;
-for i=1:size(b,3)
-    slices = cell(1,size(P,4));
-    for k1=1:size(P,4)
-        slices{k1} = double(P(:,:,i,k1))/255;
-    end
-    bp        = double(b(:,:,i))/255;
-    bp        = ((bp>th).*(slices{1}+slices{2}))>th;
-    slices{1} = slices{1}.*bp;
-    slices{2} = slices{2}.*bp;
-
-    if niter2>0
-        cp        = double(c(:,:,i))/255;
-        cp        = ((cp>th).*(slices{1}+slices{2}+slices{3}))>th;
-        slices{3} = slices{3}.*cp;
-    end
-    tot       = zeros(size(bp))+eps;
-    for k1=1:size(P,4)
-        tot   = tot + slices{k1};
-    end
-    for k1=1:size(P,4)
-        P(:,:,i,k1) = uint8(round(slices{k1}./tot*255));
-    end 
+if ~isempty(labels) 
+    lnPa = lnPa1;
+    clear B1
 end
-spm_progress_bar('Clear');
-%==========================================================================
 
-%==========================================================================
-function L = log_likelihoods(f,bf,mg,gmm,msk,code)
+logSumQ = spm_matcomp('logsumexp',R,2);
+logQ    = bsxfun(@minus,R,logSumQ);
+R       = exp(logQ);
+%=======================================================================
+
+%=======================================================================
+function L = log_likelihoods(f,bf,mg,gmm,code,cr)
+if nargin<6, cr = []; end
+
 K = numel(mg);
 N = numel(f);
-M = numel(f{1});
+I = numel(f{1});
 
 % Compute Bx
 %--------------------------------------------------------------------------
-cr                      = NaN(M,N);
-for n=1:N, cr(msk{n},n) = double(f{n}(msk{n})).*double(bf{n}(msk{n})); end
+if isempty(cr)
+    cr                       = zeros(I,N);
+    for n=1:N, cr(:,n)  = double(f{n}(:)).*double(bf{n}(:)); end
+elseif iscell(cr)
+    cr1                      = zeros(I,N);
+    for n=1:N, cr1(:,n) = cr{n}; end    
+    cr                       = cr1; clear cr1
+end
 
 % Compute log|B|
 %--------------------------------------------------------------------------
-nbf                      = NaN([M N]);
-for n=1:N, nbf(msk{n},n) = double(bf{n}(msk{n})); end
+nbf                      = zeros([I N]);
+for n=1:N, nbf(:,n) = double(bf{n}); end
+clear bf
 
 % Compute likelihoods
 %--------------------------------------------------------------------------
-L = zeros(M,K);
+L = zeros(I,K);
 for n=2:2^N
-    msk0                 = dec2bin(n - 1,N)=='1';
-    ind                  = find(code==msk0*(2.^(0:(N - 1))'));
+    msk0 = dec2bin(n - 1,N)=='1';
+    ind  = find(code==msk0*(2.^(0:(N - 1))'));
     if ~isempty(ind)
-        for k=1:K
+        for k=1:K            
             d        = bsxfun(@minus,cr(ind,msk0)',gmm.po.m(msk0,k));
             Q        = chol(gmm.po.W(msk0,msk0,k))*d;
             E        = N/gmm.po.b(k) + gmm.po.n(k)*dot(Q,Q,1);
-            L(ind,k) = 0.5*(spm_prob('Wishart','Elogdet',gmm.po.W(msk0,msk0,k),gmm.po.n(k)) - E') + log(mg(k)) - N/2*log(2*pi) + log(prod(nbf(ind,msk0),2));
+            L(ind,k) = 0.5*(spm_prob('Wishart','Elogdet',gmm.po.W(msk0,msk0,k),gmm.po.n(k)) - E') + log(mg(k)) - N/2*log(2*pi) + log(prod(nbf(ind,msk0),2));            
         end
     end
 end
-%==========================================================================
+%=======================================================================
