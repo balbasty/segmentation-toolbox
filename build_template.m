@@ -152,6 +152,10 @@ for iter=1:pars.niter
         crop_template(pars.pth_template,iter);
     end    
     
+    if pars.do_template && ~pars.use_2d_data
+        slice_template(pars.pth_template);
+    end
+    
     %----------------------------------------------------------------------
     % Intensity specific
     % Here is where the hyper-parameters of the VB-GMM are updated
