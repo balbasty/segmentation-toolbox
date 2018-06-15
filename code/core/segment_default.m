@@ -25,24 +25,40 @@ end
 if ~isfield(pars,'dir_template')
     pars.dir_template = fullfile(pars.dir_output,'model');
 end   
+if ~isfield(pars,'use_2d_data')
+    pars.use_2d_data = false;
+end   
 
 % Template specific parameters
 %--------------------------------------------------------------------------
 if ~isfield(pars,'do_template') 
     pars.do_template = true; 
 end 
-if ~isfield(pars,'K')
-    pars.K = 6;            
-    if isfield(pars,'pth_template')
-        if ~isempty(pars.pth_template)
-            V1     = spm_vol(pars.pth_template); 
-            pars.K = numel(V1);
+if pars.use_2d_data && ~pars.do_template
+    if ~isfield(pars,'pth_template_2d')
+        error('~isfield(pars,''pth_template_2d'')')
+    else
+        if isempty(pars.pth_template_2d)
+            error('isempty(pars.pth_template_2d)')
         end
-    end            
+        pars.pth_template = pars.pth_template_2d;
+    end
 end
+if ~isfield(pars,'pth_template')
+    pars.pth_template = '';
+end
+if isfield(pars,'pth_template')
+    if ~isempty(pars.pth_template)
+        V1     = spm_vol(pars.pth_template); 
+        pars.K = numel(V1);
+    end
+end    
 
+if ~isfield(pars,'K')
+    pars.K = 6;          
+end
 has_ct = inspect_ct_data(pars);
-if has_ct
+if has_ct && isempty(pars.pth_template)
     pars.K = 10;
 end
 
@@ -54,9 +70,6 @@ if ~isfield(pars,'tol')
 end
 if ~isfield(pars,'verbose')
     pars.verbose = 4;
-end
-if ~isfield(pars,'pth_template')
-    pars.pth_template = '';
 end
 if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
@@ -91,6 +104,17 @@ S0 = 0;
 for m=1:M
     if ~isfield(pars.dat{m},'dir_data')
         error('pars.dat.dir_data needs to be defined!'); 
+    end
+
+    if pars.use_2d_data
+        if ~isfield(pars.dat{m},'dir_data_2d')
+            error('~isfield(pars.dat,''dir_data_2d'')')
+        else
+            if isempty(pars.dat{m}.dir_data_2d)
+                error('isempty(pars.dat.dir_data_2d)')
+            end
+            pars.dat{m}.dir_data = pars.dat{m}.dir_data_2d;
+        end
     end
 
     % General parameters
@@ -190,6 +214,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'samp')
         pars.dat{m}.segment.samp = 1;
     end    
+    if pars.use_2d_data
+        pars.dat{m}.segment.samp = 1;
+    end
     if ~isfield(pars.dat{m}.segment,'do_bf')
         pars.dat{m}.segment.do_bf = true;
     end      
@@ -238,7 +265,7 @@ for m=1:M
         pars.dat{m}.segment.biasfwhm = 100;
     end    
     if ~isfield(pars.dat{m}.segment,'nsubit_bf')
-        pars.dat{m}.segment.nsubit_bf = 8;
+        pars.dat{m}.segment.nsubit_bf = 6;
     end    
     if ~isfield(pars.dat{m}.segment,'nsubit_def')
         pars.dat{m}.segment.nsubit_def = 3;
@@ -250,7 +277,7 @@ for m=1:M
         pars.dat{m}.segment.niter = 30;
     end    
     if ~isfield(pars.dat{m}.segment,'tol1')
-        pars.dat{m}.segment.tol1 = 1e-5;
+        pars.dat{m}.segment.tol1 = 1e-4;
     end    
     if ~isfield(pars.dat{m}.segment,'wp_reg')
         pars.dat{m}.segment.wp_reg = 'single-subject';
@@ -372,6 +399,8 @@ if pars.do_template
            pars.dat{m}.segment.nsubit_def = 1;
            pars.dat{m}.segment.nsubit_bf  = 1;
            
+           pars.dat{m}.segment.tol1 = 1e-5;
+           
            pars.dat{m}.segment.mrf.update_Upsilon = false;
     
            pars.dat{m}.write_res.mrf = 0;
@@ -406,6 +435,12 @@ for m=1:M
     if isfield(pars.dat{m},'S')
         if isempty(pars.dat{m}.S)
             pars.dat{m}.S = Inf;
+        end
+        
+        if ischar(pars.dat{m}.S)
+            if strcmpi(pars.dat{m}.S,'Inf')
+                pars.dat{m}.S = Inf;
+            end
         end
     end
 end
