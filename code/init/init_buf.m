@@ -155,17 +155,6 @@ for z=1:length(z0)
     buf(z).dat = zeros([buf(z).Nm,Kb],'single');            
 end
 
-% if obj.segment.do_mrf
-%     % Create an object that maps from ...    
-%     for k=1:Kb
-%         for z=1:length(z0)  
-%             msk               = buf(z).code>0;
-%             tmp               = find(msk(:)) + (z - 1)*prod(d(1:2)) + (k - 1)*prod(d(1:3));
-%             buf(z).vec2vol{k} = tmp;      
-%         end
-%     end
-% end
-    
 % For simple form of intensity normalisation
 % https://uk.mathworks.com/matlabcentral/answers/226279-how-to-make-image-intensity-equalization-for-multiple-images
 scl_bf = 100./(sint./nms);

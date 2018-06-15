@@ -27,10 +27,10 @@ if (numel(mom)~=2^N) || (size(mom(1).s0,2)~=K),
 end
     
 for i=2:numel(mom),
-    msk0      = mom(i).ind;
-    ind       = find(code==msk0*(2.^(0:(N - 1))'));
+    msk0  = mom(i).ind;
+    ind   = find(code==msk0*(2.^(0:(N - 1))'));
     if ~isempty(ind),
-        x     = X(ind,msk0);
+        x = X(ind,msk0);
         for k=1:K,
             q                = Q(ind,k);
             mom(i).s0(1,k)   = mom(i).s0(1,k)   + sum(q);

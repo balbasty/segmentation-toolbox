@@ -1,4 +1,4 @@
-function [gmm,buf] = init_gmm(obj,buf,vr0,mn,mx)
+function gmm = init_gmm(obj,buf,vr0,mn,mx)
 gmm            = obj.segment.gmm;
 gmm.init_clust = obj.segment.init_clust;
 gmm.vr0        = vr0;

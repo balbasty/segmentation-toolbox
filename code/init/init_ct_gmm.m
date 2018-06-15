@@ -26,7 +26,7 @@ for m=1:M
     end
 end
 
-if (~isempty(pars_ct) && pars.do_template) || (~isempty(pars_ct) && ~isfield(pars_ct.dat{1}.segment.gmm,'pr')) 
+if ~isempty(pars_ct) && (pars.do_template || ~isfield(pars_ct.dat{1}.segment.gmm,'pr'))
     % There are data that is CT -> perform CT init routine
     %----------------------------------------------------------------------
     
