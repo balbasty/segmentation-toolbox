@@ -101,11 +101,18 @@ end
 
 M  = numel(pars.dat);
 S0 = 0;
-for m=1:M
-    if ~isfield(pars.dat{m},'dir_data')
-        error('pars.dat.dir_data needs to be defined!'); 
-    end
+for m=1:M    
 
+    if ~pars.use_2d_data
+        if ~isfield(pars.dat{m},'dir_data')
+            error('~isfield(pars.dat,''dir_data'')')
+        else
+            if isempty(pars.dat{m}.dir_data)
+                error('isempty(pars.dat.dir_data)')
+            end
+        end
+    end
+    
     if pars.use_2d_data
         if ~isfield(pars.dat{m},'dir_data_2d')
             error('~isfield(pars.dat,''dir_data_2d'')')
