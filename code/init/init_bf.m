@@ -20,17 +20,33 @@ for n=1:N
     fwhm    = obj.segment.biasfwhm(n);
     d0      = V(n).dim;
     
-    sd = vx(1)*d0(1)/fwhm; d3(1) = ceil(sd*2); krn_x = exp(-(0:(d3(1)-1)).^2/sd.^2)/sqrt(vx(1));
-    sd = vx(2)*d0(2)/fwhm; d3(2) = ceil(sd*2); krn_y = exp(-(0:(d3(2)-1)).^2/sd.^2)/sqrt(vx(2));
-    sd = vx(3)*d0(3)/fwhm; d3(3) = ceil(sd*2); krn_z = exp(-(0:(d3(3)-1)).^2/sd.^2)/sqrt(vx(3));
+    sd    = vx(1)*d0(1)/fwhm; 
+    d3(1) = ceil(sd*2); 
+    kx    = exp(-(0:(d3(1)-1)).^2/sd.^2)/sqrt(vx(1));
     
-    % BENDING ENERGY regularisation for bias correction (when building TPMs)
-    chan(n).C = spm_sparse('precision','field',[numel(krn_x) numel(krn_y) numel(krn_z)],vx,[0 0 biasreg 0 0],'n');
+    sd    = vx(2)*d0(2)/fwhm; 
+    d3(2) = ceil(sd*2); 
+    ky    = exp(-(0:(d3(2)-1)).^2/sd.^2)/sqrt(vx(2));
+    
+    sd    = vx(3)*d0(3)/fwhm; 
+    d3(3) = ceil(sd*2);         
+    kz    = exp(-(0:(d3(3)-1)).^2/sd.^2)/sqrt(vx(3));
+    
+    % BENDING ENERGY REGULARIZATION
+    Cbias = (1*kron(kz.^2,kron(ky.^0,kx.^0)) +...
+             1*kron(kz.^0,kron(ky.^2,kx.^0)) +...
+             1*kron(kz.^0,kron(ky.^0,kx.^2)) +...
+             2*kron(kz.^1,kron(ky.^1,kx.^0)) +...
+             2*kron(kz.^1,kron(ky.^0,kx.^1)) +...
+             2*kron(kz.^0,kron(ky.^1,kx.^1)) );
+    
+    Cbias     = Cbias.^(-2)*biasreg*ff;
+    chan(n).C = sparse(1:length(Cbias),1:length(Cbias),Cbias,length(Cbias),length(Cbias));
     
     % Basis functions for bias correction
-    chan(n).B3 = spm_dctmtx(d0(3),d3(3),z0);
-    chan(n).B2 = spm_dctmtx(d0(2),d3(2),y0(1,:)');
-    chan(n).B1 = spm_dctmtx(d0(1),d3(1),x0(:,1));
+    chan(n).B3  = spm_dctmtx(d0(3),d3(3),z0);
+    chan(n).B2  = spm_dctmtx(d0(2),d3(2),y0(1,:)');
+    chan(n).B1  = spm_dctmtx(d0(1),d3(1),x0(:,1));
     
     % Initial parameterisation of bias field
     if isfield(obj.segment,'Tbias')               
@@ -38,7 +54,7 @@ for n=1:N
     else
         chan(n).T = zeros(d3);        
         
-        if strcmp(obj.modality,'MRI') && obj.do_template
+        if strcmp(obj.modality,'MRI')
             % Change DC component of bias field to make intensities more
             % simillar between MR images. The scaling parameter is set in
             % init_buf

@@ -266,10 +266,10 @@ for m=1:M
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
     end
     if ~isfield(pars.dat{m}.segment,'biasreg')
-        pars.dat{m}.segment.biasreg = 1e-3;
+        pars.dat{m}.segment.biasreg = 0.001*(1/5);
     end
     if ~isfield(pars.dat{m}.segment,'biasfwhm')
-        pars.dat{m}.segment.biasfwhm = 100;
+        pars.dat{m}.segment.biasfwhm = 60;
     end    
     if ~isfield(pars.dat{m}.segment,'nsubit_bf')
         pars.dat{m}.segment.nsubit_bf = 6;
