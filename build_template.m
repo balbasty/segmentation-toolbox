@@ -49,7 +49,11 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = true;
-holly.job.mem       = '6G';
+if pars.use_2d_data
+    holly.job.mem   = '2G';
+else
+    holly.job.mem   = '6G';
+end
 holly.job.sd        = 0.2;
 holly.mode          = 'qsub';
 
