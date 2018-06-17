@@ -104,11 +104,11 @@ if ~isempty(pars_ct) && (pars.do_template || ~isfield(pars_ct.dat{1}.segment.gmm
 %     C   = conv(C,krn,'same');
     
     % Remove intensity values smaller than an upper and lower threshold
-%     nmn = -1040;
-%     nmx = 3000;
-%     nix = find(X>=nmn & X<=nmx);
-%     X   = X(nix);
-%     C   = C(nix);
+    nmn = -1040;
+    nmx = 3000;
+    nix = find(X>=nmn & X<=nmx);
+    X   = X(nix);
+    C   = C(nix);
 
     % For debugging
     SHOW_FIT = false;        
@@ -126,16 +126,24 @@ if ~isempty(pars_ct) && (pars.do_template || ~isfield(pars_ct.dat{1}.segment.gmm
     lkp2            = 2*ones(1,k2);
     
     % For brain tissue, the parameters are set hard-coded 
-    k3 = 7;
-    m3 = [10 25 35 40 50 70 90] + val;
+    k3 = 4;
+    m3 = [10 25 40 70] + val;
     b3 = ones(1,k3);
     n3 = ones(1,k3);
     W3 = ones(1,k3);
-    lkp3 = [3 4 5 6 7 8 9];
+    lkp3 = [3 4 5 6];
+    
+%     k3 = 7;
+%     m3 = [10 25 35 40 50 70 90] + val;
+%     b3 = ones(1,k3);
+%     n3 = ones(1,k3);
+%     W3 = ones(1,k3);
+%     lkp3 = [3 4 5 6 7 8 9];
     
     % Fit VB-GMM to bone
     k4              = 2;
-    [~,ix]          = find(X>=(200 + val));
+    [~,ix]          = find(X>=(50 + val));
+%     [~,ix]          = find(X>=(200 + val));
     [~,m4,b4,n4,W4] = spm_imbasics('fit_vbgmm2hist',C(ix),X(ix),k4,true,1e-8,false,SHOW_FIT);     
     lkp4            = Kb*ones(1,k4);
      
