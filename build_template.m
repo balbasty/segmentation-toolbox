@@ -14,8 +14,8 @@ if nargin<2, test_level = 0; end
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-pth_distributed_toolbox = '/data/mbrud/dev/distributed-computing';
-pth_auxiliary_functions = '/data/mbrud/dev/auxiliary-functions';
+pth_distributed_toolbox = '../distributed-computing';
+pth_auxiliary_functions = '../auxiliary-functions';
 
 holly_server_login   = 'mbrud';
 holly_matlab_add_src = '/data/mbrud/dev/segmentation-toolbox';
