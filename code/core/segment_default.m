@@ -59,7 +59,7 @@ if ~isfield(pars,'K')
 end
 has_ct = inspect_ct_data(pars);
 if has_ct && isempty(pars.pth_template)
-    pars.K = 10;
+    pars.K = 7;
 end
 
 if ~isfield(pars,'niter')
