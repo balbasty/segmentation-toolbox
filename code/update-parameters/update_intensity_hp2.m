@@ -1,5 +1,5 @@
-function obj = update_intensity_hp2(obj,pars)
-% FORMAT obj = update_intensity_hp2(obj,pars)
+function obj = update_intensity_hp2(obj)
+% FORMAT obj = update_intensity_hp2(obj)
 % 
 % Hierarchical Gauss-Wishart intensity prior, with a Wishart hyper-prior on
 % prior Precision matrices to make them similar.
@@ -14,60 +14,62 @@ function obj = update_intensity_hp2(obj,pars)
 dir_template = obj{1}{1}.dir_template;
 M            = numel(obj);
 
-all_ct = true;
+obj_ct = {};
 for m=1:M
-    if strcmp(obj{m}{1}.modality,'MRI')
-        all_ct = false;
+    if strcmp(obj{m}{1}.modality,'CT')
+        obj_ct{end + 1} = obj{m};        
     end
 end
 
-if all_ct
-    % ------------------
-    % Case with only CTs
-    % ------------------
-    cnt  = 1;
-    obj1 = {};
-    for m=1:M
-        S = numel(obj{m});                
+if ~isempty(obj_ct)
+    % CT update
+    %----------------------------------------------------------------------
+    
+    obj_tmp = {};
+    for m=1:numel(obj_ct)
+        S = numel(obj_ct{m});                
         for s=1:S
-            if obj{m}{s}.status==0
-                obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
-                cnt           = cnt + 1;
+            if obj_ct{m}{s}.status==0
+                obj_tmp{end + 1}.gmm = obj_ct{m}{s}.segment.gmm;
             end
         end
     end
     
-    pr = do_update(obj1,pars.dat{1}.segment.constr_inthp);
+    pr = do_update(obj_tmp,obj_ct{1}{1}.segment.constr_inthp);
 
     for m=1:M
-        for s=1:S
-            obj{m}{s}.segment.gmm.pr = pr;   
+        if strcmp(obj{m}{1}.modality,'CT')
+            S = numel(obj{m}); 
+            for s=1:S            
+                obj{m}{s}.segment.gmm.pr = pr;               
+            end
         end
     end    
 
     fname = fullfile(dir_template,['prior-ct.mat']);
     save(fname,'pr');
-else
-    % -----------------------------------
-    % Case with only MRIs, or CT and MRIs
-    % -----------------------------------
-    for m=1:M
-        S    = numel(obj{m});
-        obj1 = {};
-        cnt  = 1;
+    
+    clear obj_tmp
+end
+
+% MRI update
+%--------------------------------------------------------------------------
+for m=1:M
+    if strcmp(obj{m}{1}.modality,'MRI')
+        S       = numel(obj{m});
+        obj_tmp = {};
         for s=1:S
             if obj{m}{s}.status==0
-                obj1{cnt}.gmm = obj{m}{s}.segment.gmm;
-                cnt           = cnt + 1;
+                obj_tmp{end + 1}.gmm = obj{m}{s}.segment.gmm;
             end
         end
 
-        pr = do_update(obj1,pars.dat{m}.segment.constr_inthp);    
+        pr = do_update(obj_tmp,obj{m}{1}.segment.constr_inthp);    
 
         for s=1:S
             obj{m}{s}.segment.gmm.pr = pr;   
         end
-        
+
         fname = fullfile(dir_template,['prior-' num2str(m) '.mat']);
         save(fname,'pr');
     end

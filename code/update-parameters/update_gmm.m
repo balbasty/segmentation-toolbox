@@ -7,26 +7,25 @@ function varargout = update_gmm(varargin)
 
 % Read function input
 %--------------------------------------------------------------------------
-ll         = varargin{1};
-llr        = varargin{2};
-llrb       = varargin{3};
-buf        = varargin{4};
-mg         = varargin{5};
-gmm        = varargin{6};
-wp         = varargin{7};
-lkp        = varargin{8};
-wp_reg     = varargin{9};
-iter       = varargin{10};
-tol1       = varargin{11};
-nm         = varargin{12};
-nitgmm     = varargin{13};
-do_wp      = varargin{14};
-fig        = varargin{15};
-L          = varargin{16};
-print_ll   = varargin{17};
-wp_l       = varargin{18};
-iter_template = varargin{19};
-do_mg = varargin{20};
+ll       = varargin{1};
+llr      = varargin{2};
+llrb     = varargin{3};
+buf      = varargin{4};
+mg       = varargin{5};
+gmm      = varargin{6};
+wp       = varargin{7};
+lkp      = varargin{8};
+wp_reg   = varargin{9};
+iter     = varargin{10};
+tol1     = varargin{11};
+nm       = varargin{12};
+nitgmm   = varargin{13};
+do_wp    = varargin{14};
+fig      = varargin{15};
+L        = varargin{16};
+print_ll = varargin{17};
+wp_l     = varargin{18};
+do_mg    = varargin{19};
 
 for subit=1:nitgmm
     oll = ll;
@@ -47,7 +46,7 @@ for subit=1:nitgmm
     
     if do_wp
         % Update tissue weights
-        wp = update_wp(lkp,s0,mgm,nvox,wp_reg,iter_template);
+        wp = update_wp(lkp,s0,mgm,nvox,wp_reg);
     end
     
     if do_mg

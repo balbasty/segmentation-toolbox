@@ -27,8 +27,8 @@ print_ll  = obj.segment.print_ll;
 pth_vel   = obj.pth_vel;
 Affine    = obj.Affine;
 iter_template = obj.iter;
-do_template = obj.do_template;
-do_mg       = obj.segment.do_mg;
+do_template   = obj.do_template;
+do_mg         = obj.segment.do_mg;
 
 % Initialise weights
 %-----------------------------------------------------------------------
@@ -90,7 +90,7 @@ for iter=1:niter
             %------------------------------------------------------------
                         
             % Estimate cluster parameters            
-            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,iter_template,do_mg);
+            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg);
 
             debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_l);
 
@@ -112,7 +112,7 @@ for iter=1:niter
             %------------------------------------------------------------            
                         
             % Estimate cluster parameters            
-            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,iter_template,do_mg);
+            [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg);
 
             debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_l);
 
@@ -131,7 +131,7 @@ for iter=1:niter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Estimate cluster parameters
     %------------------------------------------------------------
-    [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,iter_template,do_mg);    
+    [ll,mg,gmm,wp,L] = update_gmm(ll,llr,llrb,buf,mg,gmm,wp,lkp,wp_reg,iter,tol1,nm,nitgmm,do_wp,fig,L,print_ll,wp_l,do_mg);    
     
     debug_view('responsibilities',fig{1},lkp,buf,gmm,mg,wp,wp_l);
         

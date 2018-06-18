@@ -1,6 +1,7 @@
 function [buf,nm,vr0,mn,mx,scl_bf] = init_buf(N,obj,V,x0,y0,z0,o,M,tpm)
-Kb = max(obj.segment.lkp.part);
-d  = [size(x0) length(z0)];
+Kb       = max(obj.segment.lkp.part);
+d        = [size(x0) length(z0)];
+modality = obj.modality;
 
 if isfield(obj.segment,'msk') && ~isempty(obj.segment.msk)
     VM = spm_vol(obj.segment.msk);
@@ -72,9 +73,9 @@ for z=1:length(z0)
     
     % Load the data
     fz = cell(1,N);
-    for n=1:N
-        fz{n}         = spm_sample_vol(V(n),x0,y0,o*z0(z),0);
-        buf(z).msk{n} = spm_misc('msk_modality',fz{n},obj.modality);
+    for n=1:N        
+        fz{n}         = spm_sample_vol(V(n),x0,y0,o*z0(z),0);        
+        buf(z).msk{n} = spm_misc('msk_modality',fz{n},obj.modality);        
         buf(z).nm(n)  = nnz(buf(z).msk{n});
     end                  
     

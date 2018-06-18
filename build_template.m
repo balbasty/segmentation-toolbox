@@ -11,8 +11,6 @@ if nargin<1
 end
 if nargin<2, test_level = 3; end
 
-spm_field('boundary',1); % BOUND_CIRCULANT 0, BOUND_NEUMANN 1
-
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
@@ -51,10 +49,8 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = true;
-holly.job.batch     = true;
-holly.job.mem       = '6G';
-holly.job.est_mem   = false;
-holly.job.use_dummy = false;
+holly.job.mem       = '4G';
+holly.job.sd        = 0.2;
 holly.mode          = 'qsub';
 
 if     test_level==1, holly.mode = 'for';
@@ -66,7 +62,30 @@ holly = distribute_default(holly);
 %--------------------------------------------------------------------------
 % Initialise algorithm
 %--------------------------------------------------------------------------
-pars = read_images_segment(pars); 
+% pars = read_images_segment(pars); 
+
+% SOME TEMP STUFF FOR DEALING WITH THE NEW DAT OBJECT
+for m=1:numel(pars.dat)
+    dat = spm_json_manager('init_dat',pars.dat{m}.dir_data,true);    
+    S   = min(numel(dat),pars.dat{m}.S);
+    for s=1:S
+        if isfield(dat{s}.modality{1},'channel')
+            for c=1:numel(dat{s}.modality{1}.channel)
+                pars.dat{m}.V{s}(c) = spm_vol(dat{s}.modality{1}.channel{c}.nii.dat.fname);
+            end
+        else
+            pars.dat{m}.V{s}(1) = spm_vol(dat{s}.modality{1}.nii.dat.fname);
+        end   
+        
+        if isfield(dat{s},'label')
+            pars.dat{m}.labels{s} = spm_vol(dat{s}.label{1}.nii.dat.fname);
+        else
+            pars.dat{m}.labels{s} = [];
+        end
+    end 
+    pars.dat{m}.S = S; 
+end
+
 pars = init_template(pars); 
 
 % Only if CT data, initialise the GMM parameters by fitting a GMM to an
@@ -82,6 +101,12 @@ print_algorithm_progress('started');
 
 L = -Inf;
 for iter=1:pars.niter        
+    
+    if iter==pars.niter
+        % Final iteration -> increase holly memory because full-size
+        % segmentations will be written to disk
+        holly.job.mem{1} = '6G';
+    end
     
     if pars.do_template
         % Some parameters of the obj struct are changed depending on iteration 
@@ -127,12 +152,6 @@ for iter=1:pars.niter
         crop_template(pars.pth_template,iter);
     end
     
-    if pars.do_template && pars.mrf
-        % Use a MRF cleanup procedure
-        %------------------------------------------------------------------
-        mrf_template(pars.pth_template);
-    end
-    
     %----------------------------------------------------------------------
     % Intensity specific
     % Here is where the hyper-parameters of the VB-GMM are updated
@@ -147,7 +166,7 @@ for iter=1:pars.niter
     if pars.do_template
         % Update Gaussian-Wishart hyper-parameters
         %------------------------------------------------------------------
-        obj = update_intensity_hp2(obj,pars);
+        obj = update_intensity_hp2(obj);
     end
            
     if pars.do_template

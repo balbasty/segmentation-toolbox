@@ -41,13 +41,9 @@ if ~isfield(pars,'K')
     end            
 end
 
-[has_ct,flag_healthy_ct] = inspect_ct_data(pars);
+has_ct = inspect_ct_data(pars);
 if has_ct && pars.do_template
-    if flag_healthy_ct==0
-        pars.K = 9; 
-    elseif flag_healthy_ct==1 || flag_healthy_ct==2
-        pars.K = 10;
-    end
+    pars.K = 9;
 end
 
 if ~isfield(pars,'niter')
@@ -66,7 +62,7 @@ if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
 if ~isfield(pars,'sparam')
-    pars.sparam = [0 50 50];
+    pars.sparam = 50;
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -102,8 +98,9 @@ for m=1:M
     if ~isfield(pars.dat{m},'S')
         pars.dat{m}.S = Inf;        
     end    
-    if     test_level==2 || test_level==3, pars.dat{m}.S = min(8,pars.dat{m}.S);
-    elseif test_level==1,                  pars.dat{m}.S = min(4,pars.dat{m}.S);   
+    if     test_level==3, pars.dat{m}.S = min(16,pars.dat{m}.S);
+    elseif test_level==2, pars.dat{m}.S = min(8,pars.dat{m}.S);   
+    elseif test_level==1, pars.dat{m}.S = min(4,pars.dat{m}.S);   
     end 
     S0 = S0 + pars.dat{m}.S;
     
@@ -206,7 +203,7 @@ for m=1:M
         pars.dat{m}.segment.class_ix = [];
     end   
     if ~isfield(pars.dat{m}.segment,'init_clust')
-        pars.dat{m}.segment.init_clust = '';
+        pars.dat{m}.segment.init_clust = 'magnitude';
     end    
     if ~isfield(pars.dat{m}.segment,'print_ll')
         if test_level==1
@@ -226,10 +223,10 @@ for m=1:M
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
     end
     if ~isfield(pars.dat{m}.segment,'biasreg')
-        pars.dat{m}.segment.biasreg = 1e-4;
+        pars.dat{m}.segment.biasreg = 1e-2;
     end
     if ~isfield(pars.dat{m}.segment,'biasfwhm')
-        pars.dat{m}.segment.biasfwhm = 60;
+        pars.dat{m}.segment.biasfwhm = 100;
     end    
     if ~isfield(pars.dat{m}.segment,'nsubit')
         pars.dat{m}.segment.nsubit = 1;
@@ -253,17 +250,6 @@ for m=1:M
         pars.dat{m}.segment.constr_inthp = false;
     end    
     
-    % CT specific segmentation parameters
-    if ~isfield(pars.dat{m}.segment,'ct')
-        pars.dat{m}.segment.ct = struct;
-    end
-    if ~isfield(pars.dat{m}.segment.ct,'ngauss_lesion')
-        pars.dat{m}.segment.ct.ngauss_lesion = 3;
-    end
-    if ~isfield(pars.dat{m}.segment.ct,'ngauss_brain') 
-        pars.dat{m}.segment.ct.ngauss_brain = 1; 
-    end     
-    
     % Push resps parameters
     %----------------------------------------------------------------------
     if ~isfield(pars.dat{m},'push_resp')
@@ -271,6 +257,9 @@ for m=1:M
     end
     if ~isfield(pars.dat{m}.push_resp,'do_push_resp')
         pars.dat{m}.push_resp.do_push_resp = false;
+    end   
+    if ~isfield(pars.dat{m}.push_resp,'do_mrf')
+        pars.dat{m}.push_resp.do_mrf = false;
     end   
     
     % Write results parameters
@@ -310,11 +299,11 @@ for m=1:M
             
     pars.dat{m}.segment.reg0     = pars.dat{m}.segment.reg;    
         
-    if strcmp(pars.dat{m}.modality,'CT') 
-        % Segment CT image(s) 
-        pars.dat{m}.segment.do_bf  = false; 
-        pars.dat{m}.segment.do_bf0 = false; 
-    end 
+%     if strcmp(pars.dat{m}.modality,'CT') 
+%         % Segment CT image(s) 
+%         pars.dat{m}.segment.do_bf  = false; 
+%         pars.dat{m}.segment.do_bf0 = false; 
+%     end 
 end
 
 if S0==1
@@ -329,7 +318,7 @@ if pars.do_template
     % Building template 
     for m=1:M               
            pars.dat{m}.push_resp.do_push_resp = true; 
-           pars.dat{m}.write_res.do_write_res = false; 
+           pars.dat{m}.write_res.do_write_res = false;            
 
            pars.dat{m}.segment.wp_reg = 'build-template'; 
            pars.dat{m}.segment.do_def = false; 
@@ -338,6 +327,8 @@ if pars.do_template
            pars.dat{m}.segment.do_mg  = false; 
            pars.dat{m}.segment.niter  = 1; 
            pars.dat{m}.segment.nitgmm = 1;
+           
+           pars.dat{m}.write_res.mrf = 0;
     end
 end 
 %==========================================================================
