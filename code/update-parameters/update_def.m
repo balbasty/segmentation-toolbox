@@ -7,30 +7,32 @@ function varargout = update_def(varargin)
 
 % Read function input
 %--------------------------------------------------------------------------
-ll       = varargin{1};
-llrb     = varargin{2};
-llr      = varargin{3};
-buf      = varargin{4};
-mg       = varargin{5};
-gmm      = varargin{6};
-wp       = varargin{7};
-lkp      = varargin{8};
-Twarp    = varargin{9};
-sk4      = varargin{10};
-M        = varargin{11};
-MT       = varargin{12};
-tpm      = varargin{13};
-x0       = varargin{14};
-y0       = varargin{15};
-z0       = varargin{16};
-param    = varargin{17};
-iter     = varargin{18};
-fig      = varargin{19};
-L        = varargin{20};
-print_ll = varargin{21};
+ll          = varargin{1};
+llrb        = varargin{2};
+llr         = varargin{3};
+buf         = varargin{4};
+mg          = varargin{5};
+gmm         = varargin{6};
+wp          = varargin{7};
+lkp         = varargin{8};
+Twarp       = varargin{9};
+sk4         = varargin{10};
+M           = varargin{11};
+MT          = varargin{12};
+tpm         = varargin{13};
+x0          = varargin{14};
+y0          = varargin{15};
+z0          = varargin{16};
+param       = varargin{17};
+iter        = varargin{18};
+fig         = varargin{19};
+L           = varargin{20};
+print_ll    = varargin{21};
 do_template = varargin{22};
-armijo   = varargin{23};
-wp_l     = varargin{24};
+armijo      = varargin{23};
+wp_l        = varargin{24};
+resp        = varargin{25};
+mrf         = varargin{26};
 
 % Some parameters
 nz   = numel(buf);
@@ -99,14 +101,12 @@ for z=1:nz
     MM  = M*MT; % Map from sampled voxels to atlas data
     
     % Compute responsibilties        
-    qt = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l);        
-    q  = zeros(buf(z).Nm,Kb,'single');
-    for k1=1:Kb
-        for k=find(lkp.part==k1)
-            q(:,k1) = q(:,k1) + qt(msk1,k);
-        end
+    q = zeros(buf(z).Nm,Kb,'single');
+    for k=1:Kb    
+        tmp    = reshape(resp.dat(:,:,z,k),[],1);
+        q(:,k) = tmp(msk1);
     end
-    clear qt
+    clear tmp
     
     for k1=1:Kb
         pp  = double(q(:,k1));        
@@ -139,7 +139,8 @@ end
 
 if ~do_template
     % Heavy-to-light regularisation
-    scal     = 2^max(10 - iter,0);       
+    scal           = 2^max(9 - iter,0);       
+%     param([5 7 8]) = param([5 7 8])*scal;
     param(6) = param(6)*scal^2;
 end
 
@@ -151,6 +152,7 @@ Update = bsxfun(@times,spm_diffeo('fmg',Alpha,Beta,[param 2 2]),sk4);
 clear Alpha Beta[ll,llr,buf,Twarp,L,armijo]
 
 % Line search to ensure objective function improves
+oElnPzN = mrf.ElnPzN;
 for line_search=1:12
     Twarp1 = Twarp - armijo*Update; % Backtrack if necessary
     if nz==1
@@ -161,7 +163,7 @@ for line_search=1:12
     llr1 = -0.5*sum(sum(sum(sum(Twarp1.*bsxfun(@times,spm_diffeo('vel2mom',bsxfun(@times,Twarp1,1./sk4),param),1./sk4)))));
     ll1  = llr1 + llrb;
 
-    mom = moments_struct(K,N);
+    % Deform template
     for z=1:nz
         if ~buf(z).Nm, continue; end
 
@@ -170,17 +172,12 @@ for line_search=1:12
         b                             = spm_sample_logpriors(tpm,x1,y1,z1);
         for k1=1:Kb, buf(z).dat(:,k1) = b{k1}; end
         clear x1 y1 z1
-
-        cr                             = NaN(numel(buf(z).msk),N);
-        for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end 
-
-        [q,dll] = latent(buf(z).f,buf(z).bf,mg,gmm,double(buf(z).dat),lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
-        ll1     = ll1 + dll;
-
-        mom = spm_SuffStats(cr,q,mom,buf(z).code);
-        clear q cr b
-    end           
-
+    end
+        
+    % Compute responsibilities and moments
+    [mom,dll,mrf,~,resp] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp,mrf);        
+    ll1                  = ll1 + dll;         
+    
     % Compute missing data and VB components of ll
     dll = spm_VBGaussiansFromSuffStats(mom,gmm);
     ll1 = ll1 + sum(sum(dll)); 
@@ -189,11 +186,12 @@ for line_search=1:12
         % Still not better, so keep searching inwards.
         my_fprintf('Warp:\t%g\t%g\t%g :o(\t(%g)\n', ll1, llr1,llrb,armijo,print_ll);
         
-        armijo = armijo*0.75;
+        armijo     = armijo*0.75;
+        mrf.ElnPzN = oElnPzN;
         
         if line_search==12
             L{1}(end + 1) = ll;
-            L{3}(end + 1) = llr;
+            L{3}(end + 1) = llr;            
             
             for z=1:nz
                 % Revert to previous deformation
@@ -234,6 +232,8 @@ varargout{3} = buf;
 varargout{4} = Twarp;
 varargout{5} = L;
 varargout{6} = armijo;
+varargout{7} = mrf;
+varargout{8} = resp;
 %========================================================================== 
 
 %==========================================================================

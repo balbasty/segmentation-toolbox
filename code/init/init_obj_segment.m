@@ -152,9 +152,9 @@ for m=1:M
     pars.dat{m}.segment.biasfwhm = pars.dat{m}.segment.biasfwhm*ones(1,N);     
     
     if V{1}(1).dim(3)==1
-        % Data is 2D
+        % Is 2D
         %------------------------------------------------------------------
-        pars.dat{m}.maff.do_maff = false;        
+        pars.dat{m}.maff.do_maff = false;                             
     end
     
     pars.dat{m}.write_res.write_bf = repmat(pars.dat{m}.write_res.write_bf,N,1);  
@@ -170,7 +170,7 @@ for m=1:M
         if ~isempty(dir_local)
             dir_local_s = fullfile(dir_local,['s-' num2str(s) '_m-' num2str(m)]);
             mkdir(dir_local_s); 
-        end
+        end        
         
         %------------------------------------------------------------------        
         obj1.image  = V{s};
@@ -203,39 +203,18 @@ for m=1:M
         
         %------------------------------------------------------------------                 
         obj1.write_res = pars.dat{m}.write_res;        
+        if V{1}(1).dim(3)==1
+            % Is 2D
+            obj1.write_res.write_tc(:,2) = false; 
+            obj1.write_res.write_df(:,:) = false; 
+        end
         
         %------------------------------------------------------------------                     
         obj1.segment           = pars.dat{m}.segment;            
         obj1.segment.ll_all    = [];        
         obj1.segment.bf.dc     = zeros(1,N);
-        obj1.segment.bf.avg_dc = zeros(1,N);
-        
-        % lkp
-        %------------------------------------------------------------------                     
-        lkp = pars.dat{m}.segment.lkp;
-                            
-        if ~isempty(lkp.rem)
-            msk      = ismember(lkp.keep,lkp.rem);
-            lkp.keep = lkp.keep(~msk);
-        end
-        
-        if isempty(lkp.lab)
-            obj1.segment.wp_l = 0;
-        end    
-        
-        obj1.segment.lkp = lkp;
-        
-        % gmm
-        %------------------------------------------------------------------
-        if ~isfield(obj1.segment,'gmm')
-            obj1.segment.gmm = struct;
-        end
-        pth_prior        = pars.dat{m}.segment.pth_prior;
-        if ~isempty(pth_prior)
-            tmp                 = load(pth_prior,'-mat');
-            obj1.segment.gmm.pr = tmp.pr;
-        end
-          
+        obj1.segment.bf.avg_dc = zeros(1,N);        
+                  
         % Build directory structure
         %------------------------------------------------------------------
         [~,nam] = fileparts(obj1.image(1).fname);
@@ -303,6 +282,11 @@ for m=1:M
         mkdir(dir_write);
 
         obj1.dir_write = dir_write;
+        
+        dir_seg = fullfile(dir_s,'segmentations'); 
+        mkdir(dir_seg);
+        
+        obj1.dir_seg = dir_seg;
         
         %------------------------------------------------------------------
         obj{m}{s} = obj1;

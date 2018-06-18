@@ -7,15 +7,15 @@ function build_template(pars,test_level)
 %__________________________________________________________________________
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 if nargin<1 
-    pars = '/data/mbrud/jobs/segmentation-toolbox/ROB-IXI_3d.json'; 
+    pars = '/data/mbrud/jobs/segmentation-toolbox/ATLAS-CROMIS.json'; 
 end
-if nargin<2, test_level = 3; end
+if nargin<2, test_level = 0; end
 
 %--------------------------------------------------------------------------
 % OBS! Below parameters need to be set (for FIL users)
 %--------------------------------------------------------------------------
-pth_distributed_toolbox = '/data/mbrud/dev/distributed-computing';
-pth_auxiliary_functions = '/data/mbrud/dev/auxiliary-functions';
+pth_distributed_toolbox = '../distributed-computing';
+pth_auxiliary_functions = '../auxiliary-functions';
 
 holly_server_login   = 'mbrud';
 holly_matlab_add_src = '/data/mbrud/dev/segmentation-toolbox';
@@ -49,7 +49,11 @@ holly.restrict      = 'char';
 holly.clean         = false;
 holly.clean_init    = true;
 holly.verbose       = true;
-holly.job.mem       = '4G';
+if pars.use_2d_data
+    holly.job.mem   = '2G';
+else
+    holly.job.mem   = '6G';
+end
 holly.job.sd        = 0.2;
 holly.mode          = 'qsub';
 
@@ -62,11 +66,11 @@ holly = distribute_default(holly);
 %--------------------------------------------------------------------------
 % Initialise algorithm
 %--------------------------------------------------------------------------
-% pars = read_images_segment(pars); 
 
 % SOME TEMP STUFF FOR DEALING WITH THE NEW DAT OBJECT
 for m=1:numel(pars.dat)
-    dat = spm_json_manager('init_dat',pars.dat{m}.dir_data,true);    
+    dat = spm_json_manager('init_dat',pars.dat{m}.dir_data);    
+%     dat = spm_json_manager('init_dat',pars.dat{m}.dir_data,fullfile(pars.dat{m}.dir_data,'dat.mat'));    
     S   = min(numel(dat),pars.dat{m}.S);
     for s=1:S
         if isfield(dat{s}.modality{1},'channel')
@@ -95,7 +99,7 @@ pars = init_ct_gmm(pars);
 [obj,pars] = init_obj_segment(pars);
 
 %--------------------------------------------------------------------------
-% Start the algorithm
+% Start the algorithm   
 %--------------------------------------------------------------------------
 print_algorithm_progress('started');
 
@@ -112,7 +116,7 @@ for iter=1:pars.niter
         % Some parameters of the obj struct are changed depending on iteration 
         % number (only for building templates)
         %----------------------------------------------------------------------    
-        obj = modify_obj(obj,iter,pars.niter);
+        obj = modify_obj(obj,iter,pars);
     end       
     
     %----------------------------------------------------------------------
@@ -122,7 +126,7 @@ for iter=1:pars.niter
     %----------------------------------------------------------------------
     
     [obj,ix]    = unfold_cell(obj,2);
-    [holly,obj] = distribute(holly,'process_subject_segment','inplace',obj,pars.fig);
+    [holly,obj] = distribute(holly,'process_subject','inplace',obj,pars.fig);
     obj         = fold_cell(obj,ix);
     
     % Check if any subjects have status~=0
@@ -150,6 +154,10 @@ for iter=1:pars.niter
         % Crop template to size of the default SPM template
         %------------------------------------------------------------------
         crop_template(pars.pth_template,iter);
+    end    
+    
+    if pars.do_template && ~pars.use_2d_data
+        slice_template(pars.pth_template);
     end
     
     %----------------------------------------------------------------------

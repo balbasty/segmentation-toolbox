@@ -25,25 +25,41 @@ end
 if ~isfield(pars,'dir_template')
     pars.dir_template = fullfile(pars.dir_output,'model');
 end   
+if ~isfield(pars,'use_2d_data')
+    pars.use_2d_data = false;
+end   
 
 % Template specific parameters
 %--------------------------------------------------------------------------
 if ~isfield(pars,'do_template') 
     pars.do_template = true; 
 end 
-if ~isfield(pars,'K')
-    pars.K = 6;            
-    if isfield(pars,'pth_template')
-        if ~isempty(pars.pth_template)
-            V1     = spm_vol(pars.pth_template); 
-            pars.K = numel(V1);
+if pars.use_2d_data && ~pars.do_template
+    if ~isfield(pars,'pth_template_2d')
+        error('~isfield(pars,''pth_template_2d'')')
+    else
+        if isempty(pars.pth_template_2d)
+            error('isempty(pars.pth_template_2d)')
         end
-    end            
+        pars.pth_template = pars.pth_template_2d;
+    end
 end
+if ~isfield(pars,'pth_template')
+    pars.pth_template = '';
+end
+if isfield(pars,'pth_template')
+    if ~isempty(pars.pth_template)
+        V1     = spm_vol(pars.pth_template); 
+        pars.K = numel(V1);
+    end
+end    
 
+if ~isfield(pars,'K')
+    pars.K = 6;          
+end
 has_ct = inspect_ct_data(pars);
-if has_ct && pars.do_template
-    pars.K = 9;
+if has_ct && isempty(pars.pth_template)
+    pars.K = 7;
 end
 
 if ~isfield(pars,'niter')
@@ -55,14 +71,14 @@ end
 if ~isfield(pars,'verbose')
     pars.verbose = 4;
 end
-if ~isfield(pars,'pth_template')
-    pars.pth_template = '';
-end
 if ~isfield(pars,'vx_tpm')
     pars.vx_tpm = 1.5;
 end
-if ~isfield(pars,'sparam')
-    pars.sparam = 50;
+if ~isfield(pars,'sparam0')
+    pars.sparam0 = 60;
+end
+if ~isfield(pars,'sparam1')
+    pars.sparam1 = 20;
 end
 if ~isfield(pars,'uniform')
     pars.uniform = true;
@@ -76,9 +92,6 @@ end
 if ~isfield(pars,'crop_template')
     pars.crop_template = 0;
 end
-if ~isfield(pars,'mrf')
-    pars.mrf = false;
-end
 
 % Data-set specific parameters (m=1,...,M)
 %--------------------------------------------------------------------------
@@ -88,9 +101,27 @@ end
 
 M  = numel(pars.dat);
 S0 = 0;
-for m=1:M
-    if ~isfield(pars.dat{m},'dir_data')
-        error('pars.dat.dir_data needs to be defined!'); 
+for m=1:M    
+
+    if ~pars.use_2d_data
+        if ~isfield(pars.dat{m},'dir_data')
+            error('~isfield(pars.dat,''dir_data'')')
+        else
+            if isempty(pars.dat{m}.dir_data)
+                error('isempty(pars.dat.dir_data)')
+            end
+        end
+    end
+    
+    if pars.use_2d_data
+        if ~isfield(pars.dat{m},'dir_data_2d')
+            error('~isfield(pars.dat,''dir_data_2d'')')
+        else
+            if isempty(pars.dat{m}.dir_data_2d)
+                error('isempty(pars.dat.dir_data_2d)')
+            end
+            pars.dat{m}.dir_data = pars.dat{m}.dir_data_2d;
+        end
     end
 
     % General parameters
@@ -147,31 +178,40 @@ for m=1:M
     if ~isfield(pars.dat{m},'segment')
         pars.dat{m}.segment = struct;
     end
+    if ~isfield(pars.dat{m}.segment,'gmm')
+        pars.dat{m}.segment.gmm = struct;
+    end        
     if ~isfield(pars.dat{m}.segment,'lkp')
         pars.dat{m}.segment.lkp = struct;
     end
-    if ~isfield(pars.dat{m}.segment.lkp,'keep')
-        pars.dat{m}.segment.lkp.keep = 1:pars.K;
-    end    
+    
+    if isfield(pars.dat{m}.segment,'pth_prior')
+        tmp                        = load(pars.dat{m}.segment.pth_prior);
+        pars.dat{m}.segment.gmm.pr = tmp.pr;
+        
+        if isfield(pars.dat{m}.segment.gmm.pr,'part')
+            pars.dat{m}.segment.lkp.part = pars.dat{m}.segment.gmm.pr.part;
+        end                
+    end        
+        
+    pars.dat{m}.segment.lkp.keep = 1:pars.K;    
+    
     if ~isfield(pars.dat{m}.segment.lkp,'rem')
         pars.dat{m}.segment.lkp.rem = [];
+    else
+        msk                          = ismember(pars.dat{m}.segment.lkp.keep,pars.dat{m}.segment.lkp.rem);
+        pars.dat{m}.segment.lkp.keep = pars.dat{m}.segment.lkp.keep(~msk);
     end    
     if ~isfield(pars.dat{m}.segment,'nlkp')
         pars.dat{m}.segment.nlkp = 1;
     end
     if ~isfield(pars.dat{m}.segment.lkp,'part')
-        if isfield(pars.dat{m}.segment,'nlkp')
-            pars.dat{m}.segment.lkp.part = reshape(repelem(1:pars.K,1,pars.dat{m}.segment.nlkp),1,[]);
-        else
-            pars.dat{m}.segment.lkp.part = 1:pars.K;
-        end                       
+        pars.dat{m}.segment.lkp.part = reshape(repelem(1:pars.K,1,pars.dat{m}.segment.nlkp),1,[]);
     end   
     if ~isfield(pars.dat{m}.segment.lkp,'lab')
         pars.dat{m}.segment.lkp.lab = [];
-    end
-    if ~isfield(pars.dat{m}.segment,'pth_prior')
-        pars.dat{m}.segment.pth_prior = '';
-    end
+        pars.dat{m}.segment.wp_l    = 0;
+    end    
     if ~isfield(pars.dat{m}.segment,'wp_l')
         pars.dat{m}.segment.wp_l = 0.8;
     end 
@@ -181,6 +221,9 @@ for m=1:M
     if ~isfield(pars.dat{m}.segment,'samp')
         pars.dat{m}.segment.samp = 1;
     end    
+    if pars.use_2d_data
+        pars.dat{m}.segment.samp = 1;
+    end
     if ~isfield(pars.dat{m}.segment,'do_bf')
         pars.dat{m}.segment.do_bf = true;
     end      
@@ -223,14 +266,17 @@ for m=1:M
         pars.dat{m}.segment.reg = [0 0.001 0.5 0.05 0.2]*0.1;
     end
     if ~isfield(pars.dat{m}.segment,'biasreg')
-        pars.dat{m}.segment.biasreg = 1e-2;
+        pars.dat{m}.segment.biasreg = 0.001*(1/5);
     end
     if ~isfield(pars.dat{m}.segment,'biasfwhm')
-        pars.dat{m}.segment.biasfwhm = 100;
+        pars.dat{m}.segment.biasfwhm = 60;
     end    
-    if ~isfield(pars.dat{m}.segment,'nsubit')
-        pars.dat{m}.segment.nsubit = 1;
+    if ~isfield(pars.dat{m}.segment,'nsubit_bf')
+        pars.dat{m}.segment.nsubit_bf = 6;
     end    
+    if ~isfield(pars.dat{m}.segment,'nsubit_def')
+        pars.dat{m}.segment.nsubit_def = 3;
+    end        
     if ~isfield(pars.dat{m}.segment,'nitgmm')
         pars.dat{m}.segment.nitgmm = 20;
     end    
@@ -250,6 +296,35 @@ for m=1:M
         pars.dat{m}.segment.constr_inthp = false;
     end    
     
+    % MRF specific
+    if ~isfield(pars.dat{m}.segment,'mrf')
+        pars.dat{m}.segment.mrf = struct;
+    end        
+    if ~isfield(pars.dat{m}.segment.mrf,'do_mrf')
+        pars.dat{m}.segment.mrf.do_mrf = false;
+    end 
+    if ~isfield(pars.dat{m}.segment.mrf,'ml')
+        pars.dat{m}.segment.mrf.ml = true;
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'alpha')        
+        pars.dat{m}.segment.mrf.alpha = 1e5;
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'val_diag')        
+        pars.dat{m}.segment.mrf.val_diag = 0.8;
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'Upsilon')        
+        pars.dat{m}.segment.mrf.Upsilon = [];
+    end      
+    if ~isfield(pars.dat{m}.segment.mrf,'ElnUpsilon')        
+        pars.dat{m}.segment.mrf.ElnUpsilon = [];
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'update_Upsilon')        
+        pars.dat{m}.segment.mrf.update_Upsilon = false;
+    end  
+    if ~isfield(pars.dat{m}.segment.mrf,'KK')        
+        pars.dat{m}.segment.mrf.KK = [];
+    end 
+    
     % Push resps parameters
     %----------------------------------------------------------------------
     if ~isfield(pars.dat{m},'push_resp')
@@ -257,9 +332,6 @@ for m=1:M
     end
     if ~isfield(pars.dat{m}.push_resp,'do_push_resp')
         pars.dat{m}.push_resp.do_push_resp = false;
-    end   
-    if ~isfield(pars.dat{m}.push_resp,'do_mrf')
-        pars.dat{m}.push_resp.do_mrf = false;
     end   
     
     % Write results parameters
@@ -276,12 +348,18 @@ for m=1:M
     if ~isfield(pars.dat{m}.write_res,'vox')
         pars.dat{m}.write_res.vox = NaN;
     end
-    if ~isfield(pars.dat{m}.write_res,'cleanup')
-        pars.dat{m}.write_res.cleanup = false;
+    if ~isfield(pars.dat{m}.write_res,'cleanup_gwc')
+        pars.dat{m}.write_res.cleanup_gwc = false;
     end
+    if ~isfield(pars.dat{m}.write_res,'cleanup_lesion')
+        pars.dat{m}.write_res.cleanup_lesion = false;
+    end    
     if ~isfield(pars.dat{m}.write_res,'mrf')
-        pars.dat{m}.write_res.mrf = 1;
+        pars.dat{m}.write_res.mrf = 2;
     end
+    if pars.dat{m}.segment.mrf.do_mrf
+        pars.dat{m}.write_res.mrf = 0;
+    end    
     if ~isfield(pars.dat{m}.write_res,'write_tc')
         pars.dat{m}.write_res.write_tc = true(pars.K,4);                
     end    
@@ -291,19 +369,17 @@ for m=1:M
     if ~isfield(pars.dat{m}.write_res,'write_df')
         pars.dat{m}.write_res.write_df = true(1,2);
     end           
-
+    if isfield(pars.dat{m}.write_res,'G')
+        G                       = pars.dat{m}.write_res.G;
+        pars.dat{m}.write_res.G = single(G);                
+    end           
+    
     pars.dat{m}.segment.do_bf0  = pars.dat{m}.segment.do_bf; 
     pars.dat{m}.segment.do_def0 = pars.dat{m}.segment.do_def; 
     pars.dat{m}.segment.do_wp0  = pars.dat{m}.segment.do_wp; 
-    pars.dat{m}.segment.do_mg0  = pars.dat{m}.segment.do_mg;
-            
-    pars.dat{m}.segment.reg0     = pars.dat{m}.segment.reg;    
-        
-%     if strcmp(pars.dat{m}.modality,'CT') 
-%         % Segment CT image(s) 
-%         pars.dat{m}.segment.do_bf  = false; 
-%         pars.dat{m}.segment.do_bf0 = false; 
-%     end 
+    pars.dat{m}.segment.do_mg0  = pars.dat{m}.segment.do_mg;            
+    pars.dat{m}.segment.reg0    = pars.dat{m}.segment.reg;                
+    pars.dat{m}.segment.mrf.update_Upsilon0 = pars.dat{m}.segment.mrf.update_Upsilon;    
 end
 
 if S0==1
@@ -327,7 +403,13 @@ if pars.do_template
            pars.dat{m}.segment.do_mg  = false; 
            pars.dat{m}.segment.niter  = 1; 
            pars.dat{m}.segment.nitgmm = 1;
+           pars.dat{m}.segment.nsubit_def = 1;
+           pars.dat{m}.segment.nsubit_bf  = 1;
            
+           pars.dat{m}.segment.tol1 = 1e-5;
+           
+           pars.dat{m}.segment.mrf.update_Upsilon = false;
+    
            pars.dat{m}.write_res.mrf = 0;
     end
 end 
@@ -360,6 +442,12 @@ for m=1:M
     if isfield(pars.dat{m},'S')
         if isempty(pars.dat{m}.S)
             pars.dat{m}.S = Inf;
+        end
+        
+        if ischar(pars.dat{m}.S)
+            if strcmpi(pars.dat{m}.S,'Inf')
+                pars.dat{m}.S = Inf;
+            end
         end
     end
 end

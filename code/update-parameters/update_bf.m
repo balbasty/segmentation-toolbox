@@ -22,11 +22,14 @@ L        = varargin{11};
 print_ll = varargin{12};
 armijo   = varargin{13};
 wp_l     = varargin{14};
+resp     = varargin{15};
+mrf      = varargin{16};
 
 % Some parameters
 nz = numel(buf);
 N  = numel(buf(1).f);
 K  = numel(mg);
+Kb = numel(wp);
 d  = size(buf(1).msk{1});
 
 % Get means and precisions
@@ -35,6 +38,12 @@ for k=1:K
     pr(:,:,k) = gmm.po.n(k)*gmm.po.W(:,:,k); 
 end
 mn = gmm.po.m; 
+
+if mrf.do_mrf        
+    % Compute neighborhood part of responsibilities
+    % (from previous responsibilities)
+    lnPzN = compute_lnPzN(mrf,resp);
+end
 
 for n=1:N
     d3  = numel(chan(n).T);
@@ -49,12 +58,20 @@ for n=1:N
             cr                 = cell(N,1);
             for n1=1:N, cr{n1} = double(buf(z).f{n1}).*double(buf(z).bf{n1}); end
 
-            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
-
+            % Get neighborhood term
+            if mrf.do_mrf   
+                lnPzN1 = double(reshape(lnPzN(:,:,z,:),[prod(size(buf(1).msk{1})) Kb]));
+            else
+                lnPzN1 = zeros([1 Kb]);
+            end
+    
+            q = latent(buf(z).f,buf(z).bf,mg,gmm,buf(z).dat,lnPzN1,lkp,wp,buf(z).msk,buf(z).code,buf(z).labels,wp_l,cr);
+            
             w1 = zeros(buf(z).nm(n),1);
             w2 = zeros(buf(z).nm(n),1);
             for k=1:K
                 qk  = q(buf(z).msk{n},k);
+                   
                 w0  = zeros(prod(d(1:2)),1);
                 for n1=1:N
                     w0(buf(z).msk{n1}) = w0(buf(z).msk{n1}) + pr(n1,n,k)*(mn(n1,k) - cr{n1});
@@ -77,13 +94,15 @@ for n=1:N
         oll     = ll;
         C       = chan(n).C; % Inverse covariance of priors
         oldT    = chan(n).T;
-
+        oElnPzN = mrf.ElnPzN;
+        ollrb   = llrb;      
+            
         % Gauss-Newton update of bias field parameters
         Update  = reshape((Alpha + C)\(Beta + C*chan(n).T(:)),size(chan(n).T));
         clear Alpha Beta
         
         for line_search=1:12
-            chan(n).T = chan(n).T - armijo*Update; % Backtrack if necessary
+            chan(n).T = chan(n).T - armijo(n)*Update; % Backtrack if necessary
 
             % Re-generate bias field, and compute terms of the objective function
             chan(n).ll = double(-0.5*chan(n).T(:)'*C*chan(n).T(:));
@@ -94,36 +113,36 @@ for n=1:N
                 tmp          = bf(buf(z).msk{n});
                 buf(z).bf{n} = single(exp(tmp));
             end
-
-            ollrb            = llrb;
+                  
             llrb             = 0;
             for n1=1:N, llrb = llrb + chan(n1).ll; end
             ll               = llr + llrb;
 
             % Compute responsibilities and moments
-            [mom,dll] = compute_moments(buf,lkp,mg,gmm,wp,wp_l);        
-            ll        = ll + dll; 
+            [mom,dll,mrf,~,resp] = compute_moments(buf,lkp,mg,gmm,wp,wp_l,resp,mrf);        
+            ll                   = ll + dll; 
 
             % Compute missing data and VB components of ll
-            dll  = spm_VBGaussiansFromSuffStats(mom,gmm);
-            ll   = ll + sum(sum(dll));
+            dll = spm_VBGaussiansFromSuffStats(mom,gmm);
+            ll  = ll + sum(sum(dll));
 
             if ll>=oll
                 L{1}(end + 1) = ll;
                 L{2}(end + 1) = llrb;
-                armijo        = min(armijo*1.25,1);
+                armijo(n)     = min(armijo(n)*1.25,1);
                 debug_view('convergence',fig{4},lkp,buf,L);
                 my_fprintf('Bias-%d:\t%g\t%g\t%g :o)\n', n, ll, llr,llrb,print_ll);
                 break;
             else
-                ll        = oll;
-                llrb      = ollrb;
-                chan(n).T = oldT;
-                armijo    = armijo*0.5;
+                ll         = oll;
+                llrb       = ollrb;
+                mrf.ElnPzN = oElnPzN;
+                chan(n).T  = oldT;
+                armijo(n)  = armijo(n)*0.5;
                 my_fprintf('Bias-%d:\t%g\t%g\t%g :o(\n', n, ll, llr,llrb,print_ll);
                 if line_search==12
                     L{1}(end + 1) = ll;
-                    L{2}(end + 1) = llrb;
+                    L{2}(end + 1) = llrb;                    
                 end                    
             end 
         end
@@ -139,6 +158,8 @@ varargout{3} = buf;
 varargout{4} = chan;
 varargout{5} = L;
 varargout{6} = armijo;
+varargout{7} = mrf;
+varargout{8} = resp;
 %========================================================================== 
 
 %==========================================================================

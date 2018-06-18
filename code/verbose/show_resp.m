@@ -11,7 +11,22 @@ for m=1:M
         
         subplot(M*numel(rand_subjs{1}),1,cnt);
         
-        nam   = 'wp = [';
+        % Calculate normalising constant
+        simg = 0;
+        for k=1:K    
+            V  = spm_vol(obj{m}{s}.pth_resp{k});
+            dm = V.dim;                        
+            if dm(3)>1
+                zix = floor(dm(3)/2) + 1;
+                slice = V.private.dat(:,:,zix);            
+            else
+                slice = V.private.dat(:,:,1);            
+            end
+            simg = simg + slice;
+        end
+            
+        % Get pushed responsibilities
+        nam = 'wp = [';
         img = [];
         for k=1:K    
             V  = spm_vol(obj{m}{s}.pth_resp{k});
@@ -22,7 +37,8 @@ for m=1:M
             else
                 slice = V.private.dat(:,:,1);            
             end
-            img = [img slice'];
+            slice = slice./simg; % normalise
+            img   = [img slice'];
             
             wp = round(obj{m}{s}.segment.wp(k),2);  
             if k==1

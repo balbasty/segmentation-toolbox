@@ -6,13 +6,14 @@ function L = update_template(L,obj,pars,iter)
 % Copyright (C) 2018 Wellcome Trust Centre for Neuroimaging
 
 pth_template = obj{1}{1}.pth_template;
-sparam       = pars.sparam;
+sparam0      = pars.sparam0;
+sparam1      = pars.sparam1;
 
 Nii = nifti(pth_template);
 vx  = spm_misc('vxsize',Nii.mat);
 a   = single(Nii.dat(:,:,:,:));
 
-sched = fliplr(10:10:sparam); 
+sched = fliplr(sparam1:10:sparam0); 
 reg   = sched(min(iter,numel(sched)));
 prm   = [vx 0 reg reg];
 

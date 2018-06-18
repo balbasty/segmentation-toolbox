@@ -1,5 +1,5 @@
-function obj = process_subject_segment(obj,fig) 
-try
+function obj = process_subject(obj,fig) 
+% try
     spm_diffeo('boundary',1); % BOUND_CIRCULANT 0, BOUND_NEUMANN 1
     
     rng('default');
@@ -45,10 +45,6 @@ try
     %--------------------------------------------------------------
     if obj.write_res.do_write_res  
         write_res(obj);
-        
-%         f1 = obj.image(1).fname;
-%         f2 = spm_select('FPList',obj.dir_write,'^c.*\.nii$');
-%         spm_check_registration(char({f1,f2}))
     end    
 
     % Verbose
@@ -56,15 +52,15 @@ try
     fprintf_obj(obj,t1,t2);   
 
     obj.status = 0; % success
-catch ME            
-    fprintf(['Error for image: ' obj.image(1).fname '\n'])
-    for i=1:numel(ME.stack)
-        disp([ME.stack(i).name ', line ' num2str(ME.stack(i).line)]);
-    end
-    disp(ME.message)    
-
-    obj.status = 1; % fail
-end
+% catch ME            
+%     fprintf(['Error for image: ' obj.image(1).fname '\n'])
+%     for i=1:numel(ME.stack)
+%         disp([ME.stack(i).name ', line ' num2str(ME.stack(i).line)]);
+%     end
+%     disp(ME.message)    
+% 
+%     obj.status = 1; % fail
+% end
 %==========================================================================
 
 %==========================================================================

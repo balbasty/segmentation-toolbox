@@ -1,4 +1,4 @@
-function [gmm,buf] = init_gmm(obj,buf,vr0,mn,mx)
+function gmm = init_gmm(obj,buf,vr0,mn,mx)
 gmm            = obj.segment.gmm;
 gmm.init_clust = obj.segment.init_clust;
 gmm.vr0        = vr0;
@@ -7,12 +7,14 @@ gmm.max        = mx;
 lkp            = obj.segment.lkp;
 part           = lkp.part;
 N              = size(vr0,1);
- 
+modality       = obj.modality;
+do_template    = obj.do_template;
+
 if ~isfield(gmm,'po')    
     Kb = max(part);
     K  = numel(part);            
     
-    if isfield(gmm,'pr') 
+    if isfield(gmm,'pr') && strcmp(modality,'CT') % && do_template
        gmm.po = gmm.pr; 
        return
     end
@@ -25,7 +27,7 @@ if ~isfield(gmm,'po')
         mom = kmeans2mom(buf,lkp,mn,mx,obj); 
     else       
         % Use template to compute moments
-        mom = compute_moments(buf,lkp);
+        mom = template2mom(buf,lkp);
     end
     
     if Kb~=K
@@ -80,14 +82,42 @@ if ~isfield(gmm,'po')
         gmm.pr.b = b0;
         gmm.pr.n = n0;
         gmm.pr.W = W0;
+        
+        gmm.pr.part = part; % just so that the partition can be loaded from the prior object
     else
-        if numel(gmm.pr.m)~=K
-           error('numel(gmm.pr.m)~=K') 
+        if numel(gmm.pr.b)~=K
+           error('numel(gmm.pr.b)~=K') 
         end
     end
     
     % Estimate GMM parameters
     %----------------------------------------------------------------------
-    [~,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);     
+    [~,gmm] = spm_VBGaussiansFromSuffStats(mom,gmm);
+end
+%==========================================================================    
+
+%==========================================================================    
+function mom = template2mom(buf,lkp)
+Kb = max(lkp.part);
+nz = numel(buf);
+N  = numel(buf(1).f);
+  
+% Compute responsibilities from template
+mom = moments_struct(Kb,N);
+for z=1:nz
+    if ~buf(z).Nm, continue; end
+            
+    % Get BX (bias-field x image)
+    cr                             = NaN(numel(buf(z).msk{1}),N);
+    for n=1:N, cr(buf(z).msk{n},n) = double(buf(z).f{n}).*double(buf(z).bf{n}); end    
+        
+    msk1 = buf(z).code>0;
+    q    = NaN(numel(buf(z).msk{1}),Kb);        
+    for k=1:Kb
+        q(msk1,k) = double(buf(z).dat(:,k));
+    end
+        
+    % Update sufficient statistics
+    mom = spm_SuffStats(cr,q,mom,buf(z).code);
 end
 %==========================================================================    

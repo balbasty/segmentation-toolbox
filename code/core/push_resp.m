@@ -3,6 +3,7 @@ lkp      = obj.segment.lkp;
 Kb       = max(lkp.part);
 N        = numel(obj.image);
 modality = obj.modality;
+mrf      = obj.segment.mrf;
 
 % Get parameters
 %--------------------------------------------------------------------------
@@ -68,6 +69,17 @@ M       = M1\obj.Affine*obj.image(1).mat;
 clear Nii Twarp
 
 %--------------------------------------------------------------------------
+if mrf.do_mrf        
+    resp = init_resp(obj,lkp,d);
+    
+    % Compute neighborhood part of responsibilities
+    % (from previous responsibilities)
+    lnPzN = compute_lnPzN(mrf,resp);
+    
+    clear resp
+end
+
+%--------------------------------------------------------------------------
 y = zeros([obj.image(1).dim(1:3),3],'single');
 Q = NaN([d(1:3),Kb],'single');
 for z=1:length(x3)
@@ -114,8 +126,7 @@ for z=1:length(x3)
         
     code            = zeros([numel(msk{1}) 1],typ);
     for n=1:N, code = bitor(code,bitshift(feval(cast,msk{n}(:)),(n - 1))); end  
-    
-    % Parametric representation of intensity distributions  
+        
     msk1 = code>0;
     b    = spm_sample_logpriors(tpm,t1(msk1),t2(msk1),t3(msk1));
     clear t1 t2 t3
@@ -138,42 +149,32 @@ for z=1:length(x3)
         clear tmp 
     end
     
-    B           = zeros([nnz(msk1) Kb]);
-    for k1 = 1:Kb, 
+    B = zeros([nnz(msk1) Kb]);
+    for k1=1:Kb, 
         B(:,k1) = b{k1}(:); 
     end
     clear b msk1
     
-    q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lkp,obj.segment.wp,msk,code,labels,wp_l);
-    clear B f bf
+    % Get neighborhood term
+    if mrf.do_mrf   
+        lnPzN1 = double(reshape(lnPzN(:,:,z,:),[prod(d(1:2)) Kb]));
+    else
+        lnPzN1 = zeros([1 Kb]);
+    end
     
-    q           = NaN([prod(d(1:2)) Kb]);  
+    q1 = latent(f,bf,obj.segment.mg,obj.segment.gmm,B,lnPzN1,lkp,obj.segment.wp,msk,code,labels,wp_l);
+    clear B f bf lnPzN1
+    
+    q = NaN([prod(d(1:2)) Kb]);  
     for k1=1:Kb
         q(:,k1) = sum(q1(:,lkp.part==k1),2);
     end 
     clear q1 
-    % pars.dat{m}.S = 50;
+    
     Q(:,:,z,:) = single(reshape(q,[d(1:2),1,Kb]));
     clear q
 end
-clear tpm x1 x2 x3 o Coeff chan msk
-
-% MRF clean-up
-%--------------------------------------------------------------------------
-if obj.push_resp.do_mrf
-    vx       = 1./single(sum(obj.image(1).mat(1:3,1:3).^2));
-    nmrf_its = 10;
-    T        = 1;
-    G        = T*ones([Kb,1],'single');
-    P        = zeros(size(Q),'uint8');
-    
-    for iter=1:nmrf_its
-        spm_mrf(P,Q,G,vx);
-    end
-    
-    Q = single(P)/255;
-    clear P
-end
+clear tpm x1 x2 x3 o Coeff chan msk lnPzN
 
 % Adjust stuff so that warped data (and deformations) have the
 % desired bounding box and voxel sizes, instead of being the same

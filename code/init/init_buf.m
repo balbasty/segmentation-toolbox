@@ -45,7 +45,7 @@ sint = zeros(1,N);
 nms  = zeros(1,N);
 
 cl   = cell(length(z0),1);
-buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'labels',cl);
+buf  = struct('msk',cl,'nm',cl,'Nm',cl,'f',cl,'dat',cl,'bf',cl,'code',cl,'labels',cl,'vec2vol',cl);
 for z=1:length(z0)
     if ~obj.do_template
         % Load only those voxels that are more than 5mm up
@@ -152,7 +152,7 @@ for z=1:length(z0)
     end
 
     % Create a buffer for tissue probability info
-    buf(z).dat = zeros([buf(z).Nm,Kb],'single');
+    buf(z).dat = zeros([buf(z).Nm,Kb],'single');            
 end
 
 % For simple form of intensity normalisation
